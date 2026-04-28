@@ -1,0 +1,42 @@
+import { z } from 'zod';
+
+export const CreateHackathonSchema = z.object({
+  title: z.string().min(3).max(255),
+  subtitle: z.string().max(500).optional(),
+  description: z.string().optional(),
+  location: z.string().max(255).optional(),
+  online: z.boolean().default(false),
+  startDate: z.string().datetime(),
+  endDate: z.string().datetime(),
+  minTeamSize: z.number().int().min(1).default(1),
+  maxTeamSize: z.number().int().min(1).default(5),
+  banner: z.string().url().optional(),
+  rulesUrl: z.string().url().optional(),
+  contactEmail: z.string().email().optional(),
+});
+
+export const UpdateHackathonSchema = CreateHackathonSchema.partial();
+
+export const CreateTrackSchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().optional(),
+});
+
+export const CreateStageSchema = z.object({
+  name: z.string().min(1).max(255),
+  orderIndex: z.number().int().min(0),
+  startDate: z.string().datetime(),
+  endDate: z.string().datetime(),
+});
+
+export const UuidParamSchema = z.object({ id: z.string().uuid() });
+
+export const PaginationSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export type CreateHackathonDto = z.infer<typeof CreateHackathonSchema>;
+export type UpdateHackathonDto = z.infer<typeof UpdateHackathonSchema>;
+export type CreateTrackDto = z.infer<typeof CreateTrackSchema>;
+export type CreateStageDto = z.infer<typeof CreateStageSchema>;

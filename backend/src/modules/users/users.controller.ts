@@ -1,0 +1,46 @@
+import type { FastifyRequest, FastifyReply } from 'fastify';
+import type { UsersService } from './users.service';
+import { UpdateProfileSchema, AddSocialSchema, UuidParamSchema } from './users.schema';
+import type { JwtPayload } from '../../common/middleware/auth.middleware';
+
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  async getMe(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { sub } = request.user as JwtPayload;
+    const user = await this.usersService.getProfile(sub);
+    return reply.send({ success: true, data: user });
+  }
+
+  async getById(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    const user = await this.usersService.getProfile(id);
+    return reply.send({ success: true, data: user });
+  }
+
+  async updateMe(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { sub } = request.user as JwtPayload;
+    const body = UpdateProfileSchema.parse(request.body);
+    const user = await this.usersService.updateProfile(sub, body);
+    return reply.send({ success: true, data: user });
+  }
+
+  async getSocials(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { sub } = request.user as JwtPayload;
+    const socials = await this.usersService.getSocials(sub);
+    return reply.send({ success: true, data: socials });
+  }
+
+  async addSocial(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { sub } = request.user as JwtPayload;
+    const body = AddSocialSchema.parse(request.body);
+    const social = await this.usersService.addSocial(sub, body);
+    return reply.status(201).send({ success: true, data: social });
+  }
+
+  async deleteSocial(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    await this.usersService.deleteSocial(id);
+    return reply.status(204).send();
+  }
+}
