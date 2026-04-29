@@ -14,6 +14,8 @@ const TeamListQuerySchema = z.object({
   track_id: z.string().uuid().optional(),
 });
 
+const Sec = [{ bearerAuth: [] }];
+
 export async function teamsRoutes(app: FastifyInstance): Promise<void> {
   const db = getDatabaseConnection();
   const repository = new TeamsRepository(db);
@@ -21,12 +23,11 @@ export async function teamsRoutes(app: FastifyInstance): Promise<void> {
   const service = new TeamsService(repository, auditLog);
   const ctrl = new TeamsController(service);
 
-  // Paginated list — public
   app.get('/', {
     schema: {
       tags: ['Teams'],
       summary: 'List teams (paginated, filterable)',
-      description: 'Filter by ?hackathon_id=UUID and/or ?track_id=UUID',
+      description: 'Filter by ?hackathon_id=UUID and/or ?track_id=UUID.',
       querystring: {
         type: 'object',
         properties: {
@@ -43,37 +44,101 @@ export async function teamsRoutes(app: FastifyInstance): Promise<void> {
     return reply.send({ success: true, ...result });
   });
 
-  app.get('/:id', { schema: { tags: ['Teams'], summary: 'Get team by ID' } },
-    (req, reply) => ctrl.getById(req, reply),
-  );
+  app.get('/:id', {
+    schema: {
+      tags: ['Teams'],
+      summary: 'Get team by ID',
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.getById(req, reply));
 
-  app.get('/:id/members', { schema: { tags: ['Teams'], summary: 'List team members' } },
-    (req, reply) => ctrl.getMembers(req, reply),
-  );
+  app.get('/:id/members', {
+    schema: {
+      tags: ['Teams'],
+      summary: 'List team members',
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.getMembers(req, reply));
 
   app.post('/', {
     onRequest: [authenticate],
-    schema: { tags: ['Teams'], summary: 'Create a new team', security: [{ bearerAuth: [] }] },
+    schema: {
+      tags: ['Teams'],
+      summary: 'Create a new team',
+      description: 'The requester automatically becomes the team captain.',
+      security: Sec,
+      body: {
+        type: 'object',
+        required: ['name', 'hackathonId'],
+        properties: {
+          name: { type: 'string', minLength: 2, maxLength: 100 },
+          description: { type: 'string', maxLength: 500 },
+          logo: { type: 'string' },
+          hackathonId: { type: 'string', format: 'uuid' },
+          trackId: { type: 'string', format: 'uuid' },
+        },
+      },
+    },
   }, (req, reply) => ctrl.create(req, reply));
 
   app.patch('/:id', {
     onRequest: [authenticate],
-    schema: { tags: ['Teams'], summary: 'Update team (captain only)', security: [{ bearerAuth: [] }] },
+    schema: {
+      tags: ['Teams'],
+      summary: 'Update team (captain only)',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', minLength: 2, maxLength: 100 },
+          description: { type: 'string' },
+          logo: { type: 'string' },
+          trackId: { type: 'string', format: 'uuid' },
+        },
+      },
+    },
   }, (req, reply) => ctrl.update(req, reply));
 
   app.delete('/:id', {
     onRequest: [authenticate],
-    schema: { tags: ['Teams'], summary: 'Delete team (captain only)', security: [{ bearerAuth: [] }] },
+    schema: {
+      tags: ['Teams'],
+      summary: 'Delete team (captain only)',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
   }, (req, reply) => ctrl.remove(req, reply));
 
   app.delete('/:id/members/:userId', {
     onRequest: [authenticate],
-    schema: { tags: ['Teams'], summary: 'Remove a member (captain only)', security: [{ bearerAuth: [] }] },
+    schema: {
+      tags: ['Teams'],
+      summary: 'Remove a member from the team (captain only)',
+      security: Sec,
+      params: {
+        type: 'object',
+        required: ['id', 'userId'],
+        properties: { id: { type: 'string', format: 'uuid' }, userId: { type: 'string', format: 'uuid' } },
+      },
+    },
   }, (req, reply) => ctrl.removeMember(req, reply));
 
   app.post('/:id/invites', {
     onRequest: [authenticate],
-    schema: { tags: ['Teams'], summary: 'Generate an invite link (captain only)', security: [{ bearerAuth: [] }] },
+    schema: {
+      tags: ['Teams'],
+      summary: 'Generate an invite link (captain only)',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        properties: {
+          maxUses: { type: 'integer', minimum: 1, default: 10 },
+          expiresInHours: { type: 'integer', minimum: 1, default: 24 },
+        },
+      },
+    },
   }, (req, reply) => ctrl.createInvite(req, reply));
 
   app.post('/join', {
@@ -81,14 +146,31 @@ export async function teamsRoutes(app: FastifyInstance): Promise<void> {
     schema: {
       tags: ['Teams'],
       summary: 'Join a team via invite token',
-      security: [{ bearerAuth: [] }],
-      description: 'Audit logged — creates join_team event in user_action_logs.',
+      description: 'Audit-logged — creates a `join_team` event in user_action_logs.',
+      security: Sec,
+      body: {
+        type: 'object',
+        required: ['token'],
+        properties: { token: { type: 'string', description: 'Invite token from POST /:id/invites' } },
+      },
     },
   }, (req, reply) => ctrl.joinViaToken(req, reply));
 
   app.patch('/:id/approval', {
     onRequest: [authenticate, authorize('admin')],
-    schema: { tags: ['Teams'], summary: 'Update team approval status (admin only)', security: [{ bearerAuth: [] }] },
+    schema: {
+      tags: ['Teams'],
+      summary: 'Update team approval status — admin only',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        required: ['status'],
+        properties: {
+          status: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED', 'DISQUALIFIED'] },
+          comment: { type: 'string' },
+        },
+      },
+    },
   }, (req, reply) => ctrl.updateApproval(req, reply));
 }
-

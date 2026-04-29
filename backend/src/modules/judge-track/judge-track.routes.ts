@@ -6,6 +6,8 @@ import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { getDatabaseConnection } from '../../config/database';
 import { authenticate, authorize } from '../../common/middleware/auth.middleware';
 
+const Sec = [{ bearerAuth: [] }];
+
 export async function judgeTrackRoutes(app: FastifyInstance): Promise<void> {
   const db = getDatabaseConnection();
   const repo = new JudgeTrackRepository(db);
@@ -13,13 +15,13 @@ export async function judgeTrackRoutes(app: FastifyInstance): Promise<void> {
   const service = new JudgeTrackService(repo, auditLog);
   const ctrl = new JudgeTrackController(service);
 
-  // ── Admin: hackathon-level judge assignments ────────────────────────────
-
   app.get('/hackathons/:hackathonId/judges', {
     onRequest: [authenticate, authorize('admin')],
     schema: {
       tags: ['JudgeTrack'],
-      summary: 'List all judge→track assignments for a hackathon (admin)',
+      summary: 'List judge→track assignments for a hackathon — admin only',
+      security: Sec,
+      params: { type: 'object', required: ['hackathonId'], properties: { hackathonId: { type: 'string', format: 'uuid' } } },
     },
   }, (req, reply) => ctrl.listByHackathon(req, reply));
 
@@ -27,7 +29,18 @@ export async function judgeTrackRoutes(app: FastifyInstance): Promise<void> {
     onRequest: [authenticate, authorize('admin')],
     schema: {
       tags: ['JudgeTrack'],
-      summary: 'Assign a judge to a track (admin)',
+      summary: 'Assign a judge to a track — admin only',
+      security: Sec,
+      params: { type: 'object', required: ['hackathonId'], properties: { hackathonId: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        required: ['userId', 'trackId'],
+        properties: {
+          userId: { type: 'string', format: 'uuid' },
+          trackId: { type: 'string', format: 'uuid' },
+          isHeadJudge: { type: 'boolean', default: false },
+        },
+      },
     },
   }, (req, reply) => ctrl.assign(req, reply));
 
@@ -35,7 +48,21 @@ export async function judgeTrackRoutes(app: FastifyInstance): Promise<void> {
     onRequest: [authenticate, authorize('admin')],
     schema: {
       tags: ['JudgeTrack'],
-      summary: 'Toggle isHeadJudge on an assignment (admin)',
+      summary: 'Toggle isHeadJudge on an assignment — admin only',
+      security: Sec,
+      params: {
+        type: 'object',
+        required: ['hackathonId', 'judgeTrackId'],
+        properties: {
+          hackathonId: { type: 'string', format: 'uuid' },
+          judgeTrackId: { type: 'string', format: 'uuid' },
+        },
+      },
+      body: {
+        type: 'object',
+        required: ['isHeadJudge'],
+        properties: { isHeadJudge: { type: 'boolean' } },
+      },
     },
   }, (req, reply) => ctrl.update(req, reply));
 
@@ -43,28 +70,42 @@ export async function judgeTrackRoutes(app: FastifyInstance): Promise<void> {
     onRequest: [authenticate, authorize('admin')],
     schema: {
       tags: ['JudgeTrack'],
-      summary: 'Remove a judge→track assignment (admin)',
+      summary: 'Remove a judge→track assignment — admin only',
+      security: Sec,
+      params: {
+        type: 'object',
+        required: ['hackathonId', 'judgeTrackId'],
+        properties: {
+          hackathonId: { type: 'string', format: 'uuid' },
+          judgeTrackId: { type: 'string', format: 'uuid' },
+        },
+      },
     },
   }, (req, reply) => ctrl.unassign(req, reply));
-
-  // ── Authenticated: per-track judge list ─────────────────────────────────
-  // Public to all authenticated users so participants can see who judges their track.
 
   app.get('/hackathons/:hackathonId/tracks/:trackId/judges', {
     onRequest: [authenticate],
     schema: {
       tags: ['JudgeTrack'],
-      summary: 'List judges for a specific track (any authenticated user)',
+      summary: 'List judges for a specific track',
+      security: Sec,
+      params: {
+        type: 'object',
+        required: ['hackathonId', 'trackId'],
+        properties: {
+          hackathonId: { type: 'string', format: 'uuid' },
+          trackId: { type: 'string', format: 'uuid' },
+        },
+      },
     },
   }, (req, reply) => ctrl.listByTrack(req, reply));
-
-  // ── Judge: my assigned tracks ───────────────────────────────────────────
 
   app.get('/judging/my-tracks', {
     onRequest: [authenticate, authorize('judge')],
     schema: {
       tags: ['JudgeTrack'],
-      summary: 'Get tracks assigned to the current judge (?hackathonId=UUID)',
+      summary: 'Get tracks assigned to the current judge',
+      security: Sec,
       querystring: {
         type: 'object',
         required: ['hackathonId'],

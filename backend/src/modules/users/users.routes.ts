@@ -5,20 +5,27 @@ import { UsersRepository } from './users.repository';
 import { getDatabaseConnection } from '../../config/database';
 import { authenticate } from '../../common/middleware/auth.middleware';
 
+const Sec = [{ bearerAuth: [] }];
+
 export async function usersRoutes(app: FastifyInstance): Promise<void> {
   const db = getDatabaseConnection();
   const repository = new UsersRepository(db);
   const service = new UsersService(repository);
   const controller = new UsersController(service);
 
-  // ── Public routes (no auth) ──────────────────────────────────────
-  // Stay in the PARENT scope — parent hooks do NOT exist yet so they
-  // are truly unauthenticated.
+  // ── Public routes ───────────────────────────────────────────────────────
   app.get('/', {
     schema: {
       tags: ['Users'],
-      summary: 'List all users (paginated)',
-      description: 'Returns paginated list of users. Excludes soft-deleted accounts.',
+      summary: 'List users (paginated)',
+      description: 'Excludes soft-deleted accounts.',
+      querystring: {
+        type: 'object',
+        properties: {
+          page: { type: 'integer', minimum: 1, default: 1 },
+          limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+        },
+      },
     },
   }, (req, reply) => controller.list(req, reply));
 
@@ -26,44 +33,82 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
     schema: {
       tags: ['Users'],
       summary: 'Matchmaking — find users looking for a team',
-      description:
-        'Returns users with isLookingForTeam=true. ' +
-        'Filter by ?hackathon_id=UUID and/or ?skills=js,python (comma-separated).',
+      description: 'Filter by ?hackathon_id=UUID and/or ?skills=js,python (comma-separated).',
+      querystring: {
+        type: 'object',
+        properties: {
+          hackathon_id: { type: 'string', format: 'uuid' },
+          skills: { type: 'string', description: 'Comma-separated skill names' },
+          page: { type: 'integer', minimum: 1, default: 1 },
+          limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+        },
+      },
     },
   }, (req, reply) => controller.lookingForTeam(req, reply));
 
-  // ── Protected routes ─────────────────────────────────────────────
-  // Registered inside a CHILD plugin that owns the authenticate hook.
-  // In Fastify, hooks are scoped to the plugin that registers them and
-  // their descendants — parent scope (public routes above) is NOT affected.
+  // ── Protected routes ────────────────────────────────────────────────────
   app.register(async (auth) => {
     auth.addHook('onRequest', authenticate);
 
     auth.get('/me', {
-      schema: { tags: ['Users'], summary: 'Get current user profile', security: [{ bearerAuth: [] }] },
+      schema: { tags: ['Users'], summary: 'Get current user profile', security: Sec },
     }, (req, reply) => controller.getMe(req, reply));
 
     auth.patch('/me', {
-      schema: { tags: ['Users'], summary: 'Update current user profile', security: [{ bearerAuth: [] }] },
+      schema: {
+        tags: ['Users'],
+        summary: 'Update current user profile',
+        security: Sec,
+        body: {
+          type: 'object',
+          properties: {
+            fullName: { type: 'string', minLength: 2, maxLength: 100 },
+            username: { type: 'string', minLength: 3, maxLength: 30 },
+            description: { type: 'string', maxLength: 1000 },
+            avatarUrl: { type: 'string', format: 'uri' },
+            isLookingForTeam: { type: 'boolean' },
+            skills: { type: 'array', items: { type: 'string' } },
+          },
+        },
+      },
     }, (req, reply) => controller.updateMe(req, reply));
 
     auth.get('/:id', {
-      schema: { tags: ['Users'], summary: 'Get user by ID', security: [{ bearerAuth: [] }] },
+      schema: {
+        tags: ['Users'],
+        summary: 'Get user by ID',
+        security: Sec,
+        params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      },
     }, (req, reply) => controller.getById(req, reply));
 
     auth.get('/me/socials', {
-      schema: { tags: ['Users'], summary: 'List current user socials', security: [{ bearerAuth: [] }] },
+      schema: { tags: ['Users'], summary: 'List current user social links', security: Sec },
     }, (req, reply) => controller.getSocials(req, reply));
 
     auth.post('/me/socials', {
-      schema: { tags: ['Users'], summary: 'Add a social link', security: [{ bearerAuth: [] }] },
+      schema: {
+        tags: ['Users'],
+        summary: 'Add a social link',
+        security: Sec,
+        body: {
+          type: 'object',
+          required: ['typeSocial', 'url'],
+          properties: {
+            typeSocial: { type: 'string', enum: ['discord', 'telegram', 'viber', 'github'] },
+            url: { type: 'string', format: 'uri' },
+          },
+        },
+      },
     }, (req, reply) => controller.addSocial(req, reply));
 
     auth.delete('/me/socials/:id', {
-      schema: { tags: ['Users'], summary: 'Remove a social link', security: [{ bearerAuth: [] }] },
+      schema: {
+        tags: ['Users'],
+        summary: 'Remove a social link',
+        security: Sec,
+        params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      },
     }, (req, reply) => controller.deleteSocial(req, reply));
   });
 }
-
-
-

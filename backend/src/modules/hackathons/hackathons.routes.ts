@@ -7,6 +7,8 @@ import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { getDatabaseConnection } from '../../config/database';
 import { authenticate, authorize } from '../../common/middleware/auth.middleware';
 
+const Sec = [{ bearerAuth: [] }];
+
 export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
   const db = getDatabaseConnection();
   const repository = new HackathonsRepository(db);
@@ -15,62 +17,185 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
   const service = new HackathonsService(repository, tagsRepository, auditLog);
   const ctrl = new HackathonsController(service);
 
-  // Public read routes
-  app.get('/', { schema: { tags: ['Hackathons'], summary: 'List all hackathons' } },
-    (req, reply) => ctrl.list(req, reply),
-  );
+  app.get('/', {
+    schema: {
+      tags: ['Hackathons'],
+      summary: 'List hackathons (paginated, filterable)',
+      description: 'Filter by ?status=upcoming|active|past and/or ?tags=tag1,tag2 (AND logic).',
+      querystring: {
+        type: 'object',
+        properties: {
+          page: { type: 'integer', minimum: 1, default: 1 },
+          limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          status: { type: 'string', enum: ['upcoming', 'active', 'past'] },
+          tags: { type: 'string', description: 'Comma-separated tag names, e.g. "AI,climate"' },
+        },
+      },
+    },
+  }, (req, reply) => ctrl.list(req, reply));
 
-  app.get('/:id', { schema: { tags: ['Hackathons'], summary: 'Get hackathon by ID' } },
-    (req, reply) => ctrl.getById(req, reply),
-  );
+  app.get('/:id', {
+    schema: {
+      tags: ['Hackathons'],
+      summary: 'Get hackathon by ID',
+      description: 'Includes tags array and activeStage (from Redis cache, DB fallback). Status: DRAFT | PUBLISHED | ARCHIVED.',
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.getById(req, reply));
 
-  app.get('/:id/tracks', { schema: { tags: ['Hackathons'], summary: 'List tracks for a hackathon' } },
-    (req, reply) => ctrl.listTracks(req, reply),
-  );
+  app.get('/:id/tracks', {
+    schema: {
+      tags: ['Hackathons'],
+      summary: 'List tracks for a hackathon',
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.listTracks(req, reply));
 
-  app.get('/:id/stages', { schema: { tags: ['Hackathons'], summary: 'List stages for a hackathon' } },
-    (req, reply) => ctrl.listStages(req, reply),
-  );
+  app.get('/:id/stages', {
+    schema: {
+      tags: ['Hackathons'],
+      summary: 'List stages for a hackathon',
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.listStages(req, reply));
 
-  // Admin-only write routes
   app.post('/', {
     onRequest: [authenticate, authorize('admin')],
-    schema: { tags: ['Hackathons'], summary: 'Create a new hackathon' },
+    schema: {
+      tags: ['Hackathons'],
+      summary: 'Create a new hackathon — admin only',
+      security: Sec,
+      body: {
+        type: 'object',
+        required: ['title', 'startDate', 'endDate'],
+        properties: {
+          title: { type: 'string', minLength: 3, maxLength: 255 },
+          subtitle: { type: 'string', maxLength: 500 },
+          description: { type: 'string' },
+          location: { type: 'string', maxLength: 255 },
+          online: { type: 'boolean', default: false },
+          startDate: { type: 'string', format: 'date-time' },
+          endDate: { type: 'string', format: 'date-time' },
+          minTeamSize: { type: 'integer', minimum: 1, default: 1 },
+          maxTeamSize: { type: 'integer', minimum: 1, default: 5 },
+          banner: { type: 'string' },
+          rulesUrl: { type: 'string' },
+          contactEmail: { type: 'string', format: 'email' },
+        },
+      },
+    },
   }, (req, reply) => ctrl.create(req, reply));
 
   app.patch('/:id', {
     onRequest: [authenticate, authorize('admin')],
-    schema: { tags: ['Hackathons'], summary: 'Update a hackathon' },
+    schema: {
+      tags: ['Hackathons'],
+      summary: 'Update a hackathon — admin only',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', minLength: 3, maxLength: 255 },
+          subtitle: { type: 'string' },
+          description: { type: 'string' },
+          location: { type: 'string' },
+          online: { type: 'boolean' },
+          startDate: { type: 'string', format: 'date-time' },
+          endDate: { type: 'string', format: 'date-time' },
+          minTeamSize: { type: 'integer', minimum: 1 },
+          maxTeamSize: { type: 'integer', minimum: 1 },
+          banner: { type: 'string' },
+          rulesUrl: { type: 'string' },
+          contactEmail: { type: 'string', format: 'email' },
+        },
+      },
+    },
   }, (req, reply) => ctrl.update(req, reply));
 
   app.delete('/:id', {
     onRequest: [authenticate, authorize('admin')],
-    schema: { tags: ['Hackathons'], summary: 'Delete a hackathon' },
+    schema: {
+      tags: ['Hackathons'],
+      summary: 'Delete a hackathon — admin only',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
   }, (req, reply) => ctrl.remove(req, reply));
 
   app.post('/:id/tracks', {
     onRequest: [authenticate, authorize('admin')],
-    schema: { tags: ['Hackathons'], summary: 'Add a track to a hackathon' },
+    schema: {
+      tags: ['Hackathons'],
+      summary: 'Add a track to a hackathon — admin only',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: { type: 'string', minLength: 2, maxLength: 100 },
+          description: { type: 'string', maxLength: 500 },
+        },
+      },
+    },
   }, (req, reply) => ctrl.createTrack(req, reply));
 
   app.delete('/tracks/:id', {
     onRequest: [authenticate, authorize('admin')],
-    schema: { tags: ['Hackathons'], summary: 'Delete a track' },
+    schema: {
+      tags: ['Hackathons'],
+      summary: 'Delete a track — admin only',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
   }, (req, reply) => ctrl.deleteTrack(req, reply));
 
   app.post('/:id/stages', {
     onRequest: [authenticate, authorize('admin')],
-    schema: { tags: ['Hackathons'], summary: 'Add a stage to a hackathon' },
+    schema: {
+      tags: ['Hackathons'],
+      summary: 'Add a stage to a hackathon — admin only',
+      description: 'Stage names: REGISTRATION, HACKING, JUDGING, FINISHED. Dates drive automatic status transitions.',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        required: ['name', 'startDate', 'endDate', 'orderIndex'],
+        properties: {
+          name: { type: 'string', minLength: 1, maxLength: 100, description: 'e.g. REGISTRATION, HACKING, JUDGING, FINISHED' },
+          startDate: { type: 'string', format: 'date-time' },
+          endDate: { type: 'string', format: 'date-time' },
+          orderIndex: { type: 'integer', minimum: 0 },
+        },
+      },
+    },
   }, (req, reply) => ctrl.createStage(req, reply));
 
   app.delete('/stages/:id', {
     onRequest: [authenticate, authorize('admin')],
-    schema: { tags: ['Hackathons'], summary: 'Delete a stage' },
+    schema: {
+      tags: ['Hackathons'],
+      summary: 'Delete a stage — admin only',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
   }, (req, reply) => ctrl.deleteStage(req, reply));
 
-  // ── Manual status override ────────────────────────────────────────────────
   app.post('/:hackathonId/status', {
     onRequest: [authenticate, authorize('admin')],
-    schema: { tags: ['Hackathons'], summary: 'Manually override hackathon status (admin)' },
+    schema: {
+      tags: ['Hackathons'],
+      summary: 'Manually override hackathon status — admin only',
+      description:
+        'Bypasses the automatic cron transition. PUBLISHED requires at least one stage defined. Invalidates Redis activeStage cache.',
+      security: Sec,
+      params: { type: 'object', required: ['hackathonId'], properties: { hackathonId: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        required: ['status'],
+        properties: { status: { type: 'string', enum: ['DRAFT', 'PUBLISHED', 'ARCHIVED'] } },
+      },
+    },
   }, (req, reply) => ctrl.setStatus(req, reply));
 }

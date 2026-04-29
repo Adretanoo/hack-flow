@@ -6,6 +6,8 @@ import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { getDatabaseConnection } from '../../config/database';
 import { authenticate, authorize } from '../../common/middleware/auth.middleware';
 
+const Sec = [{ bearerAuth: [] }];
+
 export async function projectsRoutes(app: FastifyInstance): Promise<void> {
   const db = getDatabaseConnection();
   const repository = new ProjectsRepository(db);
@@ -13,36 +15,97 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
   const service = new ProjectsService(repository, auditLog);
   const ctrl = new ProjectsController(service);
 
-  app.get('/:id', { schema: { tags: ['Projects'], summary: 'Get project by ID' } },
-    (req, reply) => ctrl.getById(req, reply),
-  );
+  app.get('/:id', {
+    schema: {
+      tags: ['Projects'],
+      summary: 'Get project by ID',
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.getById(req, reply));
 
-  app.get('/:id/resources', { schema: { tags: ['Projects'], summary: 'List project resources' } },
-    (req, reply) => ctrl.getResources(req, reply),
-  );
+  app.get('/:id/resources', {
+    schema: {
+      tags: ['Projects'],
+      summary: 'List project resources (links, repos, demos)',
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.getResources(req, reply));
 
   app.post('/', {
     onRequest: [authenticate],
-    schema: { tags: ['Projects'], summary: 'Create a project draft' },
+    schema: {
+      tags: ['Projects'],
+      summary: 'Create a project draft',
+      security: Sec,
+      body: {
+        type: 'object',
+        required: ['teamId', 'stageId'],
+        properties: {
+          teamId: { type: 'string', format: 'uuid' },
+          stageId: { type: 'string', format: 'uuid' },
+        },
+      },
+    },
   }, (req, reply) => ctrl.create(req, reply));
 
   app.post('/:id/submit', {
     onRequest: [authenticate],
-    schema: { tags: ['Projects'], summary: 'Submit project for review' },
+    schema: {
+      tags: ['Projects'],
+      summary: 'Submit project for review (DRAFT → SUBMITTED)',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
   }, (req, reply) => ctrl.submit(req, reply));
 
   app.patch('/:id/review', {
     onRequest: [authenticate, authorize('admin', 'judge')],
-    schema: { tags: ['Projects'], summary: 'Review a submitted project' },
+    schema: {
+      tags: ['Projects'],
+      summary: 'Review a submitted project — admin/judge only',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        required: ['status'],
+        properties: {
+          status: { type: 'string', enum: ['APPROVED', 'REJECTED'] },
+          comment: { type: 'string', maxLength: 1000 },
+        },
+      },
+    },
   }, (req, reply) => ctrl.review(req, reply));
 
   app.post('/:id/resources', {
     onRequest: [authenticate],
-    schema: { tags: ['Projects'], summary: 'Add a resource to a project' },
+    schema: {
+      tags: ['Projects'],
+      summary: 'Add a resource link to a project',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        required: ['url', 'projectTypeId'],
+        properties: {
+          url: { type: 'string', format: 'uri' },
+          projectTypeId: { type: 'string', format: 'uuid' },
+          description: { type: 'string', maxLength: 300 },
+        },
+      },
+    },
   }, (req, reply) => ctrl.addResource(req, reply));
 
   app.delete('/:id/resources/:resourceId', {
     onRequest: [authenticate],
-    schema: { tags: ['Projects'], summary: 'Remove a resource from a project' },
+    schema: {
+      tags: ['Projects'],
+      summary: 'Remove a resource from a project',
+      security: Sec,
+      params: {
+        type: 'object',
+        required: ['id', 'resourceId'],
+        properties: { id: { type: 'string', format: 'uuid' }, resourceId: { type: 'string', format: 'uuid' } },
+      },
+    },
   }, (req, reply) => ctrl.removeResource(req, reply));
 }

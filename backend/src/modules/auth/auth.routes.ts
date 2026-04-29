@@ -12,99 +12,78 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   const service = new AuthService(repository, app, auditLog);
   const controller = new AuthController(service);
 
-  app.post(
-    '/register',
-    {
-      schema: {
-        tags: ['Auth'],
-        summary: 'Register a new user',
-        security: [],
-        body: {
-          type: 'object',
-          required: ['email', 'username', 'fullName', 'password'],
-          properties: {
-            email: { type: 'string', format: 'email' },
-            username: { type: 'string', minLength: 3, maxLength: 30 },
-            fullName: { type: 'string', minLength: 2, maxLength: 100 },
-            password: { type: 'string', minLength: 8 },
-          },
+  app.post('/register', {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Register a new user',
+      security: [],
+      body: {
+        type: 'object',
+        required: ['email', 'username', 'fullName', 'password'],
+        properties: {
+          email: { type: 'string', format: 'email', description: 'Must be unique' },
+          username: { type: 'string', minLength: 3, maxLength: 30, description: 'Must be unique' },
+          fullName: { type: 'string', minLength: 2, maxLength: 100 },
+          password: { type: 'string', minLength: 8 },
         },
       },
     },
-    (req, reply) => controller.register(req, reply),
-  );
+  }, (req, reply) => controller.register(req, reply));
 
-  app.post(
-    '/login',
-    {
-      schema: {
-        tags: ['Auth'],
-        summary: 'Login with email and password',
-        security: [],
-        body: {
-          type: 'object',
-          required: ['email', 'password'],
-          properties: {
-            email: { type: 'string', format: 'email' },
-            password: { type: 'string' },
-          },
+  app.post('/login', {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Login with email and password',
+      security: [],
+      body: {
+        type: 'object',
+        required: ['email', 'password'],
+        properties: {
+          email: { type: 'string', format: 'email' },
+          password: { type: 'string' },
         },
       },
     },
-    (req, reply) => controller.login(req, reply),
-  );
+  }, (req, reply) => controller.login(req, reply));
 
-  app.post(
-    '/forgot-password',
-    {
-      schema: {
-        tags: ['Auth'],
-        summary: 'Request a password reset link',
-        security: [],
-        body: {
-          type: 'object',
-          required: ['email'],
-          properties: { email: { type: 'string', format: 'email' } },
+  app.post('/forgot-password', {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Request a password reset link',
+      description: 'Always returns 200 to prevent user-existence enumeration.',
+      security: [],
+      body: {
+        type: 'object',
+        required: ['email'],
+        properties: { email: { type: 'string', format: 'email' } },
+      },
+    },
+  }, (req, reply) => controller.forgotPassword(req, reply));
+
+  app.post('/reset-password', {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Reset password using a token',
+      security: [],
+      body: {
+        type: 'object',
+        required: ['token', 'password'],
+        properties: {
+          token: { type: 'string', description: 'Token received via email' },
+          password: { type: 'string', minLength: 8 },
         },
       },
     },
-    (req, reply) => controller.forgotPassword(req, reply),
-  );
+  }, (req, reply) => controller.resetPassword(req, reply));
 
-  app.post(
-    '/reset-password',
-    {
-      schema: {
-        tags: ['Auth'],
-        summary: 'Reset password using a token',
-        security: [],
-        body: {
-          type: 'object',
-          required: ['token', 'password'],
-          properties: {
-            token: { type: 'string' },
-            password: { type: 'string', minLength: 8 },
-          },
-        },
-      },
+  app.post('/refresh', {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Rotate refresh token — get a new access + refresh pair',
+      description:
+        'Pass the refresh token as `Authorization: Bearer <token>` **or** in the JSON body as `{ "refreshToken": "..." }`. ' +
+        'The old token is immediately invalidated (single-use). Returns new access token (15 min) and refresh token (7 days).',
+      security: [],
     },
-    (req, reply) => controller.resetPassword(req, reply),
-  );
-
-  app.post(
-    '/refresh',
-    {
-      schema: {
-        tags: ['Auth'],
-        summary: 'Rotate refresh token and get a new token pair',
-        description:
-          'Pass the refresh token either as `Authorization: Bearer <token>` header ' +
-          'or in the JSON body as `{ "refreshToken": "..." }`. ' +
-          'The old refresh token is immediately invalidated (single-use). ' +
-          'Returns a new access token (15 min) and a new refresh token (7 days).',
-        security: [],
-      },
-    },
-    (req, reply) => controller.refresh(req, reply),
-  );
+  }, (req, reply) => controller.refresh(req, reply));
 }

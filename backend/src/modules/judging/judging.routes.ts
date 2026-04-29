@@ -6,6 +6,8 @@ import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { getDatabaseConnection } from '../../config/database';
 import { authenticate, authorize } from '../../common/middleware/auth.middleware';
 
+const Sec = [{ bearerAuth: [] }];
+
 export async function judgingRoutes(app: FastifyInstance): Promise<void> {
   const db = getDatabaseConnection();
   const repository = new JudgingRepository(db);
@@ -13,29 +15,41 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
   const service = new JudgingService(repository, auditLog);
   const ctrl = new JudgingController(service);
 
-  // Leaderboard — public
   app.get('/leaderboard/:id', {
     schema: {
       tags: ['Judging'],
-      summary: 'Get ranked leaderboard for a hackathon',
+      summary: 'Ranked leaderboard for a hackathon',
       description:
-        'Returns all projects sorted by normalized weighted score. ' +
-        'Scores are bias-corrected using per-judge average normalization (score * global_avg / judge_avg). ' +
-        'Results are cached in Redis for 60 seconds.',
+        'Projects sorted by normalized weighted score. Bias-corrected via per-judge average normalization. Cached in Redis for 60 s.',
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
     },
   }, (req, reply) => ctrl.getLeaderboard(req, reply));
 
-  // Criteria — readable by all, writable by admins only
   app.get('/criteria/track/:id', {
-    schema: { tags: ['Judging'], summary: 'List criteria for a track' },
+    schema: {
+      tags: ['Judging'],
+      summary: 'List scoring criteria for a track',
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
   }, (req, reply) => ctrl.listCriteria(req, reply));
 
   app.post('/criteria', {
     onRequest: [authenticate, authorize('admin')],
     schema: {
       tags: ['Judging'],
-      summary: 'Create scoring criteria',
-      security: [{ bearerAuth: [] }],
+      summary: 'Create scoring criteria — admin only',
+      security: Sec,
+      body: {
+        type: 'object',
+        required: ['trackId', 'name', 'maxScore', 'weight'],
+        properties: {
+          trackId: { type: 'string', format: 'uuid' },
+          name: { type: 'string', minLength: 2, maxLength: 100 },
+          description: { type: 'string' },
+          maxScore: { type: 'number', minimum: 1 },
+          weight: { type: 'number', minimum: 0 },
+        },
+      },
     },
   }, (req, reply) => ctrl.createCriteria(req, reply));
 
@@ -43,18 +57,19 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
     onRequest: [authenticate, authorize('admin')],
     schema: {
       tags: ['Judging'],
-      summary: 'Delete scoring criteria',
-      security: [{ bearerAuth: [] }],
+      summary: 'Delete scoring criteria — admin only',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
     },
   }, (req, reply) => ctrl.deleteCriteria(req, reply));
 
-  // Scores
   app.get('/scores/project/:id', {
     onRequest: [authenticate, authorize('admin', 'judge')],
     schema: {
       tags: ['Judging'],
-      summary: 'Get all scores for a project',
-      security: [{ bearerAuth: [] }],
+      summary: 'Get all scores for a project — admin/judge only',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
     },
   }, (req, reply) => ctrl.getProjectScores(req, reply));
 
@@ -62,18 +77,29 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
     onRequest: [authenticate, authorize('judge')],
     schema: {
       tags: ['Judging'],
-      summary: 'Submit or update a score (upsert)',
-      security: [{ bearerAuth: [] }],
+      summary: 'Submit or update a score (upsert) — judge only',
+      description:
+        'Audit-logged. If ENFORCE_JUDGE_TRACK=true, judge must be assigned to the project\'s track.',
+      security: Sec,
+      body: {
+        type: 'object',
+        required: ['projectId', 'criteriaId', 'assessment'],
+        properties: {
+          projectId: { type: 'string', format: 'uuid' },
+          criteriaId: { type: 'string', format: 'uuid' },
+          assessment: { type: 'number', minimum: 0 },
+          comment: { type: 'string', maxLength: 500 },
+        },
+      },
     },
   }, (req, reply) => ctrl.submitScore(req, reply));
 
-  // Conflicts — admin view (all hackathons, paginated)
   app.get('/conflicts/all', {
     onRequest: [authenticate, authorize('admin')],
     schema: {
       tags: ['Judging'],
-      summary: 'List all judge conflicts across all hackathons (admin)',
-      security: [{ bearerAuth: [] }],
+      summary: 'All judge conflicts across all hackathons — admin only',
+      security: Sec,
       querystring: {
         type: 'object',
         properties: {
@@ -85,13 +111,12 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
     },
   }, (req, reply) => ctrl.listAllConflicts(req, reply));
 
-  // Conflicts — judge's own view
   app.get('/conflicts', {
     onRequest: [authenticate, authorize('judge')],
     schema: {
       tags: ['Judging'],
-      summary: 'List my reported conflicts',
-      security: [{ bearerAuth: [] }],
+      summary: 'List my declared conflicts — judge only',
+      security: Sec,
     },
   }, (req, reply) => ctrl.listConflicts(req, reply));
 
@@ -99,12 +124,17 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
     onRequest: [authenticate, authorize('judge')],
     schema: {
       tags: ['Judging'],
-      summary: 'Report a conflict of interest',
-      description:
-        'Judges must declare conflicts with teams they are affiliated with. ' +
-        'Conflicted judges are excluded from scoring for that team.',
-      security: [{ bearerAuth: [] }],
+      summary: 'Report a conflict of interest — judge only',
+      description: 'Judges must declare affiliations with teams. Conflicted judges are excluded from scoring that team.',
+      security: Sec,
+      body: {
+        type: 'object',
+        required: ['teamId'],
+        properties: {
+          teamId: { type: 'string', format: 'uuid' },
+          reason: { type: 'string', maxLength: 500 },
+        },
+      },
     },
   }, (req, reply) => ctrl.reportConflict(req, reply));
 }
-
