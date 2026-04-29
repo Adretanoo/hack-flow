@@ -8,6 +8,7 @@ import {
   timestamp,
   pgEnum,
   decimal,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -19,6 +20,7 @@ export const tokenTypeEnum = pgEnum('token_type', [
   'CHANGE_EMAIL',
   'TWO_FACTOR',
   'GITHUB',
+  'REFRESH',
 ]);
 
 export const socialTypeEnum = pgEnum('social_type', ['discord', 'telegram', 'viber', 'github']);
@@ -63,6 +65,11 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash').notNull(),
   avatarUrl: text('avatar_url'),
   description: text('description'),
+  // ── Matchmaking ──────────────────────────────────────
+  isLookingForTeam: boolean('is_looking_for_team').default(false).notNull(),
+  skills: jsonb('skills').$type<string[]>().default([]),
+  // ── Soft delete ───────────────────────────────────────
+  deletedAt: timestamp('deleted_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -195,6 +202,29 @@ export const physicalGifts = pgTable('physical_gifts', {
   image: text('image'),
 });
 
+export const teamAwards = pgTable('team_awards', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  teamId: uuid('team_id')
+    .notNull()
+    .references(() => teams.id, { onDelete: 'cascade' }),
+  awardId: uuid('award_id')
+    .notNull()
+    .references(() => awards.id, { onDelete: 'cascade' }),
+  assignedAt: timestamp('assigned_at').defaultNow().notNull(),
+});
+
+export const teamStage = pgTable('team_stage', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  teamId: uuid('team_id')
+    .notNull()
+    .references(() => teams.id, { onDelete: 'cascade' }),
+  stageId: uuid('stage_id')
+    .notNull()
+    .references(() => stages.id, { onDelete: 'cascade' }),
+  enteredAt: timestamp('entered_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // ── Teams ─────────────────────────────────────────────────────
 
 export const teams = pgTable('teams', {
@@ -206,6 +236,7 @@ export const teams = pgTable('teams', {
   hackathonId: uuid('hackathon_id')
     .notNull()
     .references(() => hackathons.id, { onDelete: 'cascade' }),
+  deletedAt: timestamp('deleted_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -269,6 +300,7 @@ export const projects = pgTable('projects', {
   submittedAt: timestamp('submitted_at'),
   reviewedAt: timestamp('reviewed_at'),
   comment: text('comment'),
+  deletedAt: timestamp('deleted_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -292,6 +324,7 @@ export const mentorAvailabilities = pgTable('mentor_availabilities', {
   mentorId: uuid('mentor_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
+  hackathonId: uuid('hackathon_id').references(() => hackathons.id, { onDelete: 'set null' }),
   trackId: uuid('track_id').references(() => tracks.id, { onDelete: 'set null' }),
   startDatetime: timestamp('start_datetime').notNull(),
   endDatetime: timestamp('end_datetime').notNull(),
@@ -353,6 +386,19 @@ export const judgeConflicts = pgTable('judge_conflicts', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// ── Audit Log ─────────────────────────────────────────────────
+
+export const userActionLogs = pgTable('user_action_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  action: varchar('action', { length: 100 }).notNull(),
+  entity: varchar('entity', { length: 100 }).notNull(),
+  entityId: uuid('entity_id'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // ── Relations ────────────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -363,6 +409,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   scores: many(scores),
   conflicts: many(judgeConflicts),
   mentorAvailabilities: many(mentorAvailabilities),
+  actionLogs: many(userActionLogs),
 }));
 
 export const hackathonsRelations = relations(hackathons, ({ many }) => ({

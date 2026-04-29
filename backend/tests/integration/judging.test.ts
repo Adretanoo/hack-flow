@@ -188,7 +188,7 @@ describe('JUDGING FLOW', () => {
   it('POST /judging/conflicts → 201 — report conflict', async () => {
     const { status, body } = await inject(app, 'POST', '/api/v1/judging/conflicts', {
       token: judge2Token,
-      body: { teamId, reason: 'I know the team captain personally' },
+      body: { teamId, reason: 'MENTORED' },
     });
     expect(status).toBe(201);
     expect((body.data as Record<string, unknown>).judgeId).toBe(judge2Id);
@@ -197,7 +197,7 @@ describe('JUDGING FLOW', () => {
   it('POST /judging/conflicts → 403 — duplicate conflict report blocked', async () => {
     const { status } = await inject(app, 'POST', '/api/v1/judging/conflicts', {
       token: judge2Token,
-      body: { teamId, reason: 'Again' },
+      body: { teamId, reason: 'RELATIVE' },
     });
     expect(status).toBe(403);
   });
@@ -208,5 +208,63 @@ describe('JUDGING FLOW', () => {
     });
     expect(status).toBe(200);
     expect((body.data as unknown[]).length).toBe(1);
+  });
+
+  // ── Admin: GET /judging/conflicts/all ─────────────────────────
+
+  it('GET /judging/conflicts/all → 401 for judge (not admin)', async () => {
+    const { status } = await inject(app, 'GET', '/api/v1/judging/conflicts/all', {
+      token: judgeToken,
+    });
+    expect(status).toBe(401);
+  });
+
+  it('GET /judging/conflicts/all → 200 for admin — returns paginated list with judge/team info', async () => {
+    const { status, body } = await inject(app, 'GET', '/api/v1/judging/conflicts/all', {
+      token: adminToken,
+    });
+    expect(status).toBe(200);
+    expect(body.success).toBe(true);
+    // Pagination envelope
+    expect(typeof body.total).toBe('number');
+    expect(body.total).toBeGreaterThan(0);
+    expect(Array.isArray(body.data)).toBe(true);
+    // Enriched fields
+    const first = (body.data as Record<string, unknown>[])[0];
+    expect(first).toHaveProperty('judge');
+    expect(first).toHaveProperty('team');
+    const judge = first.judge as Record<string, unknown>;
+    expect(judge).toHaveProperty('id');
+    expect(judge).toHaveProperty('email');
+    const team = first.team as Record<string, unknown>;
+    expect(team).toHaveProperty('id');
+    expect(team).toHaveProperty('name');
+  });
+
+  it('GET /judging/conflicts/all?hackathonId=... → 200 filtered by hackathon', async () => {
+    const { status, body } = await inject(
+      app,
+      'GET',
+      `/api/v1/judging/conflicts/all?hackathonId=${hackathonId}`,
+      { token: adminToken },
+    );
+    expect(status).toBe(200);
+    expect(body.total).toBeGreaterThan(0);
+    // All returned conflicts must belong to this hackathon's teams
+    for (const row of body.data as Record<string, unknown>[]) {
+      expect((row.team as Record<string, unknown>).hackathonId).toBe(hackathonId);
+    }
+  });
+
+  it('GET /judging/conflicts/all?hackathonId=unknown → 200 with empty list', async () => {
+    const { status, body } = await inject(
+      app,
+      'GET',
+      '/api/v1/judging/conflicts/all?hackathonId=00000000-0000-4000-8000-000000000000',
+      { token: adminToken },
+    );
+    expect(status).toBe(200);
+    expect(body.total).toBe(0);
+    expect((body.data as unknown[]).length).toBe(0);
   });
 });

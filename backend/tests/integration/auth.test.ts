@@ -15,6 +15,7 @@ const TEST_PASSWORD = 'Test1234!';
 
 let app: FastifyInstance;
 let accessToken: string;
+let refreshToken: string;
 let userId: string;
 
 describe('AUTH FLOW', () => {
@@ -43,6 +44,7 @@ describe('AUTH FLOW', () => {
     expect((body.data as Record<string, unknown>).refreshToken).toBeTruthy();
 
     accessToken = (body.data as Record<string, unknown>).accessToken as string;
+    refreshToken = (body.data as Record<string, unknown>).refreshToken as string;
 
     // Resolve userId for cleanup
     const [user] = await testDb
@@ -130,5 +132,69 @@ describe('AUTH FLOW', () => {
       body: { email: 'nonexistent@hackflow.test' },
     });
     expect(status).toBe(200);
+  });
+
+  // ── Refresh Token ────────────────────────────────────────────────
+
+  it('POST /auth/refresh → 200 with new token pair (body)', async () => {
+    const { status, body } = await inject(app, 'POST', '/api/v1/auth/refresh', {
+      body: { refreshToken },
+    });
+
+    expect(status).toBe(200);
+    expect(body.success).toBe(true);
+
+    const data = body.data as Record<string, unknown>;
+    expect(data.accessToken).toBeTruthy();
+    expect(data.refreshToken).toBeTruthy();
+    // New refresh token must be different from the consumed one
+    expect(data.refreshToken).not.toBe(refreshToken);
+
+    // Rotate our local reference for subsequent tests
+    refreshToken = data.refreshToken as string;
+  });
+
+  it('POST /auth/refresh → 401 on already-used refresh token', async () => {
+    // Get a dedicated fresh token by logging in again so this test is isolated
+    const loginRes = await inject(app, 'POST', '/api/v1/auth/login', {
+      body: { email: TEST_EMAIL, password: TEST_PASSWORD },
+    });
+    const freshToken = (loginRes.body.data as Record<string, unknown>).refreshToken as string;
+
+    // First use: consume the token (should succeed)
+    const first = await inject(app, 'POST', '/api/v1/auth/refresh', {
+      body: { refreshToken: freshToken },
+    });
+    expect(first.status).toBe(200);
+
+    // Second use: replay the now-invalidated token (must fail)
+    const { status, body } = await inject(app, 'POST', '/api/v1/auth/refresh', {
+      body: { refreshToken: freshToken },
+    });
+    expect(status).toBe(401);
+    expect(body.code).toBe('UNAUTHORIZED');
+  });
+
+  it('POST /auth/refresh → 401 on invalid token string', async () => {
+    const { status, body } = await inject(app, 'POST', '/api/v1/auth/refresh', {
+      body: { refreshToken: 'this.is.not.a.valid.jwt' },
+    });
+    expect(status).toBe(401);
+    expect(body.code).toBe('UNAUTHORIZED');
+  });
+
+  it('POST /auth/refresh → 200 via Authorization header (Bearer)', async () => {
+    // Get a fresh token so this test is fully independent
+    const loginRes = await inject(app, 'POST', '/api/v1/auth/login', {
+      body: { email: TEST_EMAIL, password: TEST_PASSWORD },
+    });
+    const freshToken = (loginRes.body.data as Record<string, unknown>).refreshToken as string;
+
+    // Pass token as Authorization: Bearer header (no body)
+    const { status, body } = await inject(app, 'POST', '/api/v1/auth/refresh', {
+      token: freshToken,
+    });
+    expect(status).toBe(200);
+    expect((body.data as Record<string, unknown>).accessToken).toBeTruthy();
   });
 });

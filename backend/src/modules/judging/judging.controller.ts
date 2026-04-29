@@ -5,8 +5,10 @@ import {
   SubmitScoreSchema,
   ReportConflictSchema,
   UuidParamSchema,
+  AllConflictsQuerySchema,
 } from './judging.schema';
 import type { JwtPayload } from '../../common/middleware/auth.middleware';
+import { getRedisClient } from '../../config/redis';
 
 export class JudgingController {
   constructor(private readonly service: JudgingService) {}
@@ -48,4 +50,18 @@ export class JudgingController {
     const body = ReportConflictSchema.parse(request.body);
     return reply.status(201).send({ success: true, data: await this.service.reportConflict(sub, body) });
   }
+
+  async listAllConflicts(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const query = AllConflictsQuerySchema.parse(request.query);
+    const result = await this.service.listAllConflicts(query);
+    return reply.send({ success: true, ...result });
+  }
+
+  async getLeaderboard(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    const redis = getRedisClient();
+    const leaderboard = await this.service.getLeaderboard(id, redis);
+    return reply.send({ success: true, data: leaderboard });
+  }
 }
+

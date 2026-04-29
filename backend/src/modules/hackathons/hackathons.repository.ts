@@ -1,16 +1,35 @@
 import type { Database } from '../../config/database';
 import { hackathons, stages, tracks } from '../../drizzle/schema';
-import { eq, desc, count } from 'drizzle-orm';
+import { eq, desc, count, lt, gt, and, lte, gte, isNull } from 'drizzle-orm';
 import type { CreateHackathonDto, UpdateHackathonDto, CreateTrackDto, CreateStageDto } from './hackathons.schema';
+
+export type HackathonStatus = 'upcoming' | 'active' | 'past';
 
 export class HackathonsRepository {
   constructor(private readonly db: Database) {}
 
-  async findAll(page: number, limit: number) {
+  async findAll(page: number, limit: number, status?: HackathonStatus) {
     const offset = (page - 1) * limit;
+    const now = new Date();
+
+    const statusFilter =
+      status === 'upcoming'
+        ? gt(hackathons.startDate, now)
+        : status === 'active'
+          ? and(lte(hackathons.startDate, now), gte(hackathons.endDate, now))
+          : status === 'past'
+            ? lt(hackathons.endDate, now)
+            : undefined;
+
     const [rows, [{ total }]] = await Promise.all([
-      this.db.select().from(hackathons).orderBy(desc(hackathons.createdAt)).limit(limit).offset(offset),
-      this.db.select({ total: count() }).from(hackathons),
+      this.db
+        .select()
+        .from(hackathons)
+        .where(statusFilter)
+        .orderBy(desc(hackathons.createdAt))
+        .limit(limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(hackathons).where(statusFilter),
     ]);
     return { rows, total: Number(total) };
   }

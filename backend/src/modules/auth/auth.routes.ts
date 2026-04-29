@@ -2,12 +2,14 @@ import type { FastifyInstance } from 'fastify';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthRepository } from './auth.repository';
+import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { getDatabaseConnection } from '../../config/database';
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   const db = getDatabaseConnection();
   const repository = new AuthRepository(db);
-  const service = new AuthService(repository, app);
+  const auditLog = new AuditLogRepository(db);
+  const service = new AuthService(repository, app, auditLog);
   const controller = new AuthController(service);
 
   app.post(
@@ -87,5 +89,22 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     (req, reply) => controller.resetPassword(req, reply),
+  );
+
+  app.post(
+    '/refresh',
+    {
+      schema: {
+        tags: ['Auth'],
+        summary: 'Rotate refresh token and get a new token pair',
+        description:
+          'Pass the refresh token either as `Authorization: Bearer <token>` header ' +
+          'or in the JSON body as `{ "refreshToken": "..." }`. ' +
+          'The old refresh token is immediately invalidated (single-use). ' +
+          'Returns a new access token (15 min) and a new refresh token (7 days).',
+        security: [],
+      },
+    },
+    (req, reply) => controller.refresh(req, reply),
   );
 }

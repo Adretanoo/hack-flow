@@ -2,9 +2,21 @@ import type { TeamsRepository } from './teams.repository';
 import { NotFoundError, ConflictError, ForbiddenError } from '../../common/errors/http-errors';
 import { generateId } from '../../utils/uuid';
 import type { CreateTeamDto, UpdateTeamDto, CreateInviteDto } from './teams.schema';
+import type { AuditLogRepository } from '../audit-log/audit-log.repository';
 
 export class TeamsService {
-  constructor(private readonly repo: TeamsRepository) {}
+  constructor(
+    private readonly repo: TeamsRepository,
+    private readonly auditLog?: AuditLogRepository,
+  ) {}
+
+  async list(page: number, limit: number, hackathonId?: string, trackId?: string) {
+    const { rows, total } = await this.repo.findAllPaginated(page, limit, hackathonId, trackId);
+    return {
+      data: rows,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
 
   async getById(id: string) {
     const team = await this.repo.findById(id);
@@ -19,6 +31,7 @@ export class TeamsService {
   async create(dto: CreateTeamDto, creatorId: string) {
     const team = await this.repo.create(dto);
     await this.repo.addMember(team.id, creatorId, 'captain');
+    this.auditLog?.log(creatorId, 'create_team', 'team', team.id).catch(() => undefined);
     return team;
   }
 
@@ -64,6 +77,7 @@ export class TeamsService {
 
     await this.repo.addMember(invite.teamId, userId);
     await this.repo.incrementInviteUses(invite.id, invite.usesCount);
+    this.auditLog?.log(userId, 'join_team', 'team', invite.teamId).catch(() => undefined);
     return this.repo.findById(invite.teamId);
   }
 

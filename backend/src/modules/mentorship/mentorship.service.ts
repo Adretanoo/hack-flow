@@ -2,14 +2,22 @@ import type { MentorshipRepository } from './mentorship.repository';
 import { getRedisClient } from '../../config/redis';
 import { ConflictError, NotFoundError } from '../../common/errors/http-errors';
 import type { CreateAvailabilityDto, BookSlotDto, UpdateSlotStatusDto } from './mentorship.schema';
+import type { AuditLogRepository } from '../audit-log/audit-log.repository';
 
 const LOCK_TTL_MS = 10_000; // 10 second Redis lock TTL
 
 export class MentorshipService {
-  constructor(private readonly repo: MentorshipRepository) {}
+  constructor(
+    private readonly repo: MentorshipRepository,
+    private readonly auditLog?: AuditLogRepository,
+  ) {}
 
-  async listAvailabilities(mentorId: string) {
-    return this.repo.findAvailabilitiesByMentor(mentorId);
+  async listAvailabilities(mentorId: string, hackathonId?: string) {
+    return this.repo.findAvailabilitiesByMentor(mentorId, hackathonId);
+  }
+
+  async listAllAvailabilities(hackathonId?: string) {
+    return this.repo.findAllAvailabilities(hackathonId);
   }
 
   async createAvailability(mentorId: string, dto: CreateAvailabilityDto) {
@@ -27,8 +35,9 @@ export class MentorshipService {
   /**
    * Books a mentor slot with a Redis distributed lock to prevent
    * concurrent double-bookings of the same time window.
+   * Emits a book_mentor_slot audit event on success.
    */
-  async bookSlot(dto: BookSlotDto): Promise<ReturnType<MentorshipRepository['createSlot']>> {
+  async bookSlot(dto: BookSlotDto, userId?: string): Promise<ReturnType<MentorshipRepository['createSlot']>> {
     const start = new Date(dto.startDatetime);
     const end = new Date(start.getTime() + dto.durationMinute * 60_000);
     const lockKey = `mentorship:lock:${dto.mentorAvailabilityId}:${start.toISOString()}`;
@@ -51,7 +60,11 @@ export class MentorshipService {
         throw new ConflictError('This time slot overlaps with an existing booking');
       }
 
-      return await this.repo.createSlot(dto);
+      const slot = await this.repo.createSlot(dto);
+      if (userId) {
+        this.auditLog?.log(userId, 'book_mentor_slot', 'mentor_slot', slot.id).catch(() => undefined);
+      }
+      return slot;
     } finally {
       await redis.del(lockKey);
     }
@@ -65,3 +78,4 @@ export class MentorshipService {
     return updated;
   }
 }
+

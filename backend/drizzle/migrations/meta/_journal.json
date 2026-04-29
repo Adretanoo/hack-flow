@@ -8,6 +8,13 @@
       "when": 1777365646398,
       "tag": "0000_public_marten_broadcloak",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1777368517102,
+      "tag": "0001_lively_paladin",
+      "breakpoints": true
     }
   ]
 }

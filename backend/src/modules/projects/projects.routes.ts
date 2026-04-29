@@ -2,13 +2,15 @@ import type { FastifyInstance } from 'fastify';
 import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.service';
 import { ProjectsRepository } from './projects.repository';
+import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { getDatabaseConnection } from '../../config/database';
 import { authenticate, authorize } from '../../common/middleware/auth.middleware';
 
 export async function projectsRoutes(app: FastifyInstance): Promise<void> {
   const db = getDatabaseConnection();
   const repository = new ProjectsRepository(db);
-  const service = new ProjectsService(repository);
+  const auditLog = new AuditLogRepository(db);
+  const service = new ProjectsService(repository, auditLog);
   const ctrl = new ProjectsController(service);
 
   app.get('/:id', { schema: { tags: ['Projects'], summary: 'Get project by ID' } },

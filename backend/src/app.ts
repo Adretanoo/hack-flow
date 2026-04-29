@@ -13,6 +13,8 @@ import { teamsRoutes } from './modules/teams/teams.routes';
 import { projectsRoutes } from './modules/projects/projects.routes';
 import { judgingRoutes } from './modules/judging/judging.routes';
 import { mentorshipRoutes } from './modules/mentorship/mentorship.routes';
+import { awardsRoutes } from './modules/awards/awards.routes';
+import { teamStageRoutes } from './modules/team-stage/team-stage.routes';
 import { healthRoutes } from './modules/health/health.routes';
 
 export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
@@ -50,6 +52,8 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   await app.register(projectsRoutes, { prefix: `${env.API_PREFIX}/projects` });
   await app.register(judgingRoutes, { prefix: `${env.API_PREFIX}/judging` });
   await app.register(mentorshipRoutes, { prefix: `${env.API_PREFIX}/mentorship` });
+  await app.register(awardsRoutes, { prefix: env.API_PREFIX });
+  await app.register(teamStageRoutes, { prefix: env.API_PREFIX });
 
   return app;
 }

@@ -47,6 +47,8 @@ export async function createTestUser(opts: {
   password?: string;
   role?: 'admin' | 'judge' | 'mentor' | 'participant';
   hackathonId?: string;
+  isLookingForTeam?: boolean;
+  skills?: string[];
 }): Promise<{ id: string; email: string; username: string }> {
   const passwordHash = await hashPassword(opts.password ?? 'Test1234!');
   const [user] = await testDb
@@ -56,6 +58,8 @@ export async function createTestUser(opts: {
       username: opts.username,
       fullName: opts.fullName ?? 'Test User',
       passwordHash,
+      isLookingForTeam: opts.isLookingForTeam ?? false,
+      skills: opts.skills ?? null,
     })
     .returning();
 

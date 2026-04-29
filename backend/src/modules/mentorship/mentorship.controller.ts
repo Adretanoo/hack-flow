@@ -5,6 +5,7 @@ import {
   BookSlotSchema,
   UpdateSlotStatusSchema,
   UuidParamSchema,
+  AvailabilityQuerySchema,
 } from './mentorship.schema';
 import type { JwtPayload } from '../../common/middleware/auth.middleware';
 
@@ -13,7 +14,13 @@ export class MentorshipController {
 
   async listAvailabilities(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const { id } = UuidParamSchema.parse(request.params);
-    return reply.send({ success: true, data: await this.service.listAvailabilities(id) });
+    const { hackathonId } = AvailabilityQuerySchema.parse(request.query);
+    return reply.send({ success: true, data: await this.service.listAvailabilities(id, hackathonId) });
+  }
+
+  async listAllAvailabilities(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { hackathonId } = AvailabilityQuerySchema.parse(request.query);
+    return reply.send({ success: true, data: await this.service.listAllAvailabilities(hackathonId) });
   }
 
   async createAvailability(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {

@@ -3,6 +3,9 @@ import { users, userTokens, userRoles, roles } from '../../drizzle/schema';
 import { eq, and } from 'drizzle-orm';
 import type { RegisterDto } from './auth.schema';
 
+// Full union of storable token types
+type StorableTokenType = typeof userTokens.$inferSelect['type'];
+
 export class AuthRepository {
   constructor(private readonly db: Database) {}
 
@@ -32,11 +35,33 @@ export class AuthRepository {
   async createToken(data: {
     userId: string;
     token: string;
-    type: 'EMAIL_CONFIRM' | 'PASSWORD_RESET' | 'CHANGE_EMAIL' | 'TWO_FACTOR' | 'GITHUB';
+    type: StorableTokenType;
     expiresAt: Date;
   }) {
     const [record] = await this.db.insert(userTokens).values(data).returning();
     return record;
+  }
+
+  /** Persist a refresh token string so we can validate it on rotation. */
+  async saveRefreshToken(userId: string, token: string, expiresAt: Date) {
+    await this.db
+      .insert(userTokens)
+      .values({ userId, token, type: 'REFRESH', expiresAt, used: false });
+  }
+
+  /** Look up a stored refresh token record. */
+  async findRefreshToken(token: string) {
+    const [record] = await this.db
+      .select()
+      .from(userTokens)
+      .where(and(eq(userTokens.token, token), eq(userTokens.type, 'REFRESH')))
+      .limit(1);
+    return record ?? null;
+  }
+
+  /** Hard-delete the refresh token record (invalidate it). */
+  async deleteRefreshToken(id: string) {
+    await this.db.delete(userTokens).where(eq(userTokens.id, id));
   }
 
   async findToken(token: string, type: typeof userTokens.$inferSelect.type) {

@@ -34,7 +34,10 @@ export const UuidParamSchema = z.object({ id: z.string().uuid() });
 export const PaginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.enum(['upcoming', 'active', 'past']).optional(),
 });
+
+export type PaginationDto = z.infer<typeof PaginationSchema>;
 
 export type CreateHackathonDto = z.infer<typeof CreateHackathonSchema>;
 export type UpdateHackathonDto = z.infer<typeof UpdateHackathonSchema>;

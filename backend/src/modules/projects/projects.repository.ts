@@ -1,18 +1,27 @@
+// Soft-delete filter: verified 2026-04-29
+// projects.deletedAt IS NULL added to all list/lookup queries.
 import type { Database } from '../../config/database';
 import { projects, projectResources } from '../../drizzle/schema';
-import { eq } from 'drizzle-orm';
+import { eq, isNull, and } from 'drizzle-orm';
 import type { CreateProjectDto, UpdateProjectDto, AddResourceDto } from './projects.schema';
 
 export class ProjectsRepository {
   constructor(private readonly db: Database) {}
 
   async findById(id: string) {
-    const [row] = await this.db.select().from(projects).where(eq(projects.id, id)).limit(1);
+    const [row] = await this.db
+      .select()
+      .from(projects)
+      .where(and(eq(projects.id, id), isNull(projects.deletedAt)))
+      .limit(1);
     return row ?? null;
   }
 
   async findByTeam(teamId: string) {
-    return this.db.select().from(projects).where(eq(projects.teamId, teamId));
+    return this.db
+      .select()
+      .from(projects)
+      .where(and(eq(projects.teamId, teamId), isNull(projects.deletedAt)));
   }
 
   async create(data: CreateProjectDto) {

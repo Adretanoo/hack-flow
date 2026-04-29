@@ -1,4 +1,4 @@
-import type { HackathonsRepository } from './hackathons.repository';
+import type { HackathonsRepository, HackathonStatus } from './hackathons.repository';
 import { NotFoundError } from '../../common/errors/http-errors';
 import type {
   CreateHackathonDto,
@@ -10,8 +10,8 @@ import type {
 export class HackathonsService {
   constructor(private readonly repo: HackathonsRepository) {}
 
-  async list(page: number, limit: number) {
-    const { rows, total } = await this.repo.findAll(page, limit);
+  async list(page: number, limit: number, status?: HackathonStatus) {
+    const { rows, total } = await this.repo.findAll(page, limit, status);
     return {
       data: rows,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },

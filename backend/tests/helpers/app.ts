@@ -43,8 +43,9 @@ export async function inject(
       ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
     },
   });
+  const bodyText = res.body;
   return {
     status: res.statusCode,
-    body: res.json() as Record<string, unknown>,
+    body: bodyText ? (res.json() as Record<string, unknown>) : {},
   };
 }

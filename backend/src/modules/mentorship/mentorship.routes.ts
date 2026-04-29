@@ -2,17 +2,38 @@ import type { FastifyInstance } from 'fastify';
 import { MentorshipController } from './mentorship.controller';
 import { MentorshipService } from './mentorship.service';
 import { MentorshipRepository } from './mentorship.repository';
+import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { getDatabaseConnection } from '../../config/database';
 import { authenticate, authorize } from '../../common/middleware/auth.middleware';
 
 export async function mentorshipRoutes(app: FastifyInstance): Promise<void> {
   const db = getDatabaseConnection();
   const repository = new MentorshipRepository(db);
-  const service = new MentorshipService(repository);
+  const auditLog = new AuditLogRepository(db);
+  const service = new MentorshipService(repository, auditLog);
   const ctrl = new MentorshipController(service);
 
+  // Public list of all availabilities — supports ?hackathonId= filter
+  app.get('/availabilities', {
+    schema: {
+      tags: ['Mentorship'],
+      summary: 'List all mentor availabilities (optional ?hackathonId= filter)',
+      querystring: {
+        type: 'object',
+        properties: { hackathonId: { type: 'string', format: 'uuid' } },
+      },
+    },
+  }, (req, reply) => ctrl.listAllAvailabilities(req, reply));
+
   app.get('/availabilities/mentor/:id', {
-    schema: { tags: ['Mentorship'], summary: 'List a mentor\'s availabilities' },
+    schema: {
+      tags: ['Mentorship'],
+      summary: 'List a mentor\'s availabilities (optional ?hackathonId= filter)',
+      querystring: {
+        type: 'object',
+        properties: { hackathonId: { type: 'string', format: 'uuid' } },
+      },
+    },
   }, (req, reply) => ctrl.listAvailabilities(req, reply));
 
   app.get('/availabilities/:id/slots', {

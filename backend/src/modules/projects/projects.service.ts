@@ -1,9 +1,13 @@
 import type { ProjectsRepository } from './projects.repository';
 import { NotFoundError } from '../../common/errors/http-errors';
 import type { CreateProjectDto, UpdateProjectDto, AddResourceDto } from './projects.schema';
+import type { AuditLogRepository } from '../audit-log/audit-log.repository';
 
 export class ProjectsService {
-  constructor(private readonly repo: ProjectsRepository) {}
+  constructor(
+    private readonly repo: ProjectsRepository,
+    private readonly auditLog?: AuditLogRepository,
+  ) {}
 
   async getById(id: string) {
     const p = await this.repo.findById(id);
@@ -19,9 +23,13 @@ export class ProjectsService {
     return this.repo.create(dto);
   }
 
-  async submit(id: string) {
+  async submit(id: string, userId?: string) {
     await this.getById(id);
-    return this.repo.update(id, { status: 'SUBMITTED', submittedAt: new Date() });
+    const result = await this.repo.update(id, { status: 'SUBMITTED', submittedAt: new Date() });
+    if (userId) {
+      this.auditLog?.log(userId, 'submit_project', 'project', id).catch(() => undefined);
+    }
+    return result;
   }
 
   async review(id: string, dto: UpdateProjectDto) {
@@ -44,3 +52,4 @@ export class ProjectsService {
     return this.repo.getResources(projectId);
   }
 }
+

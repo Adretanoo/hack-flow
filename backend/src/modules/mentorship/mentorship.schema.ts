@@ -1,9 +1,15 @@
 import { z } from 'zod';
 
 export const CreateAvailabilitySchema = z.object({
+  hackathonId: z.string().uuid().optional(),
   trackId: z.string().uuid().optional(),
   startDatetime: z.string().datetime(),
   endDatetime: z.string().datetime(),
+});
+
+export const AvailabilityQuerySchema = z.object({
+  hackathonId: z.string().uuid().optional(),
+  mentorId: z.string().uuid().optional(),
 });
 
 export const BookSlotSchema = z.object({

@@ -5,6 +5,15 @@ import type { UpdateProfileDto, AddSocialDto } from './users.schema';
 export class UsersService {
   constructor(private readonly usersRepository: UsersRepository) {}
 
+  async list(page: number, limit: number) {
+    const { rows, total } = await this.usersRepository.findAll(page, limit);
+    const safeRows = rows.map(({ passwordHash: _, ...u }) => u);
+    return {
+      data: safeRows,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
   async getProfile(id: string) {
     const user = await this.usersRepository.findById(id);
     if (!user) throw new NotFoundError('User');
@@ -34,4 +43,15 @@ export class UsersService {
   async deleteSocial(socialId: string) {
     await this.usersRepository.deleteSocial(socialId);
   }
+
+  async lookingForTeam(hackathonId?: string, skills?: string[]) {
+    const rows = await this.usersRepository.findLookingForTeam(hackathonId, skills);
+    return rows.map(({ passwordHash: _, ...u }) => u);
+  }
+
+  async softDelete(id: string) {
+    await this.usersRepository.findById(id); // throws 404 if not found
+    await this.usersRepository.softDelete(id);
+  }
 }
+

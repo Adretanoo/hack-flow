@@ -14,7 +14,7 @@ export class HackathonsController {
 
   async list(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const query = PaginationSchema.parse(request.query);
-    const result = await this.service.list(query.page, query.limit);
+    const result = await this.service.list(query.page, query.limit, query.status);
     return reply.send({ success: true, ...result });
   }
 

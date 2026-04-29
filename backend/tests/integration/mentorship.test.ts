@@ -157,4 +157,55 @@ describe('MENTORSHIP FLOW', () => {
     expect(status).toBe(200);
     expect((body.data as unknown[]).length).toBe(1);
   });
+
+  // ── hackathon_id context ───────────────────────────────────────
+
+  it('POST /mentorship/availabilities → 201 stores hackathonId', async () => {
+    const { status, body } = await inject(app, 'POST', '/api/v1/mentorship/availabilities', {
+      token: mentorToken,
+      body: {
+        hackathonId,
+        startDatetime: new Date(Date.now() + 5 * 86400000).toISOString(),
+        endDatetime: new Date(Date.now() + 6 * 86400000).toISOString(),
+      },
+    });
+    expect(status).toBe(201);
+    const data = body.data as Record<string, unknown>;
+    expect(data.hackathonId).toBe(hackathonId);
+  });
+
+  it('GET /mentorship/availabilities/mentor/:id?hackathonId= → filters correctly', async () => {
+    const { status, body } = await inject(
+      app,
+      'GET',
+      `/api/v1/mentorship/availabilities/mentor/${mentorId}?hackathonId=${hackathonId}`,
+    );
+    expect(status).toBe(200);
+    const list = body.data as Record<string, unknown>[];
+    // Only the hackathon-scoped availability appears
+    expect(list.length).toBeGreaterThan(0);
+    for (const row of list) {
+      expect(row.hackathonId).toBe(hackathonId);
+    }
+  });
+
+  it('GET /mentorship/availabilities?hackathonId= → lists all mentor availabilities in hackathon', async () => {
+    const { status, body } = await inject(
+      app,
+      'GET',
+      `/api/v1/mentorship/availabilities?hackathonId=${hackathonId}`,
+    );
+    expect(status).toBe(200);
+    const list = body.data as Record<string, unknown>[];
+    expect(list.length).toBeGreaterThan(0);
+    for (const row of list) {
+      expect(row.hackathonId).toBe(hackathonId);
+    }
+  });
+
+  it('GET /mentorship/availabilities → 200 unfiltered returns all', async () => {
+    const { status, body } = await inject(app, 'GET', '/api/v1/mentorship/availabilities');
+    expect(status).toBe(200);
+    expect(Array.isArray(body.data)).toBe(true);
+  });
 });

@@ -7,6 +7,7 @@ import {
   UuidParamSchema,
 } from './projects.schema';
 import { z } from 'zod';
+import type { JwtPayload } from '../../common/middleware/auth.middleware';
 
 const ResourceParamSchema = z.object({
   id: z.string().uuid(),
@@ -28,7 +29,8 @@ export class ProjectsController {
 
   async submit(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const { id } = UuidParamSchema.parse(request.params);
-    return reply.send({ success: true, data: await this.service.submit(id) });
+    const userId = (request.user as JwtPayload | undefined)?.sub;
+    return reply.send({ success: true, data: await this.service.submit(id, userId) });
   }
 
   async review(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {

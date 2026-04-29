@@ -6,11 +6,34 @@ import type { CreateAvailabilityDto, BookSlotDto } from './mentorship.schema';
 export class MentorshipRepository {
   constructor(private readonly db: Database) {}
 
-  async findAvailabilitiesByMentor(mentorId: string) {
+  /** Find all availabilities for a specific mentor, with optional hackathonId filter. */
+  async findAvailabilitiesByMentor(mentorId: string, hackathonId?: string) {
+    if (hackathonId) {
+      return this.db
+        .select()
+        .from(mentorAvailabilities)
+        .where(
+          and(
+            eq(mentorAvailabilities.mentorId, mentorId),
+            eq(mentorAvailabilities.hackathonId, hackathonId),
+          ),
+        );
+    }
     return this.db
       .select()
       .from(mentorAvailabilities)
       .where(eq(mentorAvailabilities.mentorId, mentorId));
+  }
+
+  /** Find all availabilities across all mentors, with optional hackathonId filter. */
+  async findAllAvailabilities(hackathonId?: string) {
+    if (hackathonId) {
+      return this.db
+        .select()
+        .from(mentorAvailabilities)
+        .where(eq(mentorAvailabilities.hackathonId, hackathonId));
+    }
+    return this.db.select().from(mentorAvailabilities);
   }
 
   async findAvailabilityById(id: string) {
@@ -27,6 +50,7 @@ export class MentorshipRepository {
       .insert(mentorAvailabilities)
       .values({
         mentorId,
+        hackathonId: data.hackathonId ?? null,
         trackId: data.trackId,
         startDatetime: new Date(data.startDatetime),
         endDatetime: new Date(data.endDatetime),

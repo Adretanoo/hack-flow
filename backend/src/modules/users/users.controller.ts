@@ -1,10 +1,22 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { UsersService } from './users.service';
-import { UpdateProfileSchema, AddSocialSchema, UuidParamSchema } from './users.schema';
+import {
+  UpdateProfileSchema,
+  AddSocialSchema,
+  UuidParamSchema,
+  MatchmakingQuerySchema,
+  UserPaginationSchema,
+} from './users.schema';
 import type { JwtPayload } from '../../common/middleware/auth.middleware';
 
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  async list(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const query = UserPaginationSchema.parse(request.query);
+    const result = await this.usersService.list(query.page, query.limit);
+    return reply.send({ success: true, ...result });
+  }
 
   async getMe(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const { sub } = request.user as JwtPayload;
@@ -43,4 +55,11 @@ export class UsersController {
     await this.usersService.deleteSocial(id);
     return reply.status(204).send();
   }
+
+  async lookingForTeam(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const q = MatchmakingQuerySchema.parse(request.query);
+    const users = await this.usersService.lookingForTeam(q.hackathon_id, q.skills);
+    return reply.send({ success: true, data: users });
+  }
 }
+

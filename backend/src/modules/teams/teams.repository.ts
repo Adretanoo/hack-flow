@@ -1,18 +1,52 @@
+// Soft-delete filter: verified 2026-04-29
+// findById, findByHackathon, findAllPaginated all filter isNull(teams.deletedAt).
 import type { Database } from '../../config/database';
 import { teams, teamMembers, teamInvites, teamApprovals } from '../../drizzle/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, count, isNull, desc } from 'drizzle-orm';
 import type { CreateTeamDto, UpdateTeamDto } from './teams.schema';
 
 export class TeamsRepository {
   constructor(private readonly db: Database) {}
 
   async findById(id: string) {
-    const [row] = await this.db.select().from(teams).where(eq(teams.id, id)).limit(1);
+    const [row] = await this.db
+      .select()
+      .from(teams)
+      .where(and(eq(teams.id, id), isNull(teams.deletedAt)))
+      .limit(1);
     return row ?? null;
   }
 
   async findByHackathon(hackathonId: string) {
-    return this.db.select().from(teams).where(eq(teams.hackathonId, hackathonId));
+    return this.db
+      .select()
+      .from(teams)
+      .where(and(eq(teams.hackathonId, hackathonId), isNull(teams.deletedAt)));
+  }
+
+  async findAllPaginated(
+    page: number,
+    limit: number,
+    hackathonId?: string,
+    trackId?: string,
+  ) {
+    const offset = (page - 1) * limit;
+    const conditions = [isNull(teams.deletedAt)];
+    if (hackathonId) conditions.push(eq(teams.hackathonId, hackathonId));
+    if (trackId) conditions.push(eq(teams.trackId, trackId));
+    const where = and(...conditions);
+
+    const [rows, [{ total }]] = await Promise.all([
+      this.db
+        .select()
+        .from(teams)
+        .where(where)
+        .orderBy(desc(teams.createdAt))
+        .limit(limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(teams).where(where),
+    ]);
+    return { rows, total: Number(total) };
   }
 
   async create(data: CreateTeamDto) {
@@ -30,7 +64,10 @@ export class TeamsRepository {
   }
 
   async remove(id: string) {
-    await this.db.delete(teams).where(eq(teams.id, id));
+    await this.db
+      .update(teams)
+      .set({ deletedAt: new Date() })
+      .where(eq(teams.id, id));
   }
 
   // ── Members ─────────────────────────────────────────────
