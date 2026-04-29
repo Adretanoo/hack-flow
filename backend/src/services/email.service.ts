@@ -67,6 +67,74 @@ export async function sendPasswordResetEmail(to: string, resetToken: string): Pr
   }
 }
 
+// ── Mentor session reminder ────────────────────────────────────────────────
+
+export interface MentorReminderParams {
+  to: string;
+  mentorName: string;
+  teamName: string;
+  startTime: Date;
+  meetingLink: string | null;
+}
+
+/**
+ * Send a 15-minute mentor-session reminder to a team member.
+ * Fire-and-forget — errors are logged silently, never thrown.
+ */
+export async function sendMentorReminderEmail(params: MentorReminderParams): Promise<void> {
+  const { to, mentorName, teamName, startTime, meetingLink } = params;
+
+  const formatted = startTime.toLocaleString('uk-UA', {
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  const linkLine = meetingLink ? `Посилання: ${meetingLink}` : '';
+  const linkHtml = meetingLink
+    ? `<p><a href="${meetingLink}" style="background:#4f46e5;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;">Приєднатися до сесії</a></p>`
+    : '';
+
+  const mailOptions: import('nodemailer').SendMailOptions = {
+    from: env.SMTP_FROM,
+    to,
+    subject: 'Нагадування: менторська сесія через 15 хвилин',
+    text: [
+      'Привіт!',
+      'Через 15 хвилин починається ваша менторська сесія.',
+      '',
+      `Ментор: ${mentorName}`,
+      `Команда: ${teamName}`,
+      `Час: ${formatted}`,
+      linkLine,
+      '',
+      'Вдалої сесії!',
+    ]
+      .filter((l) => l !== undefined)
+      .join('\n'),
+    html: `
+      <div style="font-family:sans-serif;max-width:500px;margin:auto;padding:24px;">
+        <p>Привіт!</p>
+        <p>Через <strong>15 хвилин</strong> починається ваша менторська сесія.</p>
+        <table style="border-collapse:collapse;width:100%;margin:16px 0;">
+          <tr><td style="padding:4px 8px;color:#6b7280;">Ментор</td><td style="padding:4px 8px;font-weight:600;">${mentorName}</td></tr>
+          <tr><td style="padding:4px 8px;color:#6b7280;">Команда</td><td style="padding:4px 8px;font-weight:600;">${teamName}</td></tr>
+          <tr><td style="padding:4px 8px;color:#6b7280;">Час</td><td style="padding:4px 8px;">${formatted}</td></tr>
+        </table>
+        ${linkHtml}
+        <p style="color:#6b7280;font-size:13px;">Вдалої сесії!</p>
+      </div>
+    `,
+  };
+
+  void getTransporter().sendMail(mailOptions).catch((err: unknown) => {
+    console.error('[EmailService] Failed to send mentor reminder email:', err);
+  });
+}
+
+
 /**
  * Override the transporter — used in unit tests to inject a mock.
  * Not exported from the barrel index; test files import directly.

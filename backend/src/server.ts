@@ -3,6 +3,8 @@ import { env } from './config/env';
 import { createDatabaseConnection, closeDatabaseConnection } from './config/database';
 import { createRedisClient, closeRedisClient } from './config/redis';
 import { logger } from './utils/logger';
+import { startReminderWorker } from './workers/reminder.worker';
+import { startStatusCronWorker } from './workers/status-cron.worker';
 
 async function start(): Promise<void> {
   // Initialise infrastructure connections
@@ -28,6 +30,13 @@ async function start(): Promise<void> {
     await app.listen({ port: env.PORT, host: env.HOST });
     logger.info(`🚀 Server listening on http://${env.HOST}:${env.PORT}`);
     logger.info(`📚 Swagger docs at http://localhost:${env.PORT}/docs`);
+
+    // Start reminder worker — excluded from test environment to prevent
+    // setInterval from keeping the test process alive after tests complete
+    if (env.NODE_ENV !== 'test') {
+      startReminderWorker();
+      startStatusCronWorker();
+    }
   } catch (err) {
     logger.error(err, 'Failed to start server');
     process.exit(1);

@@ -90,6 +90,26 @@ export class JudgingRepository {
       .where(and(inArray(projects.stageId, stageIds), isNull(projects.deletedAt)));
   }
 
+  /** Single project by ID — used by the ENFORCE_JUDGE_TRACK guard. */
+  async findProjectById(projectId: string) {
+    const [row] = await this.db
+      .select()
+      .from(projects)
+      .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
+      .limit(1);
+    return row ?? null;
+  }
+
+  /** Resolve the track assigned to a team — used by the ENFORCE_JUDGE_TRACK guard. */
+  async findTeamTrack(teamId: string) {
+    const [row] = await this.db
+      .select({ trackId: teams.trackId })
+      .from(teams)
+      .where(eq(teams.id, teamId))
+      .limit(1);
+    return row ?? null;
+  }
+
   /** All scores for all projects in a hackathon */
   async findAllScoresForHackathon(projectIds: string[]) {
     if (projectIds.length === 0) return [];

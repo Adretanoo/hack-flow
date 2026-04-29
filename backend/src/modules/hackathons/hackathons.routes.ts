@@ -2,13 +2,17 @@ import type { FastifyInstance } from 'fastify';
 import { HackathonsController } from './hackathons.controller';
 import { HackathonsService } from './hackathons.service';
 import { HackathonsRepository } from './hackathons.repository';
+import { HackathonTagsRepository } from '../hackathon-tags/hackathon-tags.repository';
+import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { getDatabaseConnection } from '../../config/database';
 import { authenticate, authorize } from '../../common/middleware/auth.middleware';
 
 export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
   const db = getDatabaseConnection();
   const repository = new HackathonsRepository(db);
-  const service = new HackathonsService(repository);
+  const tagsRepository = new HackathonTagsRepository(db);
+  const auditLog = new AuditLogRepository(db);
+  const service = new HackathonsService(repository, tagsRepository, auditLog);
   const ctrl = new HackathonsController(service);
 
   // Public read routes
@@ -63,4 +67,10 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
     onRequest: [authenticate, authorize('admin')],
     schema: { tags: ['Hackathons'], summary: 'Delete a stage' },
   }, (req, reply) => ctrl.deleteStage(req, reply));
+
+  // ── Manual status override ────────────────────────────────────────────────
+  app.post('/:hackathonId/status', {
+    onRequest: [authenticate, authorize('admin')],
+    schema: { tags: ['Hackathons'], summary: 'Manually override hackathon status (admin)' },
+  }, (req, reply) => ctrl.setStatus(req, reply));
 }

@@ -1,6 +1,6 @@
 import type { Database } from '../../config/database';
 import { hackathons, stages, tracks } from '../../drizzle/schema';
-import { eq, desc, count, lt, gt, and, lte, gte, isNull } from 'drizzle-orm';
+import { eq, desc, count, lt, gt, and, lte, gte, inArray, ne } from 'drizzle-orm';
 import type { CreateHackathonDto, UpdateHackathonDto, CreateTrackDto, CreateStageDto } from './hackathons.schema';
 
 export type HackathonStatus = 'upcoming' | 'active' | 'past';
@@ -8,7 +8,7 @@ export type HackathonStatus = 'upcoming' | 'active' | 'past';
 export class HackathonsRepository {
   constructor(private readonly db: Database) {}
 
-  async findAll(page: number, limit: number, status?: HackathonStatus) {
+  async findAll(page: number, limit: number, status?: HackathonStatus, tagIds?: string[]) {
     const offset = (page - 1) * limit;
     const now = new Date();
 
@@ -21,15 +21,21 @@ export class HackathonsRepository {
             ? lt(hackathons.endDate, now)
             : undefined;
 
+    // AND-combine status + tag filters
+    const tagFilter = tagIds && tagIds.length > 0 ? inArray(hackathons.id, tagIds) : undefined;
+    const whereClause = statusFilter && tagFilter
+      ? and(statusFilter, tagFilter)
+      : (statusFilter ?? tagFilter);
+
     const [rows, [{ total }]] = await Promise.all([
       this.db
         .select()
         .from(hackathons)
-        .where(statusFilter)
+        .where(whereClause)
         .orderBy(desc(hackathons.createdAt))
         .limit(limit)
         .offset(offset),
-      this.db.select({ total: count() }).from(hackathons).where(statusFilter),
+      this.db.select({ total: count() }).from(hackathons).where(whereClause),
     ]);
     return { rows, total: Number(total) };
   }
@@ -97,5 +103,85 @@ export class HackathonsRepository {
 
   async deleteStage(id: string) {
     await this.db.delete(stages).where(eq(stages.id, id));
+  }
+
+  // ── Status transitions ──────────────────────────────────────
+
+  /**
+   * Returns all non-ARCHIVED hackathons with their stages joined.
+   * Used by the status-cron worker every minute.
+   */
+  async findHackathonsForStatusCheck() {
+    const rows = await this.db
+      .select({
+        id: hackathons.id,
+        title: hackathons.title,
+        status: hackathons.status,
+        stageId: stages.id,
+        stageName: stages.name,
+        stageStart: stages.startDate,
+        stageEnd: stages.endDate,
+        stageOrder: stages.orderIndex,
+      })
+      .from(hackathons)
+      .leftJoin(stages, eq(stages.hackathonId, hackathons.id))
+      .where(ne(hackathons.status, 'ARCHIVED'))
+      .orderBy(hackathons.createdAt, stages.orderIndex);
+
+    // Group rows into hackathon + stages[]
+    const map = new Map<string, {
+      id: string;
+      title: string;
+      status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+      stages: Array<{ id: string; name: string; startDate: Date; endDate: Date; orderIndex: number }>;
+    }>();
+
+    for (const row of rows) {
+      if (!map.has(row.id)) {
+        map.set(row.id, { id: row.id, title: row.title, status: row.status, stages: [] });
+      }
+      if (row.stageId) {
+        map.get(row.id)!.stages.push({
+          id: row.stageId,
+          name: row.stageName!,
+          startDate: row.stageStart!,
+          endDate: row.stageEnd!,
+          orderIndex: row.stageOrder!,
+        });
+      }
+    }
+
+    return [...map.values()];
+  }
+
+  /** Update hackathon status directly — used by cron and manual override. */
+  async updateStatus(id: string, status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED') {
+    const [row] = await this.db
+      .update(hackathons)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(hackathons.id, id))
+      .returning();
+    return row ?? null;
+  }
+
+  /** Fetch a hackathon together with its stages — for active-stage enrichment. */
+  async findWithStages(id: string) {
+    const h = await this.findById(id);
+    if (!h) return null;
+    const hackathonStages = await this.db
+      .select()
+      .from(stages)
+      .where(eq(stages.hackathonId, id))
+      .orderBy(stages.orderIndex);
+    return { ...h, stages: hackathonStages };
+  }
+
+  /** Count stages for a hackathon — used by manual override validation. */
+  async countStages(hackathonId: string) {
+    const [{ total }] = await this.db
+      .select({ total: count() })
+      .from(stages)
+      .where(eq(stages.hackathonId, hackathonId));
+    return Number(total);
   }
 }

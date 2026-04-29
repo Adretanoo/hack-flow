@@ -9,6 +9,8 @@ import {
   pgEnum,
   decimal,
   jsonb,
+  unique,
+  primaryKey,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -155,6 +157,7 @@ export const hackathons = pgTable('hackathons', {
   banner: text('banner'),
   rulesUrl: text('rules_url'),
   contactEmail: varchar('contact_email', { length: 255 }),
+  status: varchar('status', { length: 20 }).$type<'DRAFT' | 'PUBLISHED' | 'ARCHIVED'>().notNull().default('DRAFT'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -385,6 +388,38 @@ export const judgeConflicts = pgTable('judge_conflicts', {
   reason: text('reason'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// ── Hackathon Tags ───────────────────────────────────────────
+
+export const hackathonTags = pgTable('hackathon_tags', {
+  id:   uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 64 }).notNull().unique(),
+});
+
+export const hackathonTagRelations = pgTable('hackathon_tag_relations', {
+  hackathonId: uuid('hackathon_id')
+    .notNull()
+    .references(() => hackathons.id, { onDelete: 'cascade' }),
+  tagId: uuid('tag_id')
+    .notNull()
+    .references(() => hackathonTags.id, { onDelete: 'cascade' }),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.hackathonId, t.tagId] }),
+}));
+
+// ── Judge Track ───────────────────────────────────────────────
+
+export const judgeTrack = pgTable('judge_track', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  userId:      uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  trackId:     uuid('track_id').notNull().references(() => tracks.id, { onDelete: 'cascade' }),
+  hackathonId: uuid('hackathon_id').notNull().references(() => hackathons.id, { onDelete: 'cascade' }),
+  isHeadJudge: boolean('is_head_judge').notNull().default(false),
+  assignedAt:  timestamp('assigned_at').notNull().defaultNow(),
+  assignedBy:  uuid('assigned_by').references(() => users.id, { onDelete: 'set null' }),
+}, (t) => ({
+  uniqueUserTrack: unique().on(t.userId, t.trackId),
+}));
 
 // ── Audit Log ─────────────────────────────────────────────────
 

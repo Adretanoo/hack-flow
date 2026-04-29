@@ -3,6 +3,7 @@ import { getRedisClient } from '../../config/redis';
 import { ConflictError, NotFoundError } from '../../common/errors/http-errors';
 import type { CreateAvailabilityDto, BookSlotDto, UpdateSlotStatusDto } from './mentorship.schema';
 import type { AuditLogRepository } from '../audit-log/audit-log.repository';
+import { scheduleReminder, cancelReminder } from '../../services/reminder.service';
 
 const LOCK_TTL_MS = 10_000; // 10 second Redis lock TTL
 
@@ -64,6 +65,17 @@ export class MentorshipService {
       if (userId) {
         this.auditLog?.log(userId, 'book_mentor_slot', 'mentor_slot', slot.id).catch(() => undefined);
       }
+
+      // Schedule reminder email — fire-and-forget
+      const availability = await this.repo.findAvailabilityById(dto.mentorAvailabilityId);
+      void scheduleReminder({
+        slotId:      slot.id,
+        teamId:      slot.teamId,
+        mentorId:    availability?.mentorId ?? '',
+        startTime:   slot.startDatetime.toISOString(),
+        meetingLink: slot.meetingLink ?? null,
+      });
+
       return slot;
     } finally {
       await redis.del(lockKey);
@@ -75,6 +87,12 @@ export class MentorshipService {
     if (!slot) throw new NotFoundError('Slot');
     const updated = await this.repo.updateSlotStatus(id, dto.status);
     if (!updated) throw new NotFoundError('Slot');
+
+    if (dto.status === 'cancelled') {
+      // Remove pending reminder — fire-and-forget
+      void cancelReminder(id);
+    }
+
     return updated;
   }
 }

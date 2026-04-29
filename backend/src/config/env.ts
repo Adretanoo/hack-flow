@@ -51,6 +51,15 @@ const envSchema = z.object({
 
   // Frontend
   FRONTEND_URL: z.string().default('http://localhost:5173'),
+
+  // Feature flags
+  ENFORCE_JUDGE_TRACK: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('false'),
+
+  // Reminder worker
+  REMINDER_MINUTES_BEFORE: z.coerce.number().int().min(1).default(15),
 });
 
 const parsed = envSchema.safeParse(process.env);

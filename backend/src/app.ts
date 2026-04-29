@@ -16,6 +16,8 @@ import { mentorshipRoutes } from './modules/mentorship/mentorship.routes';
 import { awardsRoutes } from './modules/awards/awards.routes';
 import { teamStageRoutes } from './modules/team-stage/team-stage.routes';
 import { healthRoutes } from './modules/health/health.routes';
+import { judgeTrackRoutes } from './modules/judge-track/judge-track.routes';
+import { hackathonTagsRoutes } from './modules/hackathon-tags/hackathon-tags.routes';
 
 export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   const app = Fastify({
@@ -54,6 +56,8 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   await app.register(mentorshipRoutes, { prefix: `${env.API_PREFIX}/mentorship` });
   await app.register(awardsRoutes, { prefix: env.API_PREFIX });
   await app.register(teamStageRoutes, { prefix: env.API_PREFIX });
+  await app.register(judgeTrackRoutes, { prefix: env.API_PREFIX });
+  await app.register(hackathonTagsRoutes, { prefix: env.API_PREFIX });
 
   return app;
 }

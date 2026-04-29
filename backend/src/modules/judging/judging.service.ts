@@ -3,6 +3,8 @@ import { ForbiddenError, NotFoundError } from '../../common/errors/http-errors';
 import type { CreateCriteriaDto, SubmitScoreDto, ReportConflictDto } from './judging.schema';
 import type { Redis } from 'ioredis';
 import type { AuditLogRepository } from '../audit-log/audit-log.repository';
+import { env } from '../../config/env';
+import type { JudgeTrackRepository } from '../judge-track/judge-track.repository';
 
 const LEADERBOARD_TTL_SECONDS = 60;
 
@@ -18,6 +20,7 @@ export class JudgingService {
   constructor(
     private readonly repo: JudgingRepository,
     private readonly auditLog?: AuditLogRepository,
+    private readonly judgeTrackRepo?: JudgeTrackRepository,
   ) {}
 
   // ── Criteria ─────────────────────────────────────────────
@@ -39,6 +42,22 @@ export class JudgingService {
   }
 
   async submitScore(judgeId: string, dto: SubmitScoreDto) {
+    // ENFORCE_JUDGE_TRACK feature flag — off by default so existing tests pass.
+    if (env.ENFORCE_JUDGE_TRACK && this.judgeTrackRepo) {
+      const project = await this.repo.findProjectById(dto.projectId);
+      if (!project) throw new NotFoundError('Project not found');
+
+      // Get track via team (project → team → trackId)
+      const track = await this.repo.findTeamTrack(project.teamId);
+      // trackId is nullable — skip the check if the team has no track assigned
+      if (track?.trackId) {
+        const assigned = await this.judgeTrackRepo.findByUserAndTrack(judgeId, track.trackId);
+        if (!assigned) {
+          throw new ForbiddenError('Judge not assigned to this track');
+        }
+      }
+    }
+
     const result = await this.repo.upsertScore(judgeId, dto);
     // Fire-and-forget audit log
     this.auditLog?.log(judgeId, 'submit_score', 'score', result.id).catch(() => undefined);

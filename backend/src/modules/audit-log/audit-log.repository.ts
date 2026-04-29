@@ -11,14 +11,20 @@ export type AuditAction =
   | 'submit_project'
   | 'submit_score'
   | 'book_mentor_slot'
-  | 'move_team_stage';
+  | 'move_team_stage'
+  | 'assign_judge_track'
+  | 'unassign_judge_track'
+  | 'hackathon_status_transition'
+  | 'hackathon_status_override';
 
 export type AuditEntity =
   | 'user'
   | 'team'
   | 'project'
   | 'score'
-  | 'mentor_slot';
+  | 'mentor_slot'
+  | 'judge_track'
+  | 'hackathon';
 
 export class AuditLogRepository {
   constructor(private readonly db: Database) {}

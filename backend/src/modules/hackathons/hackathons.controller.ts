@@ -7,6 +7,8 @@ import {
   CreateStageSchema,
   UuidParamSchema,
   PaginationSchema,
+  SetHackathonStatusSchema,
+  UpdateStatusParamsSchema,
 } from './hackathons.schema';
 
 export class HackathonsController {
@@ -14,7 +16,10 @@ export class HackathonsController {
 
   async list(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const query = PaginationSchema.parse(request.query);
-    const result = await this.service.list(query.page, query.limit, query.status);
+    const tagNames = query.tags
+      ? query.tags.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean)
+      : undefined;
+    const result = await this.service.list(query.page, query.limit, query.status, tagNames);
     return reply.send({ success: true, ...result });
   }
 
@@ -72,5 +77,13 @@ export class HackathonsController {
     const { id } = UuidParamSchema.parse(request.params);
     await this.service.deleteStage(id);
     return reply.status(204).send();
+  }
+
+  async setStatus(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { hackathonId } = UpdateStatusParamsSchema.parse(request.params);
+    const { status } = SetHackathonStatusSchema.parse(request.body);
+    const adminId = (request as FastifyRequest & { user?: { id: string } }).user?.id ?? '';
+    const updated = await this.service.overrideStatus(hackathonId, status, adminId);
+    return reply.send({ success: true, data: updated });
   }
 }
