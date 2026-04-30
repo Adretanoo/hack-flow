@@ -29,6 +29,9 @@ export const MatchmakingQuerySchema = z.object({
 export const UserPaginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().optional(),
+  role: z.string().optional(),
+  lookingForTeam: z.coerce.boolean().optional(),
 });
 
 export type UpdateProfileDto = z.infer<typeof UpdateProfileSchema>;

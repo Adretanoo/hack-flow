@@ -9,7 +9,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { JudgeTrackManager } from '@/components/hackathons/JudgeTrackManager'
 import { StagesSection } from './components/StagesSection'
-import { formatDate } from '@/utils/format'
+import { formatDate, getStatusLabel } from '@/utils/format'
 import { toast } from 'sonner'
 import { Pencil, ArrowLeft, Users, Trophy, Star, CheckCircle2 } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -187,7 +187,7 @@ export function HackathonDetailPage() {
               <select value={statusOverride || hackathon.status}
                 onChange={(e) => setStatusOverride(e.target.value)}
                 className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring">
-                {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                {STATUSES.map((s) => <option key={s} value={s}>{getStatusLabel(s)}</option>)}
               </select>
               <button
                 disabled={!statusOverride || statusOverride === hackathon.status}

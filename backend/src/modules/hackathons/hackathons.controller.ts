@@ -19,7 +19,7 @@ export class HackathonsController {
     const tagNames = query.tags
       ? query.tags.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean)
       : undefined;
-    const result = await this.service.list(query.page, query.limit, query.status, tagNames);
+    const result = await this.service.list(query.page, query.limit, query.status, tagNames, query.publishStatus, query.search);
     return reply.send({ success: true, ...result });
   }
 

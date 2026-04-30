@@ -42,7 +42,7 @@ export function HackathonsListPage() {
     queryFn: () => hackathonsApi.list({
       page,
       limit,
-      status: statusFilter || undefined,
+      publishStatus: statusFilter || undefined,
       tags: selectedTags.join(',') || undefined,
       search: debouncedSearch || undefined,
     }),

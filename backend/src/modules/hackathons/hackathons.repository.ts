@@ -1,6 +1,6 @@
 import type { Database } from '../../config/database';
 import { hackathons, stages, tracks } from '../../drizzle/schema';
-import { eq, desc, count, lt, gt, and, lte, gte, inArray, ne } from 'drizzle-orm';
+import { eq, desc, count, lt, gt, and, lte, gte, inArray, ne, ilike } from 'drizzle-orm';
 import type { CreateHackathonDto, UpdateHackathonDto, CreateTrackDto, CreateStageDto } from './hackathons.schema';
 
 export type HackathonStatus = 'upcoming' | 'active' | 'past';
@@ -8,24 +8,23 @@ export type HackathonStatus = 'upcoming' | 'active' | 'past';
 export class HackathonsRepository {
   constructor(private readonly db: Database) {}
 
-  async findAll(page: number, limit: number, status?: HackathonStatus, tagIds?: string[]) {
+  async findAll(page: number, limit: number, status?: HackathonStatus, tagIds?: string[], publishStatus?: string, search?: string) {
     const offset = (page - 1) * limit;
     const now = new Date();
 
-    const statusFilter =
-      status === 'upcoming'
-        ? gt(hackathons.startDate, now)
-        : status === 'active'
-          ? and(lte(hackathons.startDate, now), gte(hackathons.endDate, now))
-          : status === 'past'
-            ? lt(hackathons.endDate, now)
-            : undefined;
+    const filters = [];
 
-    // AND-combine status + tag filters
-    const tagFilter = tagIds && tagIds.length > 0 ? inArray(hackathons.id, tagIds) : undefined;
-    const whereClause = statusFilter && tagFilter
-      ? and(statusFilter, tagFilter)
-      : (statusFilter ?? tagFilter);
+    if (status === 'upcoming') filters.push(gt(hackathons.startDate, now));
+    else if (status === 'active') filters.push(and(lte(hackathons.startDate, now), gte(hackathons.endDate, now)));
+    else if (status === 'past') filters.push(lt(hackathons.endDate, now));
+
+    if (tagIds && tagIds.length > 0) filters.push(inArray(hackathons.id, tagIds));
+    
+    if (publishStatus) filters.push(eq(hackathons.status, publishStatus as any));
+    
+    if (search) filters.push(ilike(hackathons.title, `%${search}%`));
+
+    const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
     const [rows, [{ total }]] = await Promise.all([
       this.db

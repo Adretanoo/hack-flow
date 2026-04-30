@@ -24,6 +24,9 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         properties: {
           page: { type: 'integer', minimum: 1, default: 1 },
           limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          search: { type: 'string' },
+          role: { type: 'string' },
+          lookingForTeam: { type: 'boolean' },
         },
       },
     },

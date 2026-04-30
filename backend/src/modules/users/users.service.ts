@@ -5,8 +5,8 @@ import type { UpdateProfileDto, AddSocialDto } from './users.schema';
 export class UsersService {
   constructor(private readonly usersRepository: UsersRepository) {}
 
-  async list(page: number, limit: number) {
-    const { rows, total } = await this.usersRepository.findAll(page, limit);
+  async list(page: number, limit: number, search?: string, role?: string, lookingForTeam?: boolean) {
+    const { rows, total } = await this.usersRepository.findAll(page, limit, search, role, lookingForTeam);
     const safeRows = rows.map(({ passwordHash: _, ...u }) => u);
     return {
       data: safeRows,

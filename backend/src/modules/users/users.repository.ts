@@ -1,8 +1,8 @@
 // Soft-delete filter: verified 2026-04-29
 // findAll, findById, findByUsername, findLookingForTeam all filter isNull(users.deletedAt).
 import type { Database } from '../../config/database';
-import { users, userSocials } from '../../drizzle/schema';
-import { eq, isNull, count, desc, and, sql } from 'drizzle-orm';
+import { users, userSocials, roles, userRoles } from '../../drizzle/schema';
+import { eq, isNull, count, desc, and, sql, ilike } from 'drizzle-orm';
 import type { UpdateProfileDto, AddSocialDto } from './users.schema';
 
 export class UsersRepository {
@@ -26,20 +26,45 @@ export class UsersRepository {
     return user ?? null;
   }
 
-  async findAll(page: number, limit: number) {
+  async findAll(page: number, limit: number, search?: string, role?: string, lookingForTeam?: boolean) {
     const offset = (page - 1) * limit;
-    const where = isNull(users.deletedAt);
+    
+    const filters = [isNull(users.deletedAt)];
+    if (search) {
+      filters.push(sql`(${users.fullName} ILIKE ${'%' + search + '%'} OR ${users.username} ILIKE ${'%' + search + '%'})`);
+    }
+    if (lookingForTeam) filters.push(eq(users.isLookingForTeam, true));
+    if (role) filters.push(eq(roles.name, role as any));
+
+    const whereClause = and(...filters);
+
+    const baseQuery = this.db
+      .select({
+        user: users,
+        role: roles.name,
+      })
+      .from(users)
+      .leftJoin(userRoles, eq(users.id, userRoles.userId))
+      .leftJoin(roles, eq(roles.id, userRoles.roleId))
+      .where(whereClause);
+
     const [rows, [{ total }]] = await Promise.all([
+      baseQuery.orderBy(desc(users.createdAt)).limit(limit).offset(offset),
       this.db
-        .select()
+        .select({ total: count(users.id) })
         .from(users)
-        .where(where)
-        .orderBy(desc(users.createdAt))
-        .limit(limit)
-        .offset(offset),
-      this.db.select({ total: count() }).from(users).where(where),
+        .leftJoin(userRoles, eq(users.id, userRoles.userId))
+        .leftJoin(roles, eq(roles.id, userRoles.roleId))
+        .where(whereClause),
     ]);
-    return { rows, total: Number(total) };
+
+    // Format output to match existing UserProfile structure but with role included
+    const enrichedRows = rows.map((r) => ({
+      ...r.user,
+      role: r.role ?? 'participant',
+    }));
+
+    return { rows: enrichedRows, total: Number(total) };
   }
 
   async findLookingForTeam(hackathonId?: string, skills?: string[]) {

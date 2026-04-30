@@ -14,7 +14,7 @@ export class UsersController {
 
   async list(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const query = UserPaginationSchema.parse(request.query);
-    const result = await this.usersService.list(query.page, query.limit);
+    const result = await this.usersService.list(query.page, query.limit, query.search, query.role, query.lookingForTeam);
     return reply.send({ success: true, ...result });
   }
 

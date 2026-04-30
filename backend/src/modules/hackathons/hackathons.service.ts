@@ -19,7 +19,7 @@ export class HackathonsService {
     private readonly auditLog?: AuditLogRepository,
   ) {}
 
-  async list(page: number, limit: number, status?: HackathonStatus, tagNames?: string[]) {
+  async list(page: number, limit: number, status?: HackathonStatus, tagNames?: string[], publishStatus?: string, search?: string) {
     // Resolve tag names → hackathon IDs for AND-logic filtering
     let tagIds: string[] | undefined;
     if (tagNames && tagNames.length > 0 && this.tagsRepo) {
@@ -30,7 +30,7 @@ export class HackathonsService {
       }
     }
 
-    const { rows, total } = await this.repo.findAll(page, limit, status, tagIds);
+    const { rows, total } = await this.repo.findAll(page, limit, status, tagIds, publishStatus, search);
 
     // Enrich with tags in a single batch query
     let enriched: Array<(typeof rows)[number] & { tags: Array<{ id: string; name: string }> }> = [];

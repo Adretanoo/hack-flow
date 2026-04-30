@@ -44,6 +44,8 @@ export const PaginationSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   status: z.enum(['upcoming', 'active', 'past']).optional(),
   tags: z.string().optional(), // comma-separated tag names
+  publishStatus: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),
+  search: z.string().optional(),
 });
 
 export type PaginationDto = z.infer<typeof PaginationSchema>;

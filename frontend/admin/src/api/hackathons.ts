@@ -5,6 +5,7 @@ export interface HackathonListParams {
   page?: number
   limit?: number
   status?: string
+  publishStatus?: string
   tags?: string
   search?: string
 }
