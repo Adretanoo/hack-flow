@@ -42,7 +42,7 @@ export class AuthService {
     return tokens;
   }
 
-  async login(dto: LoginDto): Promise<{ accessToken: string; refreshToken: string }> {
+  async login(dto: LoginDto): Promise<{ accessToken: string; refreshToken: string; user?: any }> {
     const user = await this.authRepository.findUserByEmail(dto.email);
     if (!user) throw new UnauthorizedError('Invalid credentials');
 
@@ -56,7 +56,16 @@ export class AuthService {
     this.auditLog?.log(user.id, 'login', 'user', user.id).catch(() => undefined);
     const tokens = this.generateTokenPair({ sub: user.id, email: user.email, roles: userRoles });
     await this.persistRefreshToken(user.id, tokens.refreshToken);
-    return tokens;
+    
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      fullName: user.fullName,
+      role: userRoles[0] || 'participant'
+    };
+    
+    return { ...tokens, user: safeUser };
   }
 
   async forgotPassword(email: string): Promise<void> {

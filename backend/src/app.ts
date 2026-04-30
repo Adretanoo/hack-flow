@@ -1,4 +1,6 @@
 import Fastify from 'fastify';
+import path from 'path';
+import fastifyStatic from '@fastify/static';
 import { env } from './config/env';
 import { registerErrorHandler } from './common/middleware/error-handler';
 import swaggerPlugin from './plugins/swagger';
@@ -58,6 +60,13 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   await app.register(teamStageRoutes, { prefix: env.API_PREFIX });
   await app.register(judgeTrackRoutes, { prefix: env.API_PREFIX });
   await app.register(hackathonTagsRoutes, { prefix: env.API_PREFIX });
+
+  // ── Frontend Static Serving ───────────────────────────────
+  await app.register(fastifyStatic, {
+    root: path.join(__dirname, '../../frontend/admin/dist'),
+    prefix: '/admin/',
+    decorateReply: false, // In case swagger-ui also uses fastify-static
+  });
 
   return app;
 }
