@@ -9,7 +9,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { usePagination } from '@/hooks/usePagination'
 import { useDebounce } from '@/hooks/useDebounce'
 import { formatDate } from '@/utils/format'
-import { Plus, Eye, Pencil, Trash2, Search, Tag } from 'lucide-react'
+import { Plus, Eye, Pencil, Trash2, Search, Tag, Archive, RefreshCcw, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Hackathon, Tag as TagType } from '@/types/api.types'
 import type { Column } from '@/components/shared/DataTable'
@@ -63,6 +63,19 @@ export function HackathonsListPage() {
     onError: () => toast.error('Помилка при видаленні'),
   })
 
+  const updateStatusMut = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' }) => 
+      hackathonsApi.overrideStatus(id, status),
+    onSuccess: () => {
+      toast.success('Статус оновлено')
+      qc.invalidateQueries({ queryKey: ['hackathons'] })
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || 'Помилка при оновленні статусу';
+      toast.error(msg);
+    },
+  })
+
   const hackathons = data?.data.data ?? []
   const total = data?.data.total ?? 0
   const allTags: TagType[] = tagsData?.data.data ?? []
@@ -101,7 +114,22 @@ export function HackathonsListPage() {
     {
       key: 'status',
       header: 'Статус',
-      render: (h) => <StatusBadge status={h.status} />,
+      render: (h) => (
+        <select
+          value={h.status}
+          onChange={(e) => updateStatusMut.mutate({ id: h.id, status: e.target.value as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' })}
+          disabled={updateStatusMut.isPending}
+          className="text-xs font-semibold px-2.5 py-1 rounded-full border border-border bg-background outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
+          style={{
+            backgroundColor: h.status === 'PUBLISHED' ? 'var(--green-50, #f0fdf4)' : h.status === 'ARCHIVED' ? 'var(--purple-50, #faf5ff)' : 'var(--gray-50, #f9fafb)',
+            color: h.status === 'PUBLISHED' ? 'var(--green-700, #15803d)' : h.status === 'ARCHIVED' ? 'var(--purple-700, #7e22ce)' : 'var(--gray-700, #374151)'
+          }}
+        >
+          <option value="DRAFT">Чернетка</option>
+          <option value="PUBLISHED">Опубліковано</option>
+          <option value="ARCHIVED">Архів</option>
+        </select>
+      ),
     },
     {
       key: 'dates',
@@ -132,6 +160,7 @@ export function HackathonsListPage() {
           >
             <Eye className="h-4 w-4 text-muted-foreground" />
           </button>
+
           <button
             title="Редагувати"
             className="rounded-md p-1.5 hover:bg-accent transition-colors"

@@ -58,7 +58,14 @@ export function DashboardPage() {
       const d = new Date()
       d.setDate(d.getDate() - i)
       const dateStr = d.toISOString().split('T')[0]
-      const count = users.filter(u => u.createdAt?.startsWith(dateStr)).length
+      const count = users.filter(u => {
+        if (!u.createdAt) return false
+        try {
+          return new Date(u.createdAt).toISOString().split('T')[0] === dateStr
+        } catch (e) {
+          return false
+        }
+      }).length
       data.push({ date: d.toLocaleDateString('uk-UA', { weekday: 'short' }), count })
     }
     return data
