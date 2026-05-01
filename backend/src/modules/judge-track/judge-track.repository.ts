@@ -11,10 +11,12 @@ export class JudgeTrackRepository {
     return this.db
       .select({
         id: judgeTrack.id,
+        userId: judgeTrack.userId,
+        trackId: judgeTrack.trackId,
         isHeadJudge: judgeTrack.isHeadJudge,
         assignedAt: judgeTrack.assignedAt,
         assignedBy: judgeTrack.assignedBy,
-        judge: {
+        user: {
           id: users.id,
           fullName: users.fullName,
           email: users.email,

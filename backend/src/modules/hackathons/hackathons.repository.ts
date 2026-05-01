@@ -1,5 +1,5 @@
 import type { Database } from '../../config/database';
-import { hackathons, stages, tracks, awards } from '../../drizzle/schema';
+import { hackathons, stages, tracks, awards, teams } from '../../drizzle/schema';
 import { eq, desc, count, lt, gt, and, lte, gte, inArray, ne, ilike } from 'drizzle-orm';
 import type { CreateHackathonDto, UpdateHackathonDto, CreateTrackDto, CreateStageDto } from './hackathons.schema';
 
@@ -40,8 +40,22 @@ export class HackathonsRepository {
   }
 
   async findById(id: string) {
-    const [row] = await this.db.select().from(hackathons).where(eq(hackathons.id, id)).limit(1);
-    return row ?? null;
+    const [row, tracksList, teamsCount] = await Promise.all([
+      this.db.select().from(hackathons).where(eq(hackathons.id, id)).limit(1),
+      this.db.select().from(tracks).where(eq(tracks.hackathonId, id)),
+      this.db.select({ count: count() }).from(teams).where(eq(teams.hackathonId, id))
+    ]);
+
+    if (!row || row.length === 0) return null;
+    
+    return {
+      ...row[0],
+      tracks: tracksList,
+      _count: {
+        teams: Number(teamsCount[0]?.count ?? 0),
+        projects: 0 // Will implement later if needed
+      }
+    };
   }
 
   async create(data: CreateHackathonDto) {

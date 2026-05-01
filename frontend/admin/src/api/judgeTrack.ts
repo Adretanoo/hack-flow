@@ -15,23 +15,23 @@ export interface JudgeAssignment {
 }
 
 export const judgeTrackApi = {
-  // GET /judge-track/:hackathonId — all assignments for a hackathon
+  // GET /hackathons/:hackathonId/judges — all assignments for a hackathon
   list: (hackathonId: string) =>
-    api.get<ApiResponse<JudgeAssignment[]>>(`/judge-track/${hackathonId}`),
+    api.get<ApiResponse<JudgeAssignment[]>>(`/hackathons/${hackathonId}/judges`),
 
-  // POST /judge-track — assign a judge to a track
-  assign: (data: { userId: string; trackId: string; isHeadJudge?: boolean }) =>
-    api.post<ApiResponse<JudgeAssignment>>('/judge-track', data),
+  // POST /hackathons/:hackathonId/judges — assign a judge to a track
+  assign: (hackathonId: string, data: { userId: string; trackId: string; isHeadJudge?: boolean }) =>
+    api.post<ApiResponse<JudgeAssignment>>(`/hackathons/${hackathonId}/judges`, data),
 
-  // PATCH /judge-track/:id — update head-judge flag
-  update: (id: string, data: { isHeadJudge: boolean }) =>
-    api.patch<ApiResponse<JudgeAssignment>>(`/judge-track/${id}`, data),
+  // PATCH /hackathons/:hackathonId/judges/:id — update head-judge flag
+  update: (hackathonId: string, id: string, data: { isHeadJudge: boolean }) =>
+    api.patch<ApiResponse<JudgeAssignment>>(`/hackathons/${hackathonId}/judges/${id}`, data),
 
-  // DELETE /judge-track/:id — remove assignment
-  remove: (id: string) =>
-    api.delete(`/judge-track/${id}`),
+  // DELETE /hackathons/:hackathonId/judges/:id — remove assignment
+  remove: (hackathonId: string, id: string) =>
+    api.delete(`/hackathons/${hackathonId}/judges/${id}`),
 
-  // GET /judge-track/:hackathonId/track/:trackId — judges for a specific track
+  // GET /hackathons/:hackathonId/tracks/:trackId/judges — judges for a specific track
   listByTrack: (hackathonId: string, trackId: string) =>
-    api.get<ApiResponse<JudgeAssignment[]>>(`/judge-track/${hackathonId}/track/${trackId}`),
+    api.get<ApiResponse<JudgeAssignment[]>>(`/hackathons/${hackathonId}/tracks/${trackId}/judges`),
 }

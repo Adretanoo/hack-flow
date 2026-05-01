@@ -480,3 +480,56 @@ export const teamApprovalsRelations = relations(teamApprovals, ({ one }) => ({
   team: one(teams, { fields: [teamApprovals.teamId], references: [teams.id] }),
   reviewer: one(users, { fields: [teamApprovals.approvedBy], references: [users.id] }),
 }));
+
+export const tracksRelations = relations(tracks, ({ one, many }) => ({
+  hackathon: one(hackathons, { fields: [tracks.hackathonId], references: [hackathons.id] }),
+  teams: many(teams),
+}));
+
+export const stagesRelations = relations(stages, ({ one, many }) => ({
+  hackathon: one(hackathons, { fields: [stages.hackathonId], references: [hackathons.id] }),
+  projects: many(projects),
+}));
+
+export const awardsRelations = relations(awards, ({ one }) => ({
+  hackathon: one(hackathons, { fields: [awards.hackathonId], references: [hackathons.id] }),
+}));
+
+export const userRolesRelations = relations(userRoles, ({ one }) => ({
+  user: one(users, { fields: [userRoles.userId], references: [users.id] }),
+  role: one(roles, { fields: [userRoles.roleId], references: [roles.id] }),
+  hackathon: one(hackathons, { fields: [userRoles.hackathonId], references: [hackathons.id] }),
+}));
+
+export const userTokensRelations = relations(userTokens, ({ one }) => ({
+  user: one(users, { fields: [userTokens.userId], references: [users.id] }),
+}));
+
+export const userSocialsRelations = relations(userSocials, ({ one }) => ({
+  user: one(users, { fields: [userSocials.userId], references: [users.id] }),
+}));
+
+export const scoresRelations = relations(scores, ({ one }) => ({
+  judge: one(users, { fields: [scores.judgeId], references: [users.id] }),
+  project: one(projects, { fields: [scores.projectId], references: [projects.id] }),
+}));
+
+export const judgeConflictsRelations = relations(judgeConflicts, ({ one }) => ({
+  user: one(users, { fields: [judgeConflicts.judgeId], references: [users.id] }),
+}));
+
+export const mentorAvailabilitiesRelations = relations(mentorAvailabilities, ({ one }) => ({
+  mentor: one(users, { fields: [mentorAvailabilities.mentorId], references: [users.id] }),
+}));
+
+export const userActionLogsRelations = relations(userActionLogs, ({ one }) => ({
+  user: one(users, { fields: [userActionLogs.userId], references: [users.id] }),
+}));
+
+export const teamInvitesRelations = relations(teamInvites, ({ one }) => ({
+  team: one(teams, { fields: [teamInvites.teamId], references: [teams.id] }),
+}));
+
+export const projectResourcesRelations = relations(projectResources, ({ one }) => ({
+  project: one(projects, { fields: [projectResources.projectId], references: [projects.id] }),
+}));

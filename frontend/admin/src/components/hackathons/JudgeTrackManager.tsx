@@ -30,13 +30,13 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
   })
 
   const { data: usersData } = useQuery({
-    queryKey: ['users', 'all'],
-    queryFn: () => usersApi.list({ limit: 100 }),
+    queryKey: ['users', 'judges'],
+    queryFn: () => usersApi.list({ limit: 100, role: 'judge' }),
   })
 
-  const assignments: JudgeAssignment[] = (assignmentsData?.data.data as JudgeAssignment[]) ?? []
-  const tracks: Track[] = tracksData?.data.data ?? []
-  const users: UserProfile[] = (usersData?.data.data ?? []) as UserProfile[]
+  const assignments: JudgeAssignment[] = (assignmentsData?.data?.data as JudgeAssignment[]) ?? []
+  const tracks: Track[] = tracksData?.data?.data ?? []
+  const users: UserProfile[] = (usersData?.data?.data ?? []) as UserProfile[]
 
   // Build set of unique judges
   const judgeIds = [...new Set(assignments.map((a) => a.userId))]
@@ -45,22 +45,24 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
     return found?.user ?? users.find((u) => u.id === uid)
   }).filter(Boolean)
 
-
   const getAssignment = (userId: string, trackId: string) =>
     assignments.find((a) => a.userId === userId && a.trackId === trackId)
 
   const assignMut = useMutation({
     mutationFn: (data: { userId: string; trackId: string; isHeadJudge?: boolean }) =>
-      judgeTrackApi.assign(data),
+      judgeTrackApi.assign(hackathonId, data),
     onSuccess: () => {
       toast.success('Суддю призначено')
       qc.invalidateQueries({ queryKey: ['judgeAssignments', hackathonId] })
     },
-    onError: () => toast.error('Помилка при призначенні'),
+    onError: (err: any) => {
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || 'Помилка при призначенні';
+      toast.error(msg);
+    },
   })
 
   const removeMut = useMutation({
-    mutationFn: (id: string) => judgeTrackApi.remove(id),
+    mutationFn: (id: string) => judgeTrackApi.remove(hackathonId, id),
     onSuccess: () => {
       toast.success('Суддю знято')
       qc.invalidateQueries({ queryKey: ['judgeAssignments', hackathonId] })
@@ -70,7 +72,7 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
 
   const toggleMut = useMutation({
     mutationFn: ({ id, isHeadJudge }: { id: string; isHeadJudge: boolean }) =>
-      judgeTrackApi.update(id, { isHeadJudge }),
+      judgeTrackApi.update(hackathonId, id, { isHeadJudge }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['judgeAssignments', hackathonId] }),
   })
 
