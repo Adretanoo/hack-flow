@@ -12,6 +12,8 @@ const TeamListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   hackathon_id: z.string().uuid().optional(),
   track_id: z.string().uuid().optional(),
+  search: z.string().optional(),
+  status: z.string().optional(),
 });
 
 const Sec = [{ bearerAuth: [] }];
@@ -35,12 +37,14 @@ export async function teamsRoutes(app: FastifyInstance): Promise<void> {
           limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
           hackathon_id: { type: 'string', format: 'uuid' },
           track_id: { type: 'string', format: 'uuid' },
+          status: { type: 'string' },
+          search: { type: 'string' },
         },
       },
     },
   }, async (req, reply) => {
     const q = TeamListQuerySchema.parse(req.query);
-    const result = await service.list(q.page, q.limit, q.hackathon_id, q.track_id);
+    const result = await service.list(q.page, q.limit, q.hackathon_id, q.track_id, q.status, q.search);
     return reply.send({ success: true, ...result });
   });
 

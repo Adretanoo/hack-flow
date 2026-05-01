@@ -85,8 +85,13 @@ export class JudgingRepository {
     const stageIds = hackathonStages.map((s) => s.id);
 
     return this.db
-      .select()
+      .select({
+        id: projects.id,
+        teamId: projects.teamId,
+        teamName: teams.name,
+      })
       .from(projects)
+      .innerJoin(teams, eq(projects.teamId, teams.id))
       .where(and(inArray(projects.stageId, stageIds), isNull(projects.deletedAt)));
   }
 

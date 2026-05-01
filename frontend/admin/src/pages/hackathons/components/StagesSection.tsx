@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { hackathonsApi } from '@/api/hackathons'
-import { Plus, Trash2, Check, X } from 'lucide-react'
+import { Plus, Trash2, Check, X, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/utils/format'
 import type { Stage } from '@/types/api.types'
@@ -26,6 +26,7 @@ const STAGE_COLORS = [
 export function StagesSection({ hackathonId, stages: initialStages = [], hackathonStart, hackathonEnd }: StagesSectionProps) {
   const qc = useQueryClient()
   const [adding, setAdding] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState({ name: '', startDate: '', endDate: '', orderIndex: '1' })
 
   const { data: stagesData } = useQuery({
@@ -52,6 +53,23 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
       setForm({ name: '', startDate: '', endDate: '', orderIndex: String(sorted.length + 2) })
     },
     onError: () => toast.error('Помилка при створенні стадії'),
+  })
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Stage> }) =>
+      hackathonsApi.updateStage(id, {
+        name: data.name,
+        startDate: data.startDate ? new Date(data.startDate).toISOString() : undefined,
+        endDate: data.endDate ? new Date(data.endDate).toISOString() : undefined,
+        orderIndex: data.orderIndex !== undefined ? Number(data.orderIndex) : undefined,
+      }),
+    onSuccess: () => {
+      toast.success('Стадію оновлено')
+      qc.invalidateQueries({ queryKey: ['stages', hackathonId] })
+      qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
+      setEditingId(null)
+    },
+    onError: () => toast.error('Помилка при оновленні стадії'),
   })
 
   const deleteMut = useMutation({
@@ -96,35 +114,84 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
           const isPast = now > end
           return (
             <div key={stage.id} className={clsx(
-              'flex items-center justify-between rounded-lg border px-4 py-3',
+              'rounded-lg border px-4 py-3',
               isActive ? 'border-primary/40 bg-primary/5' : 'border-border bg-background',
             )}>
-              <div className="flex items-center gap-3">
-                <span className={clsx('h-2.5 w-2.5 rounded-full', STAGE_COLORS[i % STAGE_COLORS.length])} />
-                <div>
-                  <p className={clsx('text-sm font-medium', isPast && 'text-muted-foreground line-through')}>
-                    {stage.name}
-                    {isActive && (
-                      <span className="ml-2 rounded-full bg-primary/20 px-2 py-0.5 text-xs text-primary font-normal">
-                        Зараз
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatDate(stage.startDate)} — {formatDate(stage.endDate)}
-                  </p>
+              {editingId === stage.id ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <input placeholder="Назва *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} />
+                    <input type="number" placeholder="Порядок *" value={form.orderIndex} onChange={(e) => setForm({ ...form, orderIndex: e.target.value })} className={inputCls} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Початок *</label>
+                      <input type="datetime-local" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Завершення *</label>
+                      <input type="datetime-local" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className={inputCls} />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => updateMut.mutate({ id: stage.id, data: { name: form.name, startDate: form.startDate, endDate: form.endDate, orderIndex: Number(form.orderIndex) } })} disabled={!form.name || !form.startDate || !form.endDate || updateMut.isPending}
+                      className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+                      <Check className="h-3.5 w-3.5" /> Зберегти
+                    </button>
+                    <button type="button" onClick={() => setEditingId(null)}
+                      className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent">
+                      <X className="h-3.5 w-3.5" /> Скасувати
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-col items-end gap-1">
-                <button
-                  type="button"
-                  className="rounded-md p-1 hover:bg-destructive/10 transition-colors"
-                  onClick={() => deleteMut.mutate(stage.id)}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </button>
-                <span className="text-xs text-muted-foreground">#{stage.orderIndex}</span>
-              </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className={clsx('h-2.5 w-2.5 rounded-full', STAGE_COLORS[i % STAGE_COLORS.length])} />
+                    <div>
+                      <p className={clsx('text-sm font-medium', isPast && 'text-muted-foreground line-through')}>
+                        {stage.name}
+                        {isActive && (
+                          <span className="ml-2 rounded-full bg-primary/20 px-2 py-0.5 text-xs text-primary font-normal">
+                            Зараз
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(stage.startDate)} — {formatDate(stage.endDate)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        className="rounded-md p-1 hover:bg-accent transition-colors"
+                        onClick={() => {
+                          setEditingId(stage.id);
+                          setAdding(false);
+                          setForm({
+                            name: stage.name,
+                            startDate: new Date(stage.startDate).toISOString().slice(0, 16),
+                            endDate: new Date(stage.endDate).toISOString().slice(0, 16),
+                            orderIndex: String(stage.orderIndex)
+                          });
+                        }}
+                      >
+                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-md p-1 hover:bg-destructive/10 transition-colors"
+                        onClick={() => deleteMut.mutate(stage.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </button>
+                    </div>
+                    <span className="text-xs text-muted-foreground">#{stage.orderIndex}</span>
+                  </div>
+                </div>
+              )}
             </div>
           )
         })}
@@ -186,8 +253,12 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
             </button>
           </div>
         </div>
-      ) : (
-        <button type="button" onClick={() => setAdding(true)}
+      ) : !editingId && (
+        <button type="button" onClick={() => {
+          setAdding(true);
+          setEditingId(null);
+          setForm({ name: '', startDate: '', endDate: '', orderIndex: String(sorted.length + 2) });
+        }}
           className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors w-full mt-4">
           <Plus className="h-4 w-4" /> Додати стадію
         </button>

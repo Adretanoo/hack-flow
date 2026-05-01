@@ -153,6 +153,23 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
     },
   }, (req, reply) => ctrl.deleteTrack(req, reply));
 
+  app.put('/tracks/:id', {
+    onRequest: [authenticate, authorize('admin')],
+    schema: {
+      tags: ['Hackathons'],
+      summary: 'Update a track — admin only',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', minLength: 2, maxLength: 100 },
+          description: { type: 'string', maxLength: 500 },
+        },
+      },
+    },
+  }, (req, reply) => ctrl.updateTrack(req, reply));
+
   app.post('/:id/stages', {
     onRequest: [authenticate, authorize('admin')],
     schema: {
@@ -173,6 +190,25 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, (req, reply) => ctrl.createStage(req, reply));
+
+  app.put('/stages/:id', {
+    onRequest: [authenticate, authorize('admin')],
+    schema: {
+      tags: ['Hackathons'],
+      summary: 'Update a stage — admin only',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', minLength: 1, maxLength: 100 },
+          startDate: { type: 'string', format: 'date-time' },
+          endDate: { type: 'string', format: 'date-time' },
+          orderIndex: { type: 'integer', minimum: 0 },
+        },
+      },
+    },
+  }, (req, reply) => ctrl.updateStage(req, reply));
 
   app.delete('/stages/:id', {
     onRequest: [authenticate, authorize('admin')],

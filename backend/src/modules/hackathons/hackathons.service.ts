@@ -170,4 +170,19 @@ export class HackathonsService {
     console.info(`[status-override] Admin ${adminId}: hackathon ${hackathonId} → ${newStatus}`);
     return updated;
   }
+
+  async updateTrack(id: string, dto: any) {
+    return this.repo.updateTrack(id, dto);
+  }
+
+  async updateStage(id: string, dto: any) {
+    const stageDto = { ...dto };
+    if (stageDto.startDate) stageDto.startDate = new Date(stageDto.startDate);
+    if (stageDto.endDate) stageDto.endDate = new Date(stageDto.endDate);
+    return this.repo.updateStage(id, stageDto);
+  }
+
+  async updateAward(id: string, dto: any) {
+    return this.repo.updateAward(id, dto);
+  }
 }

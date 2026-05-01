@@ -2,7 +2,7 @@
 // findById, findByHackathon, findAllPaginated all filter isNull(teams.deletedAt).
 import type { Database } from '../../config/database';
 import { teams, teamMembers, teamInvites, teamApprovals } from '../../drizzle/schema';
-import { eq, and, count, isNull, desc } from 'drizzle-orm';
+import { eq, and, count, isNull, desc, sql } from 'drizzle-orm';
 import type { CreateTeamDto, UpdateTeamDto } from './teams.schema';
 
 export class TeamsRepository {
@@ -29,24 +29,56 @@ export class TeamsRepository {
     limit: number,
     hackathonId?: string,
     trackId?: string,
+    status?: string,
+    search?: string,
   ) {
     const offset = (page - 1) * limit;
     const conditions = [isNull(teams.deletedAt)];
-    if (hackathonId) conditions.push(eq(teams.hackathonId, hackathonId));
-    if (trackId) conditions.push(eq(teams.trackId, trackId));
-    const where = and(...conditions);
+    if (hackathonId) {
+      conditions.push(eq(teams.hackathonId, hackathonId));
+    }
+    if (trackId) {
+      conditions.push(eq(teams.trackId, trackId));
+    }
+    if (search) {
+      conditions.push(sql`${teams.name} ILIKE ${'%' + search + '%'}`);
+    }
 
-    const [rows, [{ total }]] = await Promise.all([
-      this.db
-        .select()
-        .from(teams)
-        .where(where)
-        .orderBy(desc(teams.createdAt))
-        .limit(limit)
-        .offset(offset),
-      this.db.select({ total: count() }).from(teams).where(where),
-    ]);
-    return { rows, total: Number(total) };
+    if (status) {
+      if (status === 'PENDING') {
+        conditions.push(sql`(COALESCE((SELECT status FROM team_approvals WHERE team_id = teams.id ORDER BY approved_at DESC NULLS LAST LIMIT 1), 'PENDING') = 'PENDING')`);
+      } else {
+        conditions.push(sql`((SELECT status FROM team_approvals WHERE team_id = teams.id ORDER BY approved_at DESC NULLS LAST LIMIT 1) = ${status})`);
+      }
+    }
+    
+    console.log('Status filter:', status);
+    console.log('Search filter:', search);
+    
+    const where = and(...conditions);
+    
+    const rows = await this.db.query.teams.findMany({
+      where,
+      orderBy: [desc(teams.createdAt)],
+      limit,
+      offset,
+      with: {
+        hackathon: { columns: { title: true } },
+        track: { columns: { name: true } },
+        members: { columns: { id: true } },
+        approvals: { orderBy: (approvals, { desc }) => [desc(approvals.approvedAt)], limit: 1 },
+      }
+    });
+
+    const [{ total }] = await this.db.select({ total: count() }).from(teams).where(where);
+    
+    const mappedRows = rows.map(r => ({
+      ...r,
+      _count: { members: r.members.length },
+      approvalStatus: r.approvals[0]?.status ?? 'PENDING',
+    }));
+
+    return { rows: mappedRows, total: Number(total) };
   }
 
   async create(data: CreateTeamDto) {

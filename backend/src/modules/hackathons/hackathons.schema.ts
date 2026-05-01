@@ -39,6 +39,14 @@ export const UpdateStatusParamsSchema = z.object({
   hackathonId: z.string().uuid(),
 });
 
+export const UpdateTrackSchema = CreateTrackSchema.partial();
+export const UpdateStageSchema = CreateStageSchema.partial();
+export const UpdateAwardSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().optional(),
+  value: z.string().optional(),
+});
+
 export const PaginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -53,4 +61,7 @@ export type PaginationDto = z.infer<typeof PaginationSchema>;
 export type CreateHackathonDto = z.infer<typeof CreateHackathonSchema>;
 export type UpdateHackathonDto = z.infer<typeof UpdateHackathonSchema>;
 export type CreateTrackDto = z.infer<typeof CreateTrackSchema>;
+export type UpdateTrackDto = z.infer<typeof UpdateTrackSchema>;
 export type CreateStageDto = z.infer<typeof CreateStageSchema>;
+export type UpdateStageDto = z.infer<typeof UpdateStageSchema>;
+export type UpdateAwardDto = z.infer<typeof UpdateAwardSchema>;

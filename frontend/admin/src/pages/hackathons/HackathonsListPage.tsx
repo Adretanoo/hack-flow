@@ -67,9 +67,9 @@ export function HackathonsListPage() {
   const total = data?.data.total ?? 0
   const allTags: TagType[] = tagsData?.data.data ?? []
 
-  const toggleTag = (tagId: string) => {
+  const toggleTag = (tagName: string) => {
     setSelectedTags((prev) =>
-      prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId],
+      prev.includes(tagName) ? prev.filter((t) => t !== tagName) : [...prev, tagName],
     )
     setPage(1)
   }
@@ -223,8 +223,8 @@ export function HackathonsListPage() {
                   >
                     <input
                       type="checkbox"
-                      checked={selectedTags.includes(tag.id)}
-                      onChange={() => toggleTag(tag.id)}
+                      checked={selectedTags.includes(tag.name)}
+                      onChange={() => toggleTag(tag.name)}
                       className="h-3.5 w-3.5 accent-primary"
                     />
                     {tag.name}

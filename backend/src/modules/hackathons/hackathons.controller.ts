@@ -3,8 +3,10 @@ import type { HackathonsService } from './hackathons.service';
 import {
   CreateHackathonSchema,
   UpdateHackathonSchema,
-  CreateTrackSchema,
+  UpdateTrackSchema,
   CreateStageSchema,
+  UpdateStageSchema,
+  UpdateAwardSchema,
   UuidParamSchema,
   PaginationSchema,
   SetHackathonStatusSchema,
@@ -77,6 +79,24 @@ export class HackathonsController {
     const { id } = UuidParamSchema.parse(request.params);
     await this.service.deleteStage(id);
     return reply.status(204).send();
+  }
+
+  async updateTrack(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    const body = UpdateTrackSchema.parse(request.body);
+    return reply.send({ success: true, data: await this.service.updateTrack(id, body) });
+  }
+
+  async updateStage(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    const body = UpdateStageSchema.parse(request.body);
+    return reply.send({ success: true, data: await this.service.updateStage(id, body) });
+  }
+
+  async updateAward(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    const body = UpdateAwardSchema.parse(request.body);
+    return reply.send({ success: true, data: await this.service.updateAward(id, body) });
   }
 
   async setStatus(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {

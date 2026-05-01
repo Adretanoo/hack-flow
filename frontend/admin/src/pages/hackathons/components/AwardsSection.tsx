@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { hackathonsApi } from '@/api/hackathons'
-import { Plus, Trash2, Trophy, Check, X } from 'lucide-react'
+import { Plus, Trash2, Trophy, Check, X, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Award } from '@/types/api.types'
 import { inputCls } from './FormSection'
@@ -20,6 +20,7 @@ const PLACE_COLORS: Record<number, string> = {
 export function AwardsSection({ hackathonId, awards: initialAwards = [] }: AwardsSectionProps) {
   const qc = useQueryClient()
   const [adding, setAdding] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState({ name: '', place: '1', description: '', certificate: '' })
 
   const { data: awardsData } = useQuery({
@@ -47,6 +48,23 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [] }: Award
     onError: () => toast.error('Помилка при створенні нагороди'),
   })
 
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Award> }) =>
+      hackathonsApi.updateAward(hackathonId, id, {
+        name: data.name,
+        place: data.place !== undefined ? Number(data.place) : undefined,
+        description: data.description || undefined,
+        certificate: data.certificate || undefined,
+      }),
+    onSuccess: () => {
+      toast.success('Нагороду оновлено')
+      qc.invalidateQueries({ queryKey: ['awards', hackathonId] })
+      qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
+      setEditingId(null)
+    },
+    onError: () => toast.error('Помилка при оновленні нагороди'),
+  })
+
   const deleteMut = useMutation({
     mutationFn: (awardId: string) => hackathonsApi.deleteAward(hackathonId, awardId),
     onSuccess: () => {
@@ -66,27 +84,69 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [] }: Award
       )}
 
       {sorted.map((award) => (
-        <div key={award.id} className="flex items-start gap-3 rounded-lg border border-border bg-background px-4 py-3">
-          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${PLACE_COLORS[award.place] ?? 'bg-muted text-muted-foreground'}`}>
-            {award.place}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-              <p className="text-sm font-medium">{award.name}</p>
+        <div key={award.id} className="rounded-lg border border-border bg-background px-4 py-3">
+          {editingId === award.id ? (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <input placeholder="Назва нагороди *" value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} />
+                <input type="number" min="1" max="100" placeholder="Місце *" value={form.place}
+                  onChange={(e) => setForm({ ...form, place: e.target.value })} className={inputCls} />
+              </div>
+              <input placeholder="Опис нагороди (необов'язково)" value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })} className={inputCls} />
+              <input placeholder="Посилання на сертифікат (необов'язково)" value={form.certificate}
+                onChange={(e) => setForm({ ...form, certificate: e.target.value })} className={inputCls} />
+              <div className="flex gap-2">
+                <button type="button" onClick={() => updateMut.mutate({ id: award.id, data: { name: form.name, place: Number(form.place), description: form.description, certificate: form.certificate } })} disabled={!form.name || !form.place || updateMut.isPending}
+                  className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+                  <Check className="h-3.5 w-3.5" /> Зберегти
+                </button>
+                <button type="button" onClick={() => setEditingId(null)}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent">
+                  <X className="h-3.5 w-3.5" /> Скасувати
+                </button>
+              </div>
             </div>
-            {award.description && <p className="text-xs text-muted-foreground mt-0.5">{award.description}</p>}
-            {award.certificate && (
-              <a href={award.certificate} target="_blank" rel="noreferrer"
-                className="text-xs text-primary hover:underline mt-0.5 block">
-                🎖 Сертифікат
-              </a>
-            )}
-          </div>
-          <button type="button" onClick={() => deleteMut.mutate(award.id)}
-            className="rounded-md p-1.5 hover:bg-destructive/10 transition-colors shrink-0">
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </button>
+          ) : (
+            <div className="flex items-start gap-3">
+              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${PLACE_COLORS[award.place] ?? 'bg-muted text-muted-foreground'}`}>
+                {award.place}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  <p className="text-sm font-medium">{award.name}</p>
+                </div>
+                {award.description && <p className="text-xs text-muted-foreground mt-0.5">{award.description}</p>}
+                {award.certificate && (
+                  <a href={award.certificate} target="_blank" rel="noreferrer"
+                    className="text-xs text-primary hover:underline mt-0.5 block">
+                    🎖 Сертифікат
+                  </a>
+                )}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button type="button" onClick={() => {
+                  setEditingId(award.id)
+                  setAdding(false)
+                  setForm({
+                    name: award.name,
+                    place: String(award.place),
+                    description: award.description || '',
+                    certificate: award.certificate || ''
+                  })
+                }}
+                  className="rounded-md p-1.5 hover:bg-accent transition-colors">
+                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                </button>
+                <button type="button" onClick={() => deleteMut.mutate(award.id)}
+                  className="rounded-md p-1.5 hover:bg-destructive/10 transition-colors">
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ))}
 
@@ -114,8 +174,12 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [] }: Award
             </button>
           </div>
         </div>
-      ) : (
-        <button type="button" onClick={() => setAdding(true)}
+      ) : !editingId && (
+        <button type="button" onClick={() => {
+          setAdding(true);
+          setEditingId(null);
+          setForm({ name: '', place: String(sorted.length + 1), description: '', certificate: '' });
+        }}
           className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors w-full">
           <Plus className="h-4 w-4" /> Додати нагороду
         </button>

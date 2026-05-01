@@ -160,22 +160,22 @@ export function TeamsListPage() {
       header: '',
       className: 'w-28',
       render: (t) => (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 justify-end">
           <button title="Переглянути" className="rounded-md p-1.5 hover:bg-accent"
             onClick={() => navigate(`/teams/${t.id}`)}>
             <Eye className="h-4 w-4 text-muted-foreground" />
           </button>
-          {t.approvalStatus === 'PENDING' && (
-            <>
-              <button title="Схвалити" className="rounded-md p-1.5 hover:bg-green-50"
-                onClick={() => approvalMut.mutate({ id: t.id, status: 'APPROVED' })}>
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-              </button>
-              <button title="Відхилити" className="rounded-md p-1.5 hover:bg-red-50"
-                onClick={() => setRejectTarget(t.id)}>
-                <XCircle className="h-4 w-4 text-red-500" />
-              </button>
-            </>
+          {t.approvalStatus !== 'APPROVED' && (
+            <button title="Схвалити" className="rounded-md p-1.5 hover:bg-green-50"
+              onClick={() => approvalMut.mutate({ id: t.id, status: 'APPROVED' })}>
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+            </button>
+          )}
+          {t.approvalStatus !== 'REJECTED' && (
+            <button title="Відхилити" className="rounded-md p-1.5 hover:bg-red-50"
+              onClick={() => setRejectTarget(t.id)}>
+              <XCircle className="h-4 w-4 text-red-500" />
+            </button>
           )}
         </div>
       ),

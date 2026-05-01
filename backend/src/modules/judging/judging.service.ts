@@ -175,6 +175,7 @@ export class JudgingService {
         rank: idx + 1,
         projectId,
         teamId: projectMap.get(projectId)?.teamId ?? '',
+        teamName: (projectMap.get(projectId) as any)?.teamName ?? 'Невідома команда',
         totalScore: Math.round(totalScore * 100) / 100,
         normalizedScore: Math.round(totalScore * 100) / 100,
       }));

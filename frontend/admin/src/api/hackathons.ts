@@ -49,8 +49,11 @@ export const hackathonsApi = {
   listTracks: (id: string) =>
     api.get<ApiResponse<Track[]>>(`/hackathons/${id}/tracks`),
 
-  createTrack: (id: string, data: { name: string; description?: string }) =>
+  createTrack: (id: string, data: Partial<Track>) =>
     api.post<ApiResponse<Track>>(`/hackathons/${id}/tracks`, data),
+
+  updateTrack: (id: string, data: Partial<Track>) =>
+    api.put<ApiResponse<Track>>(`/hackathons/tracks/${id}`, data),
 
   deleteTrack: (trackId: string) =>
     api.delete(`/hackathons/tracks/${trackId}`),
@@ -59,8 +62,11 @@ export const hackathonsApi = {
   listStages: (id: string) =>
     api.get<ApiResponse<Stage[]>>(`/hackathons/${id}/stages`),
 
-  createStage: (id: string, data: { name: string; startDate: string; endDate: string; orderIndex: number }) =>
+  createStage: (id: string, data: Partial<Stage>) =>
     api.post<ApiResponse<Stage>>(`/hackathons/${id}/stages`, data),
+
+  updateStage: (id: string, data: Partial<Stage>) =>
+    api.put<ApiResponse<Stage>>(`/hackathons/stages/${id}`, data),
 
   deleteStage: (stageId: string) =>
     api.delete(`/hackathons/stages/${stageId}`),

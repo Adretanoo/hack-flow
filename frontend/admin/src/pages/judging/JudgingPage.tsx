@@ -52,7 +52,7 @@ export function JudgingPage() {
   const { data: leaderboardData, isLoading: boardLoading, isFetching: boardFetching } = useQuery({
     queryKey: ['leaderboard', hackathonId],
     queryFn: () => judgingApi.getLeaderboard(hackathonId!),
-    enabled: !!hackathonId && activeTab === 'leaderboard',
+    enabled: !!hackathonId && (activeTab === 'leaderboard' || activeTab === 'scores'),
   })
 
   const { data: conflictsData, isLoading: conflictsLoading } = useQuery({
@@ -173,13 +173,20 @@ export function JudgingPage() {
       )}
 
       {activeTab === 'scores' && (
-        <div className="rounded-xl border border-border bg-card p-10 text-center text-muted-foreground italic">
-          Оцінок ще немає або виберіть проєкт, щоб відкрити панель з деталями.
-          <br /><br />
-          {/* Temporary trigger to test drawer until projectsApi is hooked up */}
-          <button onClick={() => setSelectedProjectId('test-id')} className="text-primary hover:underline">
-            Тест: Відкрити деталі оцінок
-          </button>
+        <div className="space-y-3">
+          <DataTable
+            columns={[
+              { key: 'team', header: 'Команда (Проєкт)', render: (l) => <span className="font-medium">{l.teamName}</span> },
+              { key: 'actions', header: '', className: 'text-right', render: (l) => (
+                <button onClick={() => setSelectedProjectId(l.projectId)} className="rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-xs font-medium hover:bg-primary/20 transition-colors">
+                  Оцінити
+                </button>
+              )}
+            ]}
+            data={leaderboard}
+            loading={boardLoading}
+            emptyTitle="Немає проєктів для оцінювання"
+          />
         </div>
       )}
 

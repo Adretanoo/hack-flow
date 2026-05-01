@@ -178,7 +178,7 @@ export function HackathonDetailPage() {
 
       {activeTab === 'stages' && (
         <div className="space-y-4">
-          <StagesSection stages={hackathon.stages ?? []} hackathonStart={hackathon.startDate} hackathonEnd={hackathon.endDate} />
+          <StagesSection hackathonId={hackathon.id} stages={hackathon.stages ?? []} hackathonStart={hackathon.startDate} hackathonEnd={hackathon.endDate} />
 
           {/* Manual status override */}
           <div className="rounded-xl border border-border bg-card p-5">

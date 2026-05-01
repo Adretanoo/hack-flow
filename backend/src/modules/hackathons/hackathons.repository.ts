@@ -1,5 +1,5 @@
 import type { Database } from '../../config/database';
-import { hackathons, stages, tracks } from '../../drizzle/schema';
+import { hackathons, stages, tracks, awards } from '../../drizzle/schema';
 import { eq, desc, count, lt, gt, and, lte, gte, inArray, ne, ilike } from 'drizzle-orm';
 import type { CreateHackathonDto, UpdateHackathonDto, CreateTrackDto, CreateStageDto } from './hackathons.schema';
 
@@ -182,5 +182,20 @@ export class HackathonsRepository {
       .from(stages)
       .where(eq(stages.hackathonId, hackathonId));
     return Number(total);
+  }
+
+  async updateTrack(id: string, data: any) {
+    const [row] = await this.db.update(tracks).set(data).where(eq(tracks.id, id)).returning();
+    return row ?? null;
+  }
+
+  async updateStage(id: string, data: any) {
+    const [row] = await this.db.update(stages).set(data).where(eq(stages.id, id)).returning();
+    return row ?? null;
+  }
+
+  async updateAward(id: string, data: any) {
+    const [row] = await this.db.update(awards).set(data).where(eq(awards.id, id)).returning();
+    return row ?? null;
   }
 }
