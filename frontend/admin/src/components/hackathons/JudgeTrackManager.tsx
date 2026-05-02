@@ -5,7 +5,7 @@ import { hackathonsApi } from '@/api/hackathons'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { toast } from 'sonner'
 import { useState } from 'react'
-import { UserPlus, Crown } from 'lucide-react'
+import { UserPlus, Crown, Trash2 } from 'lucide-react'
 import type { Track, UserProfile } from '@/types/api.types'
 import { clsx } from 'clsx'
 
@@ -61,6 +61,22 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
     },
   })
 
+  const assignToAllMut = useMutation({
+    mutationFn: async (userId: string) => {
+      for (const track of tracks) {
+        const existing = getAssignment(userId, track.id)
+        if (!existing) {
+          await judgeTrackApi.assign(hackathonId, { userId, trackId: track.id })
+        }
+      }
+    },
+    onSuccess: () => {
+      toast.success('Суддю призначено на всі треки')
+      qc.invalidateQueries({ queryKey: ['judgeAssignments', hackathonId] })
+    },
+    onError: () => toast.error('Помилка при масовому призначенні'),
+  })
+
   const removeMut = useMutation({
     mutationFn: (id: string) => judgeTrackApi.remove(hackathonId, id),
     onSuccess: () => {
@@ -68,6 +84,20 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
       qc.invalidateQueries({ queryKey: ['judgeAssignments', hackathonId] })
     },
     onError: () => toast.error('Помилка при знятті'),
+  })
+
+  const removeAllMut = useMutation({
+    mutationFn: async (userId: string) => {
+      const userAssignments = assignments.filter((a) => a.userId === userId)
+      for (const assignment of userAssignments) {
+        await judgeTrackApi.remove(hackathonId, assignment.id)
+      }
+    },
+    onSuccess: () => {
+      toast.success('Суддю повністю видалено з хакатону')
+      qc.invalidateQueries({ queryKey: ['judgeAssignments', hackathonId] })
+    },
+    onError: () => toast.error('Помилка при повному видаленні'),
   })
 
   const toggleMut = useMutation({
@@ -118,9 +148,24 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
                   const j = judge as { id: string; fullName: string; email: string }
                   return (
                     <tr key={j.id} className="bg-card hover:bg-muted/20 transition-colors">
-                      <td className="px-4 py-3">
-                        <p className="font-medium">{j.fullName}</p>
-                        <p className="text-xs text-muted-foreground">{j.email}</p>
+                      <td className="px-4 py-3 relative group">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{j.fullName}</p>
+                            <p className="text-xs text-muted-foreground">{j.email}</p>
+                          </div>
+                          <button
+                            title="Видалити суддю"
+                            onClick={() => {
+                              if (confirm('Ви впевнені, що хочете видалити цього суддю з усіх треків?')) {
+                                removeAllMut.mutate(j.id)
+                              }
+                            }}
+                            className="p-1.5 text-destructive opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 rounded-md"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                       {tracks.map((track) => {
                         const assignment = getAssignment(j.id, track.id)
@@ -178,10 +223,18 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
           <select value={selectedTrackId} onChange={(e) => setSelectedTrackId(e.target.value)}
             className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring">
             <option value="">Оберіть трек…</option>
+            <option value="ALL" className="font-semibold text-primary">Всі треки</option>
             {tracks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
           <button
-            onClick={() => { assignMut.mutate({ userId: selectedUserId, trackId: selectedTrackId }); setShowAssignForm(false) }}
+            onClick={() => { 
+              if (selectedTrackId === 'ALL') {
+                assignToAllMut.mutate(selectedUserId)
+              } else {
+                assignMut.mutate({ userId: selectedUserId, trackId: selectedTrackId })
+              }
+              setShowAssignForm(false) 
+            }}
             disabled={!selectedUserId || !selectedTrackId}
             className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
             Призначити

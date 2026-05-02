@@ -28,15 +28,24 @@ export class HackathonsRepository {
 
     const [rows, [{ total }]] = await Promise.all([
       this.db
-        .select()
+        .select({
+          hackathon: hackathons,
+          teamsCount: count(teams.id),
+        })
         .from(hackathons)
+        .leftJoin(teams, eq(hackathons.id, teams.hackathonId))
         .where(whereClause)
+        .groupBy(hackathons.id)
         .orderBy(desc(hackathons.createdAt))
         .limit(limit)
         .offset(offset),
       this.db.select({ total: count() }).from(hackathons).where(whereClause),
     ]);
-    return { rows, total: Number(total) };
+    
+    return { 
+      rows: rows.map(r => ({ ...r.hackathon, _count: { teams: Number(r.teamsCount) } })), 
+      total: Number(total) 
+    };
   }
 
   async findById(id: string) {
