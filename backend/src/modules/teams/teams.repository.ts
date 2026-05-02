@@ -9,11 +9,19 @@ export class TeamsRepository {
   constructor(private readonly db: Database) {}
 
   async findById(id: string) {
-    const [row] = await this.db
-      .select()
-      .from(teams)
-      .where(and(eq(teams.id, id), isNull(teams.deletedAt)))
-      .limit(1);
+    const row = await this.db.query.teams.findFirst({
+      where: (t, { and, eq, isNull }) => and(eq(t.id, id), isNull(t.deletedAt)),
+      with: {
+        hackathon: { columns: { id: true, title: true } },
+        track: { columns: { id: true, name: true } },
+        approvals: {
+          orderBy: (a, { desc }) => [desc(a.approvedAt)],
+          with: {
+            reviewer: { columns: { fullName: true } }
+          }
+        }
+      }
+    });
     return row ?? null;
   }
 
@@ -104,7 +112,12 @@ export class TeamsRepository {
 
   // ── Members ─────────────────────────────────────────────
   async getMembers(teamId: string) {
-    return this.db.select().from(teamMembers).where(eq(teamMembers.teamId, teamId));
+    return this.db.query.teamMembers.findMany({
+      where: (m, { eq }) => eq(m.teamId, teamId),
+      with: {
+        user: { columns: { id: true, fullName: true, email: true, avatarUrl: true } }
+      }
+    });
   }
 
   async isMember(teamId: string, userId: string) {
@@ -175,16 +188,7 @@ export class TeamsRepository {
     approvedBy?: string;
     comment?: string;
   }) {
-    const existing = await this.getApproval(data.teamId);
-    if (existing) {
-      const [row] = await this.db
-        .update(teamApprovals)
-        .set({ status: data.status, approvedBy: data.approvedBy, comment: data.comment, approvedAt: new Date() })
-        .where(eq(teamApprovals.id, existing.id))
-        .returning();
-      return row;
-    }
-    const [row] = await this.db.insert(teamApprovals).values(data).returning();
+    const [row] = await this.db.insert(teamApprovals).values({ ...data, approvedAt: new Date() }).returning();
     return row;
   }
 }

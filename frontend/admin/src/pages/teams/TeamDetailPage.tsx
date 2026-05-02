@@ -222,8 +222,8 @@ export function TeamDetailPage() {
                 <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 space-y-3">
                   <h4 className="font-semibold">Рецензія</h4>
                   <select value={reviewStatus} onChange={(e) => setReviewStatus(e.target.value)} className={inputCls}>
-                    <option value="APPROVED">APPROVED</option>
-                    <option value="REJECTED">REJECTED</option>
+                    <option value="APPROVED">Схвалено (APPROVED)</option>
+                    <option value="REJECTED">Відхилено (REJECTED)</option>
                   </select>
                   <textarea rows={3} value={reviewComment} onChange={(e) => setReviewComment(e.target.value)}
                     placeholder="Коментар (необов'язково)" className={inputCls + ' resize-none'} />
@@ -244,10 +244,10 @@ export function TeamDetailPage() {
           <div className="rounded-xl border border-border bg-card p-5 space-y-3">
             <h4 className="font-semibold">Змінити рішення</h4>
             <select value={approvalStatus} onChange={(e) => setApprovalStatus(e.target.value)} className={inputCls}>
-              <option value="APPROVED">APPROVED</option>
-              <option value="REJECTED">REJECTED</option>
-              <option value="DISQUALIFIED">DISQUALIFIED</option>
-              <option value="PENDING">PENDING</option>
+              <option value="APPROVED">Схвалено (APPROVED)</option>
+              <option value="REJECTED">Відхилено (REJECTED)</option>
+              <option value="DISQUALIFIED">Дискваліфіковано (DISQUALIFIED)</option>
+              <option value="PENDING">Очікує (PENDING)</option>
             </select>
             <textarea rows={3} value={approvalComment} onChange={(e) => setApprovalComment(e.target.value)}
               placeholder="Коментар (обов'язковий для REJECTED/DISQUALIFIED)"
