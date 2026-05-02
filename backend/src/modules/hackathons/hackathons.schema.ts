@@ -1,5 +1,24 @@
 import { z } from 'zod';
 
+export const CreateTrackSchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().optional(),
+});
+
+export const CreateStageSchema = z.object({
+  name: z.string().min(1).max(255),
+  orderIndex: z.number().int().min(0),
+  startDate: z.string().datetime(),
+  endDate: z.string().datetime(),
+});
+
+export const CreateAwardSchema = z.object({
+  name: z.string().min(1).max(255),
+  certificate: z.string().optional(),
+  description: z.string().optional(),
+  place: z.number().int().min(1),
+});
+
 export const CreateHackathonSchema = z.object({
   title: z.string().min(3).max(255),
   subtitle: z.string().max(500).optional(),
@@ -13,21 +32,16 @@ export const CreateHackathonSchema = z.object({
   banner: z.string().url().optional(),
   rulesUrl: z.string().url().optional(),
   contactEmail: z.string().email().optional(),
+  // Nested creation arrays
+  tags: z.array(z.string()).optional(),
+  tracks: z.array(CreateTrackSchema).optional(),
+  stages: z.array(CreateStageSchema).optional(),
+  awards: z.array(CreateAwardSchema).optional(),
 });
 
 export const UpdateHackathonSchema = CreateHackathonSchema.partial();
 
-export const CreateTrackSchema = z.object({
-  name: z.string().min(1).max(255),
-  description: z.string().optional(),
-});
 
-export const CreateStageSchema = z.object({
-  name: z.string().min(1).max(255),
-  orderIndex: z.number().int().min(0),
-  startDate: z.string().datetime(),
-  endDate: z.string().datetime(),
-});
 
 export const UuidParamSchema = z.object({ id: z.string().uuid() });
 

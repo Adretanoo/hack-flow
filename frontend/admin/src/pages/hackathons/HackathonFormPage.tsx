@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -61,6 +61,12 @@ export function HackathonFormPage() {
     defaultValues: { online: false, minTeamSize: 1, maxTeamSize: 5 },
   })
 
+  // Local state for creation mode nested arrays
+  const [localTags, setLocalTags] = useState<string[]>([])
+  const [localTracks, setLocalTracks] = useState<Array<{ name: string; description?: string }>>([])
+  const [localStages, setLocalStages] = useState<Array<{ name: string; startDate: string; endDate: string; orderIndex: number }>>([])
+  const [localAwards, setLocalAwards] = useState<Array<{ name: string; description?: string; certificate?: string; place: number }>>([])
+
   useEffect(() => {
     if (hackathon) {
       reset({
@@ -90,6 +96,10 @@ export function HackathonFormPage() {
       banner: data.banner || undefined,
       rulesUrl: data.rulesUrl || undefined,
       location: data.location || undefined,
+      tags: localTags.length > 0 ? localTags : undefined,
+      tracks: localTracks.length > 0 ? localTracks : undefined,
+      stages: localStages.length > 0 ? localStages.map((s: any) => ({ ...s, startDate: new Date(s.startDate).toISOString(), endDate: new Date(s.endDate).toISOString() })) : undefined,
+      awards: localAwards.length > 0 ? localAwards : undefined,
     }),
     onSuccess: (res) => {
       toast.success('Хакатон створено!')
@@ -207,29 +217,19 @@ export function HackathonFormPage() {
           </div>
         </FormSection>
 
-        {/* Sections 3-6 only available when editing existing hackathon */}
-        {isEdit && hackathon && (
-          <>
-            <FormSection title="Теги" defaultOpen={false}>
-              <TagsSection hackathonId={hackathon.id} selectedTags={hackathon.tags ?? []} />
-            </FormSection>
-            <FormSection title="Треки" defaultOpen={false}>
-              <TracksSection hackathonId={hackathon.id} tracks={hackathon.tracks ?? []} />
-            </FormSection>
-            <FormSection title="Стадії" defaultOpen={false}>
-              <StagesSection hackathonId={hackathon.id} stages={hackathon.stages ?? []} hackathonStart={hackathon.startDate} hackathonEnd={hackathon.endDate} />
-            </FormSection>
-            <FormSection title="Нагороди" defaultOpen={false}>
-              <AwardsSection hackathonId={hackathon.id} awards={[]} />
-            </FormSection>
-          </>
-        )}
-
-        {!isEdit && (
-          <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-            💡 Після створення хакатону ви зможете додати теги, треки, стадії та нагороди.
-          </div>
-        )}
+        {/* Sections 3-6 available in both modes */}
+        <FormSection title="Теги" defaultOpen={false}>
+          <TagsSection hackathonId={hackathon?.id} selectedTags={isEdit ? (hackathon?.tags ?? []) : (localTags.map((t: string) => ({ id: t, name: t })) as any)} mode={isEdit ? 'edit' : 'create'} onChange={setLocalTags} />
+        </FormSection>
+        <FormSection title="Треки" defaultOpen={false}>
+          <TracksSection hackathonId={hackathon?.id} tracks={isEdit ? hackathon?.tracks : (localTracks as any)} mode={isEdit ? 'edit' : 'create'} onChange={setLocalTracks} />
+        </FormSection>
+        <FormSection title="Стадії" defaultOpen={false}>
+          <StagesSection hackathonId={hackathon?.id} stages={isEdit ? hackathon?.stages : (localStages as any)} hackathonStart={watch('startDate')} hackathonEnd={watch('endDate')} mode={isEdit ? 'edit' : 'create'} onChange={setLocalStages as any} />
+        </FormSection>
+        <FormSection title="Нагороди" defaultOpen={false}>
+          <AwardsSection hackathonId={hackathon?.id} awards={isEdit ? (hackathon as any)?.awards : (localAwards as any)} mode={isEdit ? 'edit' : 'create'} onChange={setLocalAwards as any} />
+        </FormSection>
       </form>
     </div>
   )

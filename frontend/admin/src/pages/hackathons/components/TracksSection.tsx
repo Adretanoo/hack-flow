@@ -7,26 +7,32 @@ import type { Track } from '@/types/api.types'
 import { inputCls } from './FormSection'
 
 interface TracksSectionProps {
-  hackathonId: string
-  tracks?: Track[] // Optional now, since we fetch internally
+  hackathonId?: string
+  tracks?: Track[]
+  mode?: 'edit' | 'create'
+  onChange?: (tracks: Array<{ name: string; description?: string }>) => void
 }
 
-export function TracksSection({ hackathonId, tracks: initialTracks = [] }: TracksSectionProps) {
+export function TracksSection({ hackathonId, tracks: initialTracks = [], mode = 'edit', onChange }: TracksSectionProps) {
   const qc = useQueryClient()
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
 
+  // Local state for create mode
+  const [localTracks, setLocalTracks] = useState<Array<{ id: string; name: string; description?: string }>>([])
+
   const { data: tracksData } = useQuery({
     queryKey: ['tracks', hackathonId],
-    queryFn: () => hackathonsApi.listTracks(hackathonId),
+    queryFn: () => hackathonsApi.listTracks(hackathonId!),
+    enabled: mode === 'edit' && !!hackathonId,
   })
 
-  const tracks = tracksData?.data.data ?? initialTracks
+  const tracks = mode === 'edit' ? (tracksData?.data.data ?? initialTracks) : (localTracks as Track[])
 
   const createMut = useMutation({
-    mutationFn: () => hackathonsApi.createTrack(hackathonId, { name: newName, description: newDesc || undefined }),
+    mutationFn: () => hackathonsApi.createTrack(hackathonId!, { name: newName, description: newDesc || undefined }),
     onSuccess: () => {
       toast.success('Трек додано')
       qc.invalidateQueries({ queryKey: ['tracks', hackathonId] })
@@ -57,6 +63,38 @@ export function TracksSection({ hackathonId, tracks: initialTracks = [] }: Track
     onError: () => toast.error('Помилка при видаленні'),
   })
 
+  const handleSaveAdd = () => {
+    if (mode === 'create') {
+      const newArr = [...localTracks, { id: Date.now().toString(), name: newName, description: newDesc || undefined }]
+      setLocalTracks(newArr)
+      onChange?.(newArr.map(t => ({ name: t.name, description: t.description })))
+      setAdding(false); setNewName(''); setNewDesc('')
+    } else {
+      createMut.mutate()
+    }
+  }
+
+  const handleSaveEdit = (t: Track) => {
+    if (mode === 'create') {
+      const newArr = localTracks.map(x => x.id === t.id ? { ...x, name: newName, description: newDesc || undefined } : x)
+      setLocalTracks(newArr)
+      onChange?.(newArr.map(x => ({ name: x.name, description: x.description })))
+      setEditingId(null)
+    } else {
+      updateMut.mutate({ id: t.id, data: { name: newName, description: newDesc || undefined } })
+    }
+  }
+
+  const handleDelete = (id: string) => {
+    if (mode === 'create') {
+      const newArr = localTracks.filter(x => x.id !== id)
+      setLocalTracks(newArr)
+      onChange?.(newArr.map(x => ({ name: x.name, description: x.description })))
+    } else {
+      deleteMut.mutate(id)
+    }
+  }
+
   const handleEdit = (t: Track) => {
     setEditingId(t.id)
     setNewName(t.name)
@@ -83,7 +121,7 @@ export function TracksSection({ hackathonId, tracks: initialTracks = [] }: Track
               <input placeholder="Назва треку *" value={newName} onChange={(e) => setNewName(e.target.value)} className={inputCls} />
               <input placeholder="Опис (необов'язково)" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} className={inputCls} />
               <div className="flex gap-2">
-                <button type="button" onClick={() => updateMut.mutate({ id: t.id, data: { name: newName, description: newDesc || undefined } })} disabled={!newName.trim() || updateMut.isPending}
+                <button type="button" onClick={() => handleSaveEdit(t)} disabled={!newName.trim() || updateMut.isPending}
                   className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
                   <Check className="h-3.5 w-3.5" /> Зберегти
                 </button>
@@ -110,7 +148,7 @@ export function TracksSection({ hackathonId, tracks: initialTracks = [] }: Track
                 <button
                   type="button"
                   className="rounded-md p-1.5 hover:bg-destructive/10 transition-colors"
-                  onClick={() => deleteMut.mutate(t.id)}
+                  onClick={() => handleDelete(t.id)}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </button>
@@ -125,7 +163,7 @@ export function TracksSection({ hackathonId, tracks: initialTracks = [] }: Track
           <input placeholder="Назва треку *" value={newName} onChange={(e) => setNewName(e.target.value)} className={inputCls} />
           <input placeholder="Опис (необов'язково)" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} className={inputCls} />
           <div className="flex gap-2">
-            <button type="button" onClick={() => createMut.mutate()} disabled={!newName.trim() || createMut.isPending}
+            <button type="button" onClick={handleSaveAdd} disabled={!newName.trim() || createMut.isPending}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
               <Check className="h-3.5 w-3.5" /> Зберегти
             </button>

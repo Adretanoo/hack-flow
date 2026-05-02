@@ -3,6 +3,7 @@ import type { HackathonsService } from './hackathons.service';
 import {
   CreateHackathonSchema,
   UpdateHackathonSchema,
+  CreateTrackSchema,
   UpdateTrackSchema,
   CreateStageSchema,
   UpdateStageSchema,
@@ -53,9 +54,14 @@ export class HackathonsController {
   }
 
   async createTrack(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
-    const { id } = UuidParamSchema.parse(request.params);
-    const body = CreateTrackSchema.parse(request.body);
-    return reply.status(201).send({ success: true, data: await this.service.createTrack(id, body) });
+    try {
+      const { id } = UuidParamSchema.parse(request.params);
+      const body = CreateTrackSchema.parse(request.body);
+      return reply.status(201).send({ success: true, data: await this.service.createTrack(id, body) });
+    } catch (error: any) {
+      console.error("CREATE TRACK ERROR:", error);
+      return reply.status(500).send({ success: false, error: error?.message || String(error), stack: error?.stack });
+    }
   }
 
   async deleteTrack(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {

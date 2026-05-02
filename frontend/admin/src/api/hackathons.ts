@@ -23,6 +23,10 @@ export interface CreateHackathonDto {
   contactEmail?: string
   banner?: string
   rulesUrl?: string
+  tags?: string[]
+  tracks?: Array<{ name: string; description?: string }>
+  stages?: Array<{ name: string; startDate: string; endDate: string; orderIndex: number }>
+  awards?: Array<{ name: string; description?: string; certificate?: string; place: number }>
 }
 
 // ── Hackathons ────────────────────────────────────────────────────────────

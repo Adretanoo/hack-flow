@@ -7,8 +7,10 @@ import type { Award } from '@/types/api.types'
 import { inputCls } from './FormSection'
 
 interface AwardsSectionProps {
-  hackathonId: string
+  hackathonId?: string
   awards?: Award[]
+  mode?: 'edit' | 'create'
+  onChange?: (awards: Array<{ name: string; place: number; description?: string; certificate?: string }>) => void
 }
 
 const PLACE_COLORS: Record<number, string> = {
@@ -17,22 +19,26 @@ const PLACE_COLORS: Record<number, string> = {
   3: 'bg-amber-600 text-white',
 }
 
-export function AwardsSection({ hackathonId, awards: initialAwards = [] }: AwardsSectionProps) {
+export function AwardsSection({ hackathonId, awards: initialAwards = [], mode = 'edit', onChange }: AwardsSectionProps) {
   const qc = useQueryClient()
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState({ name: '', place: '1', description: '', certificate: '' })
 
+  // Local state for create mode
+  const [localAwards, setLocalAwards] = useState<Array<Award & { id: string }>>([])
+
   const { data: awardsData } = useQuery({
     queryKey: ['awards', hackathonId],
-    queryFn: () => hackathonsApi.listAwards(hackathonId),
+    queryFn: () => hackathonsApi.listAwards(hackathonId!),
+    enabled: mode === 'edit' && !!hackathonId,
   })
 
-  const awards = awardsData?.data.data ?? initialAwards
+  const awards = mode === 'edit' ? (awardsData?.data.data ?? initialAwards) : localAwards
 
   const createMut = useMutation({
     mutationFn: () =>
-      hackathonsApi.createAward(hackathonId, {
+      hackathonsApi.createAward(hackathonId!, {
         name: form.name,
         place: Number(form.place),
         description: form.description || undefined,
@@ -50,7 +56,7 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [] }: Award
 
   const updateMut = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<Award> }) =>
-      hackathonsApi.updateAward(hackathonId, id, {
+      hackathonsApi.updateAward(hackathonId!, id, {
         name: data.name,
         place: data.place !== undefined ? Number(data.place) : undefined,
         description: data.description || undefined,
@@ -66,7 +72,7 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [] }: Award
   })
 
   const deleteMut = useMutation({
-    mutationFn: (awardId: string) => hackathonsApi.deleteAward(hackathonId, awardId),
+    mutationFn: (awardId: string) => hackathonsApi.deleteAward(hackathonId!, awardId),
     onSuccess: () => {
       toast.success('Нагороду видалено')
       qc.invalidateQueries({ queryKey: ['awards', hackathonId] })
@@ -76,6 +82,52 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [] }: Award
   })
 
   const sorted = [...awards].sort((a, b) => a.place - b.place)
+
+  const handleSaveAdd = () => {
+    if (mode === 'create') {
+      const newAward = {
+        id: Date.now().toString(),
+        name: form.name,
+        place: Number(form.place),
+        description: form.description || undefined,
+        certificate: form.certificate || undefined,
+      } as Award & { id: string }
+      const newArr = [...localAwards, newAward]
+      setLocalAwards(newArr)
+      onChange?.(newArr.map(a => ({ name: a.name, place: a.place, description: a.description || undefined, certificate: a.certificate || undefined })))
+      setAdding(false)
+      setForm({ name: '', place: '1', description: '', certificate: '' })
+    } else {
+      createMut.mutate()
+    }
+  }
+
+  const handleSaveEdit = (id: string) => {
+    if (mode === 'create') {
+      const newArr = localAwards.map(x => x.id === id ? { ...x, name: form.name, place: Number(form.place), description: form.description || undefined, certificate: form.certificate || undefined } : x)
+      setLocalAwards(newArr)
+      onChange?.(newArr.map(a => ({ name: a.name, place: a.place, description: a.description || undefined, certificate: a.certificate || undefined })))
+      setEditingId(null)
+    } else {
+      updateMut.mutate({ id, data: { name: form.name, place: Number(form.place), description: form.description || undefined, certificate: form.certificate || undefined } })
+    }
+  }
+
+  const handleDelete = (id: string) => {
+    if (mode === 'create') {
+      const newArr = localAwards.filter(x => x.id !== id)
+      setLocalAwards(newArr)
+      onChange?.(newArr.map(a => ({ name: a.name, place: a.place, description: a.description || undefined, certificate: a.certificate || undefined })))
+    } else {
+      deleteMut.mutate(id)
+    }
+  }
+
+  const handleCancel = () => {
+    setAdding(false)
+    setEditingId(null)
+    setForm({ name: '', place: '1', description: '', certificate: '' })
+  }
 
   return (
     <div className="space-y-3">
@@ -98,11 +150,11 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [] }: Award
               <input placeholder="Посилання на сертифікат (необов'язково)" value={form.certificate}
                 onChange={(e) => setForm({ ...form, certificate: e.target.value })} className={inputCls} />
               <div className="flex gap-2">
-                <button type="button" onClick={() => updateMut.mutate({ id: award.id, data: { name: form.name, place: Number(form.place), description: form.description, certificate: form.certificate } })} disabled={!form.name || !form.place || updateMut.isPending}
+                <button type="button" onClick={() => handleSaveEdit(award.id)} disabled={!form.name || !form.place || updateMut.isPending}
                   className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
                   <Check className="h-3.5 w-3.5" /> Зберегти
                 </button>
-                <button type="button" onClick={() => setEditingId(null)}
+                <button type="button" onClick={handleCancel}
                   className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent">
                   <X className="h-3.5 w-3.5" /> Скасувати
                 </button>
@@ -140,7 +192,7 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [] }: Award
                   className="rounded-md p-1.5 hover:bg-accent transition-colors">
                   <Pencil className="h-4 w-4 text-muted-foreground" />
                 </button>
-                <button type="button" onClick={() => deleteMut.mutate(award.id)}
+                <button type="button" onClick={() => handleDelete(award.id)}
                   className="rounded-md p-1.5 hover:bg-destructive/10 transition-colors">
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </button>
@@ -163,12 +215,12 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [] }: Award
           <input placeholder="URL сертифіката (необов'язково)" value={form.certificate}
             onChange={(e) => setForm({ ...form, certificate: e.target.value })} className={inputCls} />
           <div className="flex gap-2">
-            <button type="button" onClick={() => createMut.mutate()}
+            <button type="button" onClick={handleSaveAdd}
               disabled={!form.name.trim() || !form.place || createMut.isPending}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
               <Check className="h-3.5 w-3.5" /> Додати
             </button>
-            <button type="button" onClick={() => setAdding(false)}
+            <button type="button" onClick={handleCancel}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent">
               <X className="h-3.5 w-3.5" /> Скасувати
             </button>

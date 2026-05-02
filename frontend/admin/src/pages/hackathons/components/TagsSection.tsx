@@ -8,31 +8,39 @@ import type { Tag } from '@/types/api.types'
 import { inputCls } from './FormSection'
 
 interface TagsSectionProps {
-  hackathonId: string
+  hackathonId?: string
   selectedTags: Tag[]
+  mode?: 'edit' | 'create'
+  onChange?: (tags: string[]) => void
 }
 
-export function TagsSection({ hackathonId, selectedTags }: TagsSectionProps) {
+export function TagsSection({ hackathonId, selectedTags: initialSelected = [], mode = 'edit', onChange }: TagsSectionProps) {
   const qc = useQueryClient()
   const [newTagName, setNewTagName] = useState('')
   const [creating, setCreating] = useState(false)
+
+  // Local state for create mode
+  const [localSelectedTags, setLocalSelectedTags] = useState<Tag[]>(initialSelected)
 
   const { data: allTagsData } = useQuery({
     queryKey: ['tags'],
     queryFn: () => tagsApi.list(),
   })
+  
   const allTags: Tag[] = allTagsData?.data.data ?? []
+  
+  const selectedTags = mode === 'edit' ? initialSelected : localSelectedTags
   const selectedIds = selectedTags.map((t) => t.id)
   const unselected = allTags.filter((t) => !selectedIds.includes(t.id))
 
   const attachMut = useMutation({
-    mutationFn: (tagId: string) => hackathonsApi.attachTags(hackathonId, [tagId]),
+    mutationFn: (tagId: string) => hackathonsApi.attachTags(hackathonId!, [tagId]),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] }),
     onError: () => toast.error('Помилка при додаванні тегу'),
   })
 
   const detachMut = useMutation({
-    mutationFn: (tagId: string) => hackathonsApi.detachTag(hackathonId, tagId),
+    mutationFn: (tagId: string) => hackathonsApi.detachTag(hackathonId!, tagId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] }),
     onError: () => toast.error('Помилка при видаленні тегу'),
   })
@@ -42,11 +50,35 @@ export function TagsSection({ hackathonId, selectedTags }: TagsSectionProps) {
     onSuccess: (res) => {
       const tag = res.data.data
       qc.invalidateQueries({ queryKey: ['tags'] })
-      attachMut.mutate(tag.id)
+      if (mode === 'create') {
+        handleAttach(tag)
+      } else {
+        attachMut.mutate(tag.id)
+      }
       setNewTagName(''); setCreating(false)
     },
     onError: () => toast.error('Помилка при створенні тегу'),
   })
+
+  const handleAttach = (tag: Tag) => {
+    if (mode === 'create') {
+      const newArr = [...localSelectedTags, tag]
+      setLocalSelectedTags(newArr)
+      onChange?.(newArr.map(t => t.name))
+    } else {
+      attachMut.mutate(tag.id)
+    }
+  }
+
+  const handleDetach = (tagId: string) => {
+    if (mode === 'create') {
+      const newArr = localSelectedTags.filter(t => t.id !== tagId)
+      setLocalSelectedTags(newArr)
+      onChange?.(newArr.map(t => t.name))
+    } else {
+      detachMut.mutate(tagId)
+    }
+  }
 
   return (
     <div className="space-y-3">
@@ -55,7 +87,7 @@ export function TagsSection({ hackathonId, selectedTags }: TagsSectionProps) {
         {selectedTags.map((tag) => (
           <span key={tag.id} className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
             {tag.name}
-            <button type="button" onClick={() => detachMut.mutate(tag.id)} className="hover:text-destructive">
+            <button type="button" onClick={() => handleDetach(tag.id)} className="hover:text-destructive">
               <X className="h-3 w-3" />
             </button>
           </span>
@@ -67,7 +99,7 @@ export function TagsSection({ hackathonId, selectedTags }: TagsSectionProps) {
       {unselected.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {unselected.map((tag) => (
-            <button key={tag.id} type="button" onClick={() => attachMut.mutate(tag.id)}
+            <button key={tag.id} type="button" onClick={() => handleAttach(tag)}
               className="rounded-full border border-dashed border-border px-3 py-0.5 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors">
               + {tag.name}
             </button>

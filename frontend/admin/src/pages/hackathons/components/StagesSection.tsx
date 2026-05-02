@@ -9,10 +9,12 @@ import { clsx } from 'clsx'
 import { inputCls } from './FormSection'
 
 interface StagesSectionProps {
-  hackathonId: string
+  hackathonId?: string
   stages?: Stage[]
   hackathonStart?: string
   hackathonEnd?: string
+  mode?: 'edit' | 'create'
+  onChange?: (stages: Array<{ name: string; startDate: string; endDate: string; orderIndex: number }>) => void
 }
 
 const STAGE_COLORS = [
@@ -23,23 +25,27 @@ const STAGE_COLORS = [
   'bg-rose-500',
 ]
 
-export function StagesSection({ hackathonId, stages: initialStages = [], hackathonStart, hackathonEnd }: StagesSectionProps) {
+export function StagesSection({ hackathonId, stages: initialStages = [], hackathonStart, hackathonEnd, mode = 'edit', onChange }: StagesSectionProps) {
   const qc = useQueryClient()
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState({ name: '', startDate: '', endDate: '', orderIndex: '1' })
 
+  // Local state for create mode
+  const [localStages, setLocalStages] = useState<Array<Stage & { id: string }>>([])
+
   const { data: stagesData } = useQuery({
     queryKey: ['stages', hackathonId],
-    queryFn: () => hackathonsApi.listStages(hackathonId),
+    queryFn: () => hackathonsApi.listStages(hackathonId!),
+    enabled: mode === 'edit' && !!hackathonId,
   })
 
-  const stages = stagesData?.data.data ?? initialStages
+  const stages = mode === 'edit' ? (stagesData?.data.data ?? initialStages) : localStages
   const sorted = [...stages].sort((a, b) => a.orderIndex - b.orderIndex)
 
   const createMut = useMutation({
     mutationFn: () =>
-      hackathonsApi.createStage(hackathonId, {
+      hackathonsApi.createStage(hackathonId!, {
         name: form.name,
         startDate: new Date(form.startDate).toISOString(),
         endDate: new Date(form.endDate).toISOString(),
@@ -81,6 +87,52 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
     },
     onError: () => toast.error('Помилка при видаленні'),
   })
+
+  const handleSaveAdd = () => {
+    if (mode === 'create') {
+      const newStage = {
+        id: Date.now().toString(),
+        name: form.name,
+        startDate: new Date(form.startDate).toISOString(),
+        endDate: new Date(form.endDate).toISOString(),
+        orderIndex: Number(form.orderIndex),
+      } as Stage & { id: string }
+      const newArr = [...localStages, newStage]
+      setLocalStages(newArr)
+      onChange?.(newArr.map(s => ({ name: s.name, startDate: s.startDate, endDate: s.endDate, orderIndex: s.orderIndex })))
+      setAdding(false)
+      setForm({ name: '', startDate: '', endDate: '', orderIndex: String(newArr.length + 1) })
+    } else {
+      createMut.mutate()
+    }
+  }
+
+  const handleSaveEdit = (id: string) => {
+    if (mode === 'create') {
+      const newArr = localStages.map(x => x.id === id ? { ...x, name: form.name, startDate: new Date(form.startDate).toISOString(), endDate: new Date(form.endDate).toISOString(), orderIndex: Number(form.orderIndex) } : x)
+      setLocalStages(newArr)
+      onChange?.(newArr.map(s => ({ name: s.name, startDate: s.startDate, endDate: s.endDate, orderIndex: s.orderIndex })))
+      setEditingId(null)
+    } else {
+      updateMut.mutate({ id, data: { name: form.name, startDate: form.startDate, endDate: form.endDate, orderIndex: Number(form.orderIndex) } })
+    }
+  }
+
+  const handleDelete = (id: string) => {
+    if (mode === 'create') {
+      const newArr = localStages.filter(x => x.id !== id)
+      setLocalStages(newArr)
+      onChange?.(newArr.map(s => ({ name: s.name, startDate: s.startDate, endDate: s.endDate, orderIndex: s.orderIndex })))
+    } else {
+      deleteMut.mutate(id)
+    }
+  }
+
+  const handleCancel = () => {
+    setAdding(false)
+    setEditingId(null)
+    setForm({ name: '', startDate: '', endDate: '', orderIndex: String(sorted.length + 1) })
+  }
 
   // Build timeline — relative widths based on duration
   const rangeStart = hackathonStart
@@ -134,11 +186,11 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => updateMut.mutate({ id: stage.id, data: { name: form.name, startDate: form.startDate, endDate: form.endDate, orderIndex: Number(form.orderIndex) } })} disabled={!form.name || !form.startDate || !form.endDate || updateMut.isPending}
+                    <button type="button" onClick={() => handleSaveEdit(stage.id)} disabled={!form.name || !form.startDate || !form.endDate || updateMut.isPending}
                       className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
                       <Check className="h-3.5 w-3.5" /> Зберегти
                     </button>
-                    <button type="button" onClick={() => setEditingId(null)}
+                    <button type="button" onClick={handleCancel}
                       className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent">
                       <X className="h-3.5 w-3.5" /> Скасувати
                     </button>
@@ -183,7 +235,7 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
                       <button
                         type="button"
                         className="rounded-md p-1 hover:bg-destructive/10 transition-colors"
-                        onClick={() => deleteMut.mutate(stage.id)}
+                        onClick={() => handleDelete(stage.id)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </button>
@@ -243,11 +295,11 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
             </div>
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={() => createMut.mutate()} disabled={!form.name || !form.startDate || !form.endDate || createMut.isPending}
+            <button type="button" onClick={handleSaveAdd} disabled={!form.name || !form.startDate || !form.endDate || createMut.isPending}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
               <Check className="h-3.5 w-3.5" /> Зберегти
             </button>
-            <button type="button" onClick={() => setAdding(false)}
+            <button type="button" onClick={handleCancel}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent">
               <X className="h-3.5 w-3.5" /> Скасувати
             </button>

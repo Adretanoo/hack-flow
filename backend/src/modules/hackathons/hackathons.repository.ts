@@ -59,15 +59,46 @@ export class HackathonsRepository {
   }
 
   async create(data: CreateHackathonDto) {
-    const [row] = await this.db
-      .insert(hackathons)
-      .values({
-        ...data,
-        startDate: new Date(data.startDate),
-        endDate: new Date(data.endDate),
-      })
-      .returning();
-    return row;
+    return this.db.transaction(async (tx) => {
+      const { tags, tracks: inputTracks, stages: inputStages, awards: inputAwards, ...hackathonData } = data;
+
+      const [row] = await tx
+        .insert(hackathons)
+        .values({
+          ...hackathonData,
+          startDate: new Date(hackathonData.startDate),
+          endDate: new Date(hackathonData.endDate),
+        })
+        .returning();
+
+      if (inputTracks && inputTracks.length > 0) {
+        await tx.insert(tracks).values(
+          inputTracks.map((t) => ({ ...t, hackathonId: row.id }))
+        );
+      }
+
+      if (inputStages && inputStages.length > 0) {
+        await tx.insert(stages).values(
+          inputStages.map((s) => ({
+            ...s,
+            startDate: new Date(s.startDate),
+            endDate: new Date(s.endDate),
+            hackathonId: row.id,
+          }))
+        );
+      }
+
+      if (inputAwards && inputAwards.length > 0) {
+        await tx.insert(awards).values(
+          inputAwards.map((a) => ({ ...a, hackathonId: row.id }))
+        );
+      }
+
+      // Note: tags will be handled by HackathonsService using HackathonTagsRepository
+      // because tags logic is slightly more complex (finding existing tags, etc.)
+
+      return row;
+    });
   }
 
   async update(id: string, data: UpdateHackathonDto) {

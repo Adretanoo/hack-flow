@@ -90,7 +90,32 @@ export class HackathonsService {
   }
 
   async create(dto: CreateHackathonDto) {
-    return this.repo.create(dto);
+    const created = await this.repo.create(dto);
+    
+    // Process tags if provided
+    if (dto.tags && dto.tags.length > 0 && this.tagsRepo) {
+      // Filter out empty strings
+      const tagNames = dto.tags.filter(t => t.trim().length > 0);
+      if (tagNames.length > 0) {
+        // Resolve tag IDs (create missing ones)
+        const tagIds = await this.tagsRepo.findHackathonsByTags(tagNames); 
+        // Wait, `findHackathonsByTags` finds hackathon IDs by tag names, that's not what we want here.
+        // Let's create or find the tags directly.
+        
+        const finalTagIds: string[] = [];
+        for (const name of tagNames) {
+          let tag = await this.tagsRepo.findTagByName(name);
+          if (!tag) {
+            tag = await this.tagsRepo.createTag(name);
+          }
+          finalTagIds.push(tag.id);
+        }
+        
+        await this.tagsRepo.attachTags(created.id, finalTagIds);
+      }
+    }
+    
+    return created;
   }
 
   async update(id: string, dto: UpdateHackathonDto) {
