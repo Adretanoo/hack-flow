@@ -4,13 +4,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { teamsApi } from '@/api/teams'
 import { hackathonsApi } from '@/api/hackathons'
 import { DataTable } from '@/components/shared/DataTable'
-import { StatusBadge } from '@/components/shared/StatusBadge'
 import { BulkApprovalBar } from '@/components/shared/BulkApprovalBar'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { usePagination } from '@/hooks/usePagination'
 import { useDebounce } from '@/hooks/useDebounce'
 import { formatDate } from '@/utils/format'
-import { Eye, CheckCircle2, XCircle, Search } from 'lucide-react'
+import { Eye, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import type { Team } from '@/types/api.types'
@@ -143,7 +142,28 @@ export function TeamsListPage() {
     {
       key: 'status',
       header: 'Статус',
-      render: (t) => <StatusBadge status={t.approvalStatus} />,
+      render: (t) => (
+        <select
+          value={t.approvalStatus}
+          onChange={(e) => {
+            if (e.target.value === 'REJECTED') {
+              setRejectTarget(t.id)
+            } else {
+              approvalMut.mutate({ id: t.id, status: e.target.value as 'APPROVED' | 'PENDING' })
+            }
+          }}
+          disabled={approvalMut.isPending}
+          className="text-xs font-semibold px-2.5 py-1 rounded-full border border-border bg-background outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
+          style={{
+            backgroundColor: t.approvalStatus === 'APPROVED' ? 'var(--green-50, #f0fdf4)' : t.approvalStatus === 'REJECTED' ? 'var(--red-50, #fef2f2)' : 'var(--amber-50, #fffbeb)',
+            color: t.approvalStatus === 'APPROVED' ? 'var(--green-700, #15803d)' : t.approvalStatus === 'REJECTED' ? 'var(--red-700, #b91c1c)' : 'var(--amber-700, #b45309)'
+          }}
+        >
+          <option value="PENDING">Очікує</option>
+          <option value="APPROVED">Схвалено</option>
+          <option value="REJECTED">Відхилено</option>
+        </select>
+      ),
     },
     {
       key: 'members',
@@ -165,18 +185,6 @@ export function TeamsListPage() {
             onClick={() => navigate(`/teams/${t.id}`)}>
             <Eye className="h-4 w-4 text-muted-foreground" />
           </button>
-          {t.approvalStatus !== 'APPROVED' && (
-            <button title="Схвалити" className="rounded-md p-1.5 hover:bg-green-50"
-              onClick={() => approvalMut.mutate({ id: t.id, status: 'APPROVED' })}>
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-            </button>
-          )}
-          {t.approvalStatus !== 'REJECTED' && (
-            <button title="Відхилити" className="rounded-md p-1.5 hover:bg-red-50"
-              onClick={() => setRejectTarget(t.id)}>
-              <XCircle className="h-4 w-4 text-red-500" />
-            </button>
-          )}
         </div>
       ),
     },

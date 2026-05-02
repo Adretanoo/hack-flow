@@ -82,25 +82,24 @@ export function HackathonDetailPage() {
   const teamColumns: Column<Team>[] = [
     { key: 'name', header: 'Команда', render: (t) => <span className="font-medium">{t.name}</span> },
     { key: 'members', header: 'Учасники', render: (t) => <span className="text-muted-foreground">{t._count?.members ?? '—'}</span> },
-    { key: 'status', header: 'Статус', render: (t) => <StatusBadge status={t.approvalStatus} /> },
     {
-      key: 'actions',
-      header: '',
+      key: 'status',
+      header: 'Статус',
       render: (t) => (
-        <div className="flex gap-1">
-          {t.approvalStatus === 'PENDING' && (
-            <>
-              <button onClick={() => approvalMut.mutate({ teamId: t.id, status: 'APPROVED' })}
-                className="rounded-md border border-green-200 bg-green-50 px-2 py-1 text-xs text-green-700 hover:bg-green-100 transition-colors">
-                Схвалити
-              </button>
-              <button onClick={() => approvalMut.mutate({ teamId: t.id, status: 'REJECTED' })}
-                className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 hover:bg-red-100 transition-colors">
-                Відхилити
-              </button>
-            </>
-          )}
-        </div>
+        <select
+          value={t.approvalStatus}
+          onChange={(e) => approvalMut.mutate({ teamId: t.id, status: e.target.value as 'APPROVED' | 'REJECTED' | 'PENDING' })}
+          disabled={approvalMut.isPending}
+          className="text-xs font-semibold px-2.5 py-1 rounded-full border border-border bg-background outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
+          style={{
+            backgroundColor: t.approvalStatus === 'APPROVED' ? 'var(--green-50, #f0fdf4)' : t.approvalStatus === 'REJECTED' ? 'var(--red-50, #fef2f2)' : 'var(--amber-50, #fffbeb)',
+            color: t.approvalStatus === 'APPROVED' ? 'var(--green-700, #15803d)' : t.approvalStatus === 'REJECTED' ? 'var(--red-700, #b91c1c)' : 'var(--amber-700, #b45309)'
+          }}
+        >
+          <option value="PENDING">Очікує</option>
+          <option value="APPROVED">Схвалено</option>
+          <option value="REJECTED">Відхилено</option>
+        </select>
       ),
     },
   ]
