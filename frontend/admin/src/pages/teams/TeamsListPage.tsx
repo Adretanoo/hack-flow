@@ -149,19 +149,20 @@ export function TeamsListPage() {
             if (e.target.value === 'REJECTED') {
               setRejectTarget(t.id)
             } else {
-              approvalMut.mutate({ id: t.id, status: e.target.value as 'APPROVED' | 'PENDING' })
+              approvalMut.mutate({ id: t.id, status: e.target.value as 'APPROVED' | 'PENDING' | 'DISQUALIFIED' })
             }
           }}
           disabled={approvalMut.isPending}
           className="text-xs font-semibold px-2.5 py-1 rounded-full border border-border bg-background outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
           style={{
-            backgroundColor: t.approvalStatus === 'APPROVED' ? 'var(--green-50, #f0fdf4)' : t.approvalStatus === 'REJECTED' ? 'var(--red-50, #fef2f2)' : 'var(--amber-50, #fffbeb)',
-            color: t.approvalStatus === 'APPROVED' ? 'var(--green-700, #15803d)' : t.approvalStatus === 'REJECTED' ? 'var(--red-700, #b91c1c)' : 'var(--amber-700, #b45309)'
+            backgroundColor: t.approvalStatus === 'APPROVED' ? 'var(--green-50, #f0fdf4)' : t.approvalStatus === 'REJECTED' ? 'var(--red-50, #fef2f2)' : t.approvalStatus === 'DISQUALIFIED' ? 'var(--neutral-100, #f5f5f5)' : 'var(--amber-50, #fffbeb)',
+            color: t.approvalStatus === 'APPROVED' ? 'var(--green-700, #15803d)' : t.approvalStatus === 'REJECTED' ? 'var(--red-700, #b91c1c)' : t.approvalStatus === 'DISQUALIFIED' ? 'var(--neutral-600, #525252)' : 'var(--amber-700, #b45309)'
           }}
         >
           <option value="PENDING">Очікує</option>
           <option value="APPROVED">Схвалено</option>
           <option value="REJECTED">Відхилено</option>
+          <option value="DISQUALIFIED">Дискваліфіковано</option>
         </select>
       ),
     },
