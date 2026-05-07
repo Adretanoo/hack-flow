@@ -24,6 +24,16 @@ export async function mentorshipRoutes(app: FastifyInstance): Promise<void> {
     },
   }, (req, reply) => ctrl.listAllAvailabilities(req, reply));
 
+  app.get('/availabilities/my', {
+    onRequest: [authenticate, authorize('mentor')],
+    schema: {
+      tags: ['Mentorship'],
+      summary: 'Get my availabilities (Mentor only)',
+      security: Sec,
+      querystring: { type: 'object', properties: { hackathonId: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.getMyAvailabilities(req, reply));
+
   app.get('/availabilities/mentor/:id', {
     schema: {
       tags: ['Mentorship'],

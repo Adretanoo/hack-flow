@@ -9,20 +9,24 @@ export class MentorshipRepository {
   /** Find all availabilities for a specific mentor, with optional hackathonId filter. */
   async findAvailabilitiesByMentor(mentorId: string, hackathonId?: string) {
     if (hackathonId) {
-      return this.db
-        .select()
-        .from(mentorAvailabilities)
-        .where(
-          and(
-            eq(mentorAvailabilities.mentorId, mentorId),
-            eq(mentorAvailabilities.hackathonId, hackathonId),
-          ),
-        );
+      return this.db.query.mentorAvailabilities.findMany({
+        where: and(
+          eq(mentorAvailabilities.mentorId, mentorId),
+          eq(mentorAvailabilities.hackathonId, hackathonId),
+        ),
+        with: {
+          slots: { with: { team: { with: { hackathon: true } } } },
+          track: true,
+        },
+      });
     }
-    return this.db
-      .select()
-      .from(mentorAvailabilities)
-      .where(eq(mentorAvailabilities.mentorId, mentorId));
+    return this.db.query.mentorAvailabilities.findMany({
+      where: eq(mentorAvailabilities.mentorId, mentorId),
+      with: {
+        slots: { with: { team: { with: { hackathon: true } } } },
+        track: true,
+      },
+    });
   }
 
   /** Find all availabilities across all mentors, with optional hackathonId filter. */
@@ -54,6 +58,7 @@ export class MentorshipRepository {
         trackId: data.trackId,
         startDatetime: new Date(data.startDatetime),
         endDatetime: new Date(data.endDatetime),
+        slotDuration: data.slotDuration,
       })
       .returning();
     return row;

@@ -67,13 +67,13 @@ export class TeamsService {
   async joinViaToken(token: string, userId: string) {
     const invite = await this.repo.findInviteByToken(token);
     if (!invite || !invite.active || invite.expiresAt < new Date()) {
-      throw new NotFoundError('Invite token is invalid or expired');
+      throw new NotFoundError('Токен запрошення недійсний або його термін дії минув');
     }
     if (invite.usesCount >= invite.maxUses) {
-      throw new ForbiddenError('Invite link has reached its maximum uses');
+      throw new ForbiddenError('Ліміт використань цього посилання вичерпано');
     }
     const alreadyMember = await this.repo.isMember(invite.teamId, userId);
-    if (alreadyMember) throw new ConflictError('You are already a member of this team');
+    if (alreadyMember) throw new ConflictError('Ви вже є учасником цієї команди');
 
     await this.repo.addMember(invite.teamId, userId);
     await this.repo.incrementInviteUses(invite.id, invite.usesCount);

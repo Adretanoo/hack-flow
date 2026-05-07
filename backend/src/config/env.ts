@@ -8,7 +8,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(3000),
   HOST: z.string().default('0.0.0.0'),
-  API_PREFIX: z.string().default('/api/v1'),
+  API_PREFIX: z.string().default('/api'),
 
   // Database
   DATABASE_URL: z.string().optional(), // auto-computed from parts if not set
@@ -33,7 +33,7 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
 
   // CORS
-  CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  CORS_ORIGIN: z.string().default('http://localhost:5173').transform((v) => v.split(',').map((s) => s.trim())),
 
   // Rate limiting
   RATE_LIMIT_MAX: z.coerce.number().default(100),

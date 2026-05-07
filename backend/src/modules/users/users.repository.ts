@@ -9,12 +9,39 @@ export class UsersRepository {
   constructor(private readonly db: Database) {}
 
   async findById(id: string) {
-    const [user] = await this.db
-      .select()
-      .from(users)
-      .where(and(eq(users.id, id), isNull(users.deletedAt)))
-      .limit(1);
-    return user ?? null;
+    const user = await this.db.query.users.findFirst({
+      where: (u, { and, eq, isNull }) => and(eq(u.id, id), isNull(u.deletedAt)),
+      with: {
+        socials: true,
+        roles: {
+          with: { role: true },
+          where: (r, { isNull }) => isNull(r.hackathonId)
+        },
+        teamMemberships: {
+          with: {
+            team: {
+              with: {
+                hackathon: { columns: { title: true } }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!user) return null;
+
+    const { roles: userRolesRel, teamMemberships, ...rest } = user;
+    return {
+      ...rest,
+      role: userRolesRel?.[0]?.role?.name ?? 'participant',
+      teams: teamMemberships?.map(tm => ({
+        id: tm.team.id,
+        name: tm.team.name,
+        role: tm.role,
+        hackathon: tm.team.hackathon
+      })) ?? []
+    };
   }
 
   async findByUsername(username: string) {
@@ -65,6 +92,24 @@ export class UsersRepository {
     }));
 
     return { rows: enrichedRows, total: Number(total) };
+  }
+
+  async updateRole(userId: string, roleName: string) {
+    const [role] = await this.db.select().from(roles).where(eq(roles.name, roleName as any)).limit(1);
+    if (!role) throw new Error('Role not found');
+
+    const [existing] = await this.db
+      .select()
+      .from(userRoles)
+      .where(and(eq(userRoles.userId, userId), isNull(userRoles.hackathonId)))
+      .limit(1);
+
+    if (existing) {
+      await this.db.update(userRoles).set({ roleId: role.id }).where(eq(userRoles.id, existing.id));
+    } else {
+      await this.db.insert(userRoles).values({ userId, roleId: role.id });
+    }
+    return this.findById(userId);
   }
 
   async findLookingForTeam(hackathonId?: string, skills?: string[]) {

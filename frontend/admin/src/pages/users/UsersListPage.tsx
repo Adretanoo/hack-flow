@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usersApi } from '@/api/users'
 import { DataTable } from '@/components/shared/DataTable'
 import { usePagination } from '@/hooks/usePagination'
@@ -49,6 +49,14 @@ export function UsersListPage() {
     }),
   })
 
+  const queryClient = useQueryClient()
+  const roleMut = useMutation({
+    mutationFn: (data: { id: string; role: string }) => usersApi.updateRole(data.id, data.role),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+    },
+  })
+
   const users = (data?.data.data ?? []) as UserProfile[]
   const total = data?.data.total ?? 0
 
@@ -82,9 +90,20 @@ export function UsersListPage() {
       key: 'role',
       header: 'Роль',
       render: (u) => (
-        <span className={clsx('rounded-full px-2.5 py-0.5 text-xs font-semibold', ROLE_COLORS[u.role] ?? 'bg-muted text-muted-foreground')}>
-          {u.role}
-        </span>
+        <select
+          value={u.role}
+          onChange={(e) => roleMut.mutate({ id: u.id, role: e.target.value })}
+          disabled={roleMut.isPending}
+          className={clsx(
+            'text-xs font-semibold px-2.5 py-1 rounded-full border border-border outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer',
+            ROLE_COLORS[u.role] ?? 'bg-muted text-muted-foreground'
+          )}
+        >
+          <option value="participant">Participant</option>
+          <option value="mentor">Mentor</option>
+          <option value="judge">Judge</option>
+          <option value="admin">Admin</option>
+        </select>
       ),
     },
     {

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usersApi } from '@/api/users'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -43,6 +43,15 @@ export function UserDetailPage() {
     queryKey: ['user', id],
     queryFn: () => usersApi.getById(id!),
     enabled: !!id,
+  })
+
+  const queryClient = useQueryClient()
+  const roleMut = useMutation({
+    mutationFn: (role: string) => usersApi.updateRole(id!, role),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user', id] })
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+    },
   })
 
   const { data: activityData } = useQuery({
@@ -158,13 +167,24 @@ export function UserDetailPage() {
       {activeTab === 'roles' && (
         <div className="rounded-xl border border-border bg-card p-5 space-y-4">
           <h4 className="font-semibold">Глобальна роль</h4>
-          <div className="flex gap-2">
-            <span className={clsx('rounded-full px-3 py-1 text-sm font-semibold', ROLE_COLORS[user.role] ?? 'bg-muted')}>
-              {user.role}
-            </span>
+          <div className="max-w-xs">
+            <select
+              value={user.role}
+              onChange={(e) => roleMut.mutate(e.target.value)}
+              disabled={roleMut.isPending}
+              className={clsx(
+                'text-sm font-semibold px-4 py-2 w-full rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer',
+                ROLE_COLORS[user.role] ?? 'bg-muted text-muted-foreground'
+              )}
+            >
+              <option value="participant">Participant</option>
+              <option value="mentor">Mentor</option>
+              <option value="judge">Judge</option>
+              <option value="admin">Admin</option>
+            </select>
           </div>
           <p className="text-xs text-muted-foreground">
-            Зміна ролей через API адміністратора. Зверніться до БД або додайте endpoint для управління ролями.
+            Глобальна роль визначає основні права доступу користувача до платформи.
           </p>
         </div>
       )}

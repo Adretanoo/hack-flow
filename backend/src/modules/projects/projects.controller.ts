@@ -22,6 +22,14 @@ export class ProjectsController {
     return reply.send({ success: true, data: await this.service.getById(id) });
   }
 
+  async list(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const query = request.query as { teamId?: string };
+    if (!query.teamId) {
+      return reply.send({ success: true, data: [] });
+    }
+    return reply.send({ success: true, data: await this.service.listByTeam(query.teamId) });
+  }
+
   async create(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const body = CreateProjectSchema.parse(request.body);
     return reply.status(201).send({ success: true, data: await this.service.create(body) });

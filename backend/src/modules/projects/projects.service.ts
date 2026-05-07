@@ -1,5 +1,5 @@
 import type { ProjectsRepository } from './projects.repository';
-import { NotFoundError } from '../../common/errors/http-errors';
+import { NotFoundError, ValidationError } from '../../common/errors/http-errors';
 import type { CreateProjectDto, UpdateProjectDto, AddResourceDto } from './projects.schema';
 import type { AuditLogRepository } from '../audit-log/audit-log.repository';
 
@@ -25,6 +25,11 @@ export class ProjectsService {
 
   async submit(id: string, userId?: string) {
     await this.getById(id);
+    const resources = await this.repo.getResources(id);
+    const hasGit = resources.some(r => /github|gitlab|bitbucket/i.test(r.url));
+    if (!hasGit) {
+      throw new ValidationError('Проєкт повинен містити посилання на Git-репозиторій (GitHub, GitLab, Bitbucket) для подання на перевірку.');
+    }
     const result = await this.repo.update(id, { status: 'SUBMITTED', submittedAt: new Date() });
     if (userId) {
       this.auditLog?.log(userId, 'submit_project', 'project', id).catch(() => undefined);

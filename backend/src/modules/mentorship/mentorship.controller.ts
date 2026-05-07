@@ -12,6 +12,12 @@ import type { JwtPayload } from '../../common/middleware/auth.middleware';
 export class MentorshipController {
   constructor(private readonly service: MentorshipService) {}
 
+  async getMyAvailabilities(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { sub } = request.user as JwtPayload;
+    const { hackathonId } = AvailabilityQuerySchema.parse(request.query);
+    return reply.send({ success: true, data: await this.service.listAvailabilities(sub, hackathonId) });
+  }
+
   async listAvailabilities(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const { id } = UuidParamSchema.parse(request.params);
     const { hackathonId } = AvailabilityQuerySchema.parse(request.query);

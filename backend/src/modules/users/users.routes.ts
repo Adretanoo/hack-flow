@@ -67,8 +67,8 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
           properties: {
             fullName: { type: 'string', minLength: 2, maxLength: 100 },
             username: { type: 'string', minLength: 3, maxLength: 30 },
-            description: { type: 'string', maxLength: 1000 },
-            avatarUrl: { type: 'string', format: 'uri' },
+            description: { type: ['string', 'null'], maxLength: 1000 },
+            avatarUrl: { type: ['string', 'null'], format: 'uri' },
             isLookingForTeam: { type: 'boolean' },
             skills: { type: 'array', items: { type: 'string' } },
           },
@@ -79,11 +79,32 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
     auth.get('/:id', {
       schema: {
         tags: ['Users'],
-        summary: 'Get user by ID',
-        security: Sec,
-        params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+        summary: 'Get user profile by ID',
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'string', format: 'uuid' } },
+        },
       },
     }, (req, reply) => controller.getById(req, reply));
+
+    auth.put('/:id/role', {
+      schema: {
+        tags: ['Users'],
+        summary: 'Change user global role',
+        security: Sec,
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'string', format: 'uuid' } },
+        },
+        body: {
+          type: 'object',
+          required: ['role'],
+          properties: { role: { type: 'string', enum: ['admin', 'judge', 'mentor', 'participant'] } },
+        },
+      },
+    }, (req, reply) => controller.updateRole(req, reply));
 
     auth.get('/me/socials', {
       schema: { tags: ['Users'], summary: 'List current user social links', security: Sec },

@@ -34,6 +34,10 @@ export class JudgingRepository {
     return this.db.select().from(scores).where(eq(scores.projectId, projectId));
   }
 
+  async findScoresByJudge(judgeId: string) {
+    return this.db.select().from(scores).where(eq(scores.judgeId, judgeId));
+  }
+
   async findExistingScore(judgeId: string, projectId: string, criteriaId: string) {
     const [row] = await this.db
       .select()

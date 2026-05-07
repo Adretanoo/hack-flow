@@ -75,15 +75,16 @@ export class TeamsRepository {
         track: { columns: { name: true } },
         members: { columns: { id: true } },
         approvals: { orderBy: (approvals, { desc }) => [desc(approvals.approvedAt)], limit: 1 },
+        projects: { columns: { id: true, status: true, submittedAt: true } },
       }
     });
 
     const [{ total }] = await this.db.select({ total: count() }).from(teams).where(where);
     
-    const mappedRows = rows.map(r => ({
+    const mappedRows = (rows as any[]).map(r => ({
       ...r,
-      _count: { members: r.members.length },
-      approvalStatus: r.approvals[0]?.status ?? 'PENDING',
+      _count: { members: r.members?.length || 0 },
+      approvalStatus: r.approvals?.[0]?.status ?? 'PENDING',
     }));
 
     return { rows: mappedRows, total: Number(total) };

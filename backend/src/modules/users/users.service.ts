@@ -28,7 +28,13 @@ export class UsersService {
     }
     const updated = await this.usersRepository.updateProfile(id, dto);
     if (!updated) throw new NotFoundError('User');
-    const { passwordHash: _, ...safe } = updated;
+    return this.getProfile(id);
+  }
+
+  async updateRole(id: string, role: string) {
+    const updated = await this.usersRepository.updateRole(id, role);
+    if (!updated) throw new NotFoundError('User');
+    const { passwordHash: _, ...safe } = updated as any; // findById returns type with optional passwordHash
     return safe;
   }
 

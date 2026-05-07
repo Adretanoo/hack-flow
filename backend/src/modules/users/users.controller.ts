@@ -30,6 +30,13 @@ export class UsersController {
     return reply.send({ success: true, data: user });
   }
 
+  async updateRole(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    const { role } = request.body as { role: string };
+    const user = await this.usersService.updateRole(id, role);
+    return reply.send({ success: true, data: user });
+  }
+
   async updateMe(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const { sub } = request.user as JwtPayload;
     const body = UpdateProfileSchema.parse(request.body);

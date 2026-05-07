@@ -34,6 +34,11 @@ export class JudgingController {
     return reply.send({ success: true, data: await this.service.getScoresForProject(id) });
   }
 
+  async getMyScores(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { sub } = request.user as JwtPayload;
+    return reply.send({ success: true, data: await this.service.getMyScores(sub) });
+  }
+
   async submitScore(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const { sub } = request.user as JwtPayload;
     const body = SubmitScoreSchema.parse(request.body);

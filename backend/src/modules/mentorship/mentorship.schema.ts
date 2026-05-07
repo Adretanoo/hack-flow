@@ -5,6 +5,7 @@ export const CreateAvailabilitySchema = z.object({
   trackId: z.string().uuid().optional(),
   startDatetime: z.string().datetime(),
   endDatetime: z.string().datetime(),
+  slotDuration: z.number().int().min(15).max(120).default(30),
 });
 
 export const AvailabilityQuerySchema = z.object({

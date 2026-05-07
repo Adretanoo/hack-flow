@@ -331,6 +331,7 @@ export const mentorAvailabilities = pgTable('mentor_availabilities', {
   trackId: uuid('track_id').references(() => tracks.id, { onDelete: 'set null' }),
   startDatetime: timestamp('start_datetime').notNull(),
   endDatetime: timestamp('end_datetime').notNull(),
+  slotDuration: integer('slot_duration').notNull().default(30),
   status: mentorAvailabilityStatusEnum('status').default('available').notNull(),
 });
 
@@ -518,8 +519,15 @@ export const judgeConflictsRelations = relations(judgeConflicts, ({ one }) => ({
   user: one(users, { fields: [judgeConflicts.judgeId], references: [users.id] }),
 }));
 
-export const mentorAvailabilitiesRelations = relations(mentorAvailabilities, ({ one }) => ({
+export const mentorAvailabilitiesRelations = relations(mentorAvailabilities, ({ one, many }) => ({
   mentor: one(users, { fields: [mentorAvailabilities.mentorId], references: [users.id] }),
+  track: one(tracks, { fields: [mentorAvailabilities.trackId], references: [tracks.id] }),
+  slots: many(mentorSlots),
+}));
+
+export const mentorSlotsRelations = relations(mentorSlots, ({ one }) => ({
+  availability: one(mentorAvailabilities, { fields: [mentorSlots.mentorAvailabilityId], references: [mentorAvailabilities.id] }),
+  team: one(teams, { fields: [mentorSlots.teamId], references: [teams.id] }),
 }));
 
 export const userActionLogsRelations = relations(userActionLogs, ({ one }) => ({

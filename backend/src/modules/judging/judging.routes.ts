@@ -73,6 +73,15 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
     },
   }, (req, reply) => ctrl.getProjectScores(req, reply));
 
+  app.get('/scores/my', {
+    onRequest: [authenticate, authorize('judge')],
+    schema: {
+      tags: ['Judging'],
+      summary: 'Get all scores submitted by me — judge only',
+      security: Sec,
+    },
+  }, (req, reply) => ctrl.getMyScores(req, reply));
+
   app.post('/scores', {
     onRequest: [authenticate, authorize('judge')],
     schema: {

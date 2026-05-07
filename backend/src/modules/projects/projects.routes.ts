@@ -15,6 +15,14 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
   const service = new ProjectsService(repository, auditLog);
   const ctrl = new ProjectsController(service);
 
+  app.get('/', {
+    schema: {
+      tags: ['Projects'],
+      summary: 'Get projects by query',
+      querystring: { type: 'object', properties: { teamId: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.list(req, reply));
+
   app.get('/:id', {
     schema: {
       tags: ['Projects'],

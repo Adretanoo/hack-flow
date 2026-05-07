@@ -46,6 +46,13 @@ export class ProjectsRepository {
     return row;
   }
 
+  async getResources(projectId: string) {
+    return this.db
+      .select()
+      .from(projectResources)
+      .where(eq(projectResources.projectId, projectId));
+  }
+
   async removeResource(id: string) {
     await this.db.delete(projectResources).where(eq(projectResources.id, id));
   }

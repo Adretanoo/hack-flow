@@ -41,6 +41,10 @@ export class JudgingService {
     return this.repo.findScoresByProject(projectId);
   }
 
+  async getMyScores(judgeId: string) {
+    return this.repo.findScoresByJudge(judgeId);
+  }
+
   async submitScore(judgeId: string, dto: SubmitScoreDto) {
     // ENFORCE_JUDGE_TRACK feature flag — off by default so existing tests pass.
     if (env.ENFORCE_JUDGE_TRACK && this.judgeTrackRepo) {
