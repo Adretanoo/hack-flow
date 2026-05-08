@@ -1,7 +1,7 @@
 // Soft-delete filter: verified 2026-04-29
 import type { Database } from '../../config/database';
 import { teams, teamMembers, teamInvites, teamApprovals, teamJoinRequests } from '../../drizzle/schema';
-import { eq, and, count, isNull, desc, sql, gt } from 'drizzle-orm';
+import { eq, and, count, isNull, desc, sql, gt, inArray } from 'drizzle-orm';
 import type { CreateTeamDto, UpdateTeamDto } from './teams.schema';
 
 export class TeamsRepository {
@@ -128,6 +128,23 @@ export class TeamsRepository {
       .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
       .limit(1);
     return !!row;
+  }
+
+  /** Returns true if user already belongs to ANY non-deleted team in the given hackathon. */
+  async isUserInHackathon(userId: string, hackathonId: string): Promise<boolean> {
+    const rows = await this.db
+      .select({ id: teamMembers.id })
+      .from(teamMembers)
+      .innerJoin(teams, eq(teamMembers.teamId, teams.id))
+      .where(
+        and(
+          eq(teamMembers.userId, userId),
+          eq(teams.hackathonId, hackathonId),
+          isNull(teams.deletedAt),
+        )
+      )
+      .limit(1);
+    return rows.length > 0;
   }
 
   async addMember(teamId: string, userId: string, role: 'captain' | 'participant' = 'participant') {

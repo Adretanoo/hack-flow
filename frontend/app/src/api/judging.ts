@@ -36,5 +36,8 @@ export const judgingApi = {
     api.post<ApiResponse<any>>('/judging/conflicts', data),
 
   getMyTracks: (hackathonId: string) =>
-    api.get<ApiResponse<any[]>>('/judging/my-tracks', { params: { hackathonId } })
+    api.get<ApiResponse<any[]>>('/judging/my-tracks', { params: { hackathonId } }),
+
+  getTeamsForJudge: (hackathonId: string) =>
+    api.get<ApiResponse<any[]>>('/judging/teams', { params: { hackathonId } }),
 }

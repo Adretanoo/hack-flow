@@ -5,9 +5,15 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    tsconfigPaths: true,
+    tsconfigPaths: true, // Vite 6+ built-in tsconfig paths (reads @/* from tsconfig.app.json)
   },
   server: {
     port: 5174,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
   },
 })

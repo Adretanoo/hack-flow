@@ -33,6 +33,11 @@ export class TeamsService {
   }
 
   async create(dto: CreateTeamDto, creatorId: string) {
+    // Guard: one team per hackathon per user
+    const alreadyInHackathon = await this.repo.isUserInHackathon(creatorId, dto.hackathonId);
+    if (alreadyInHackathon) {
+      throw new ConflictError('Ви вже є учасником команди в цьому хакатоні');
+    }
     const team = await this.repo.create(dto);
     await this.repo.addMember(team.id, creatorId, 'captain');
     this.auditLog?.log(creatorId, 'create_team', 'team', team.id).catch(() => undefined);
@@ -105,10 +110,18 @@ export class TeamsService {
     const alreadyMember = await this.repo.isMember(invite.teamId, userId);
     if (alreadyMember) throw new ConflictError('Ви вже є учасником цієї команди');
 
+    // Guard: find team to know hackathonId, then check cross-team membership
+    const team = await this.repo.findById(invite.teamId);
+    if (!team) throw new NotFoundError('Team');
+    const alreadyInHackathon = await this.repo.isUserInHackathon(userId, (team as any).hackathonId);
+    if (alreadyInHackathon) {
+      throw new ConflictError('Ви вже є учасником команди в цьому хакатоні');
+    }
+
     await this.repo.addMember(invite.teamId, userId);
     await this.repo.incrementInviteUses(invite.id, invite.usesCount);
     this.auditLog?.log(userId, 'join_team', 'team', invite.teamId).catch(() => undefined);
-    return this.repo.findById(invite.teamId);
+    return { teamId: invite.teamId, hackathonId: (team as any).hackathonId };
   }
 
   async updateApproval(
@@ -151,6 +164,16 @@ export class TeamsService {
     if (req.status !== 'pending') throw new ConflictError('Цю заявку вже оброблено');
     await this.repo.updateJoinRequest(requestId, action);
     if (action === 'accepted') {
+      const hackathonId = (req as any).hackathonId
+        ?? (await this.repo.findById(req.teamId) as any)?.hackathonId;
+      if (hackathonId) {
+        const alreadyIn = await this.repo.isUserInHackathon(req.userId, hackathonId);
+        if (alreadyIn) {
+          // auto-reject: user joined another team in between
+          await this.repo.updateJoinRequest(requestId, 'rejected');
+          throw new ConflictError('Учасник вже є в іншій команді цього хакатону');
+        }
+      }
       await this.repo.addMember(req.teamId, req.userId, 'participant');
       this.auditLog?.log(req.userId, 'join_team', 'team', req.teamId).catch(() => undefined);
     }

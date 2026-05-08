@@ -55,15 +55,15 @@ function NoTeamState({
       onCreated()
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message || err?.message || 'Помилка приєднання'
+      const msg = err?.message || err?.error || 'Помилка приєднання'
       if (msg.includes('недійсний') || msg.includes('invalid') || msg.includes('expired')) {
         setJoinError('Посилання недійсне або застаріле')
       } else if (msg.includes('вже є') || msg.includes('already')) {
-        setJoinError('Ви вже в команді цього хакатону')
+        setJoinError('Ви вже є учасником команди в цьому хакатоні')
       } else if (msg.includes('заповнена') || msg.includes('maximum')) {
         setJoinError('Команда заповнена (досягнуто максимум учасників)')
       } else {
-        setJoinError(msg)
+        setJoinError(msg || 'Невідома помилка')
       }
     },
   })
@@ -138,7 +138,7 @@ function NoTeamState({
               </div>
               {createMut.isError && (
                 <p className="text-xs text-destructive">
-                  {(createMut.error as any)?.response?.data?.message || 'Помилка створення'}
+                  {(createMut.error as any)?.message || 'Помилка створення'}
                 </p>
               )}
               <div className="flex gap-2">

@@ -48,7 +48,7 @@ export function JoinTeamPage() {
     },
     onError: (err: any) => {
       setStatus('error')
-      const msg = err?.response?.data?.message || err?.message || ''
+      const msg = err?.message || err?.error || ''
       if (msg.includes('вже є') || msg.includes('already')) {
         setErrorMsg('Ви вже є учасником команди в цьому хакатоні')
       } else if (msg.includes('недійсний') || msg.includes('invalid') || msg.includes('expired')) {

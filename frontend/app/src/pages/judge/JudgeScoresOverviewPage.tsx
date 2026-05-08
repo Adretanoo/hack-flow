@@ -1,126 +1,115 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { FileCheck, Activity, Target, Clock, Edit } from 'lucide-react'
+import { FileCheck, TrendingUp, TrendingDown, Activity, Edit } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { judgingApi } from '@/api/judging'
-import { formatDate } from '@/utils/format'
+import { formatDate, formatRelativeTime } from '@/utils/format'
 
 export function JudgeScoresOverviewPage() {
   const { data: myScoresData, isLoading } = useQuery({
     queryKey: ['my-scores'],
-    queryFn: () => judgingApi.getMyScores().then(res => res.data.data)
+    queryFn: () => judgingApi.getMyScores().then(res => res.data.data),
   })
 
-  // To display the project name and track, we need to fetch the projects details
-  // Wait, the scores from backend `scores` table don't have project names joined.
-  // We'll group them by projectId.
-
-  const scores = myScoresData || []
-  
+  const scores: any[] = myScoresData || []
   if (isLoading) return <div className="py-24"><LoadingSpinner /></div>
 
-  // Group scores by projectId
-  const projectsEvaluated = new Map<string, any>()
-  let totalAssessmentSum = 0
-
+  // Group by projectId
+  const byProject = new Map<string, any[]>()
   scores.forEach((s: any) => {
-    if (!projectsEvaluated.has(s.projectId)) {
-      projectsEvaluated.set(s.projectId, {
-        projectId: s.projectId,
-        updatedAt: s.updatedAt,
-        criteriaScores: []
-      })
-    }
-    const p = projectsEvaluated.get(s.projectId)
-    p.criteriaScores.push(s)
-    totalAssessmentSum += Number(s.assessment)
+    if (!byProject.has(s.projectId)) byProject.set(s.projectId, [])
+    byProject.get(s.projectId)!.push(s)
   })
+  const projects = Array.from(byProject.entries()).map(([projectId, ss]) => ({
+    projectId,
+    scores: ss,
+    updatedAt: ss.reduce((latest: string, s: any) => (s.updatedAt > latest ? s.updatedAt : latest), ss[0].updatedAt),
+    avg: ss.reduce((sum: number, s: any) => sum + Number(s.assessment), 0) / ss.length,
+  })).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
 
-  const evaluatedList = Array.from(projectsEvaluated.values())
-  const totalEvaluated = evaluatedList.length
-  const avgScore = scores.length > 0 ? totalAssessmentSum / scores.length : 0 // Rough simple average across all individual criteria assessments
+  const totalEvaluated = projects.length
+  const allAssessments = scores.map((s: any) => Number(s.assessment))
+  const avgScore = allAssessments.length > 0 ? allAssessments.reduce((a, b) => a + b, 0) / allAssessments.length : 0
+  const highestScore = allAssessments.length > 0 ? Math.max(...allAssessments) : 0
+  const lowestScore  = allAssessments.length > 0 ? Math.min(...allAssessments) : 0
+
+  const stats = [
+    { label: 'Оцінено проєктів', value: totalEvaluated, Icon: FileCheck, color: 'text-primary' },
+    { label: 'Середній бал',     value: avgScore.toFixed(1), Icon: Activity,   color: 'text-blue-500' },
+    { label: 'Найвища оцінка',   value: highestScore,        Icon: TrendingUp,  color: 'text-green-500' },
+    { label: 'Найнижча оцінка',  value: lowestScore,         Icon: TrendingDown,color: 'text-amber-500' },
+  ]
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title="Мої оцінки" subtitle="Перегляд та редагування виставлених вами оцінок" />
 
+      {/* Stats row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex items-center gap-3 text-muted-foreground mb-2">
-            <FileCheck className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium">Оцінено проєктів</span>
+        {stats.map(({ label, value, Icon, color }) => (
+          <div key={label} className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-3">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Icon className={`h-5 w-5 ${color}`} />
+              <span className="text-sm font-medium">{label}</span>
+            </div>
+            <p className="text-3xl font-bold">{value}</p>
           </div>
-          <span className="text-3xl font-bold">{totalEvaluated}</span>
-        </div>
-        
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex items-center gap-3 text-muted-foreground mb-2">
-            <Activity className="h-5 w-5 text-blue-500" />
-            <span className="text-sm font-medium">Середній бал (сирий)</span>
-          </div>
-          <span className="text-3xl font-bold">{avgScore.toFixed(1)}</span>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex items-center gap-3 text-muted-foreground mb-2">
-            <Target className="h-5 w-5 text-purple-500" />
-            <span className="text-sm font-medium">Всього критеріїв оцінено</span>
-          </div>
-          <span className="text-3xl font-bold">{scores.length}</span>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm bg-gradient-to-br from-card to-accent/50">
-          <div className="flex items-center gap-3 text-muted-foreground mb-2">
-            <Clock className="h-5 w-5 text-green-600" />
-            <span className="text-sm font-medium">Залишилось</span>
-          </div>
-          <Link to="/app/judge/projects" className="text-sm font-bold text-primary hover:underline mt-1 block">
-            Перейти до проєктів →
-          </Link>
-        </div>
+        ))}
       </div>
 
-      <div className="mt-8">
+      {/* Scored projects table */}
+      <div>
         <h3 className="text-xl font-semibold mb-4">Історія оцінювання</h3>
-        
-        {evaluatedList.length === 0 ? (
-          <EmptyState title="Ви ще не оцінили жодного проєкту" description="Перейдіть у вкладку 'Проєкти', щоб розпочати оцінювання" />
+        {projects.length === 0 ? (
+          <EmptyState
+            title="Ви ще не оцінили жодного проєкту"
+            description="Перейдіть у вкладку «Проєкти», щоб розпочати оцінювання"
+          />
         ) : (
           <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="text-xs uppercase bg-muted/50 text-muted-foreground border-b border-border">
                   <tr>
-                    <th className="px-6 py-4 font-semibold">Проєкт (ID)</th>
-                    <th className="px-6 py-4 font-semibold">Оцінки за критеріями</th>
-                    <th className="px-6 py-4 font-semibold">Останнє оновлення</th>
+                    <th className="px-6 py-4 font-semibold">Проєкт</th>
+                    <th className="px-6 py-4 font-semibold">Оцінки</th>
+                    <th className="px-6 py-4 font-semibold">Середнє</th>
+                    <th className="px-6 py-4 font-semibold">Оновлено</th>
                     <th className="px-6 py-4 font-semibold text-right">Дії</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {evaluatedList.sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).map(p => (
+                  {projects.map(p => (
                     <tr key={p.projectId} className="hover:bg-muted/30 transition-colors">
                       <td className="px-6 py-4">
-                        <div className="font-mono text-xs text-muted-foreground bg-accent px-2 py-1 rounded inline-block">
-                          {p.projectId.split('-')[0]}...
-                        </div>
+                        <span className="font-mono text-xs bg-accent px-2 py-1 rounded">
+                          {p.projectId.split('-')[0]}…
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-1.5">
-                          {p.criteriaScores.map((s: any) => (
-                            <span key={s.id} className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold" title={s.criteriaId}>
-                              {s.assessment}
+                          {p.scores.map((s: any) => (
+                            <span
+                              key={s.id}
+                              className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold"
+                              title={s.criteria?.name || s.criteriaId}
+                            >
+                              {s.criteria?.name ? `${s.criteria.name.slice(0, 8)}: ` : ''}{s.assessment}
                             </span>
                           ))}
                         </div>
                       </td>
+                      <td className="px-6 py-4">
+                        <span className="font-bold text-base text-primary">{p.avg.toFixed(1)}</span>
+                        <span className="text-xs text-muted-foreground">/10</span>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
-                        {formatDate(p.updatedAt)}
+                        <span title={formatDate(p.updatedAt)}>{formatRelativeTime(p.updatedAt)} тому</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <Link 
+                        <Link
                           to={`/app/judge/score/${p.projectId}`}
                           className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                           title="Редагувати оцінку"

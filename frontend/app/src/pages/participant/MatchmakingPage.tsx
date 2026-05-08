@@ -42,9 +42,14 @@ export function MatchmakingPage() {
       queryClient.invalidateQueries({ queryKey: ['matchmaking-teams'] })
     },
     onError: (err: any, { teamId }) => {
-      const msg = err?.response?.data?.message || ''
-      if (msg.includes('вже подали') || msg.includes('вже є')) {
+      // Interceptor rejects with response.data directly: { statusCode, code, message }
+      const msg: string = err?.message || err?.error || ''
+      const isAlreadySent = msg.includes('вже подали') || msg.includes('already')
+      const isAlreadyMember = msg.includes('вже є учасником') || msg.includes('вже є в') || msg.includes('member')
+      if (isAlreadySent || isAlreadyMember) {
+        // Treat as "already applied" — not an error
         setSentRequests((prev) => ({ ...prev, [teamId]: 'sent' }))
+        setExpandedRequest(null)
       } else {
         setSentRequests((prev) => ({ ...prev, [teamId]: 'error' }))
       }

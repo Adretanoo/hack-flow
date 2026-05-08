@@ -1,285 +1,271 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ExternalLink, MonitorPlay, FileText } from 'lucide-react'
+import { ChevronLeft, ExternalLink, Code2, MonitorPlay, FileText, CheckCircle, RotateCcw, Users, BookOpen, Save } from 'lucide-react'
 import { judgingApi } from '@/api/judging'
 import { projectsApi } from '@/api/projects'
 import { teamsApi } from '@/api/teams'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
-import { formatDate } from '@/utils/format'
+import { formatRelativeTime } from '@/utils/format'
 import { useAuthStore } from '@/store/auth.store'
 
 export function JudgeScorePage() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
+  const qc = useQueryClient()
   const { user } = useAuthStore()
-
-  // 1. Fetch Project Details
-  const { data: projectData, isLoading: projectLoading } = useQuery({
-    queryKey: ['project', projectId],
-    queryFn: () => projectsApi.getById(projectId!).then(res => res.data.data),
-    enabled: !!projectId
-  })
-
-  // 2. Fetch Team & Track Info (to get the trackId for criteria)
-  const { data: teamData } = useQuery({
-    queryKey: ['team', projectData?.teamId],
-    queryFn: () => teamsApi.list({ limit: 1 }).then(res => res.data.data.find((t: any) => t.id === projectData?.teamId)),
-    enabled: !!projectData?.teamId
-  })
-
-  // 3. Fetch Criteria for this track
-  const trackId = teamData?.trackId
-  const { data: criteriaData, isLoading: criteriaLoading } = useQuery({
-    queryKey: ['criteria', trackId],
-    queryFn: () => judgingApi.getCriteriaByTrack(trackId!).then(res => res.data.data),
-    enabled: !!trackId
-  })
-
-  // 4. Fetch My Existing Scores
-  const { data: myScoresData } = useQuery({
-    queryKey: ['my-scores'],
-    queryFn: () => judgingApi.getMyScores().then(res => res.data.data)
-  })
-
-  const criteriaList = criteriaData || []
-  const myScores = myScoresData || []
-  
-  // Find if already scored
-  const existingScores = myScores.filter((s: any) => s.projectId === projectId)
-  const hasExistingScores = existingScores.length > 0
-
-  // Local state for sliders and comments
+  const [tab, setTab] = useState<'project' | 'team'>('project')
   const [assessments, setAssessments] = useState<Record<string, number>>({})
   const [comment, setComment] = useState('')
-
-  // Draft auto-save logic
+  const [draftBanner, setDraftBanner] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const draftKey = `draft_score_${projectId}_${user?.id}`
-  
-  useEffect(() => {
-    // If we have existing scores from backend, prefer those
-    if (hasExistingScores) {
-      const initial: Record<string, number> = {}
-      existingScores.forEach((s: any) => {
-        initial[s.criteriaId] = Number(s.assessment)
-      })
-      setAssessments(initial)
-      // Take comment from the first score (backend schema currently stores comment per score)
-      setComment(existingScores[0]?.comment || '')
-    } else {
-      // Otherwise try loading from draft
-      const draft = localStorage.getItem(draftKey)
-      if (draft) {
-        try {
-          const parsed = JSON.parse(draft)
-          if (parsed.assessments) setAssessments(parsed.assessments)
-          if (parsed.comment) setComment(parsed.comment)
-        } catch(e) {}
-      }
-    }
-  }, [hasExistingScores, existingScores, draftKey])
 
-  // Save draft on change (only if not already scored successfully in DB, to avoid overwriting clean state unnecessarily, though it's fine)
-  useEffect(() => {
-    if (Object.keys(assessments).length > 0 && !hasExistingScores) {
-      localStorage.setItem(draftKey, JSON.stringify({ assessments, comment }))
-    }
-  }, [assessments, comment, draftKey, hasExistingScores])
-
-  // Mutation for submitting score
-  const submitMut = useMutation({
-    mutationFn: async () => {
-      // Submit a score for each criteria
-      for (const criteria of criteriaList) {
-        const val = assessments[criteria.id] || 0
-        await judgingApi.submitScore({
-          projectId: projectId!,
-          criteriaId: criteria.id,
-          assessment: val,
-          comment
-        })
-      }
-    },
-    onSuccess: () => {
-      localStorage.removeItem(draftKey)
-      queryClient.invalidateQueries({ queryKey: ['my-scores'] })
-      alert('Оцінку успішно збережено!')
-      navigate('/app/judge/projects')
-    },
-    onError: (err: any) => alert(err.message || 'Помилка збереження')
+  const { data: projectData, isLoading: pLoading } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: () => projectsApi.getById(projectId!).then(r => r.data.data),
+    enabled: !!projectId,
+  })
+  const { data: teamData } = useQuery({
+    queryKey: ['team-by-id', projectData?.teamId],
+    queryFn: () => teamsApi.getById(projectData!.teamId!).then(r => r.data.data),
+    enabled: !!projectData?.teamId,
+  })
+  const { data: membersData } = useQuery({
+    queryKey: ['team-members', projectData?.teamId],
+    queryFn: () => teamsApi.getMembers(projectData!.teamId).then(r => r.data.data),
+    enabled: !!projectData?.teamId,
+  })
+  const { data: criteriaData, isLoading: cLoading } = useQuery({
+    queryKey: ['criteria', teamData?.trackId],
+    queryFn: () => judgingApi.getCriteriaByTrack(teamData!.trackId!).then(r => r.data.data),
+    enabled: !!teamData?.trackId,
+  })
+  const { data: myScoresData } = useQuery({
+    queryKey: ['my-scores'],
+    queryFn: () => judgingApi.getMyScores().then(r => r.data.data),
   })
 
-  const handleSliderChange = (criteriaId: string, val: number) => {
-    setAssessments(prev => ({ ...prev, [criteriaId]: val }))
-  }
+  const criteria: any[] = criteriaData || []
+  const members: any[] = membersData || []
+  const myScores: any[] = myScoresData || []
+  const existing = myScores.filter((s: any) => s.projectId === projectId)
+  const hasExisting = existing.length > 0
 
-  // Keyboard shortcut Ctrl+Enter to submit
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault()
-        if (!submitMut.isPending) submitMut.mutate()
+    if (hasExisting) {
+      const init: Record<string, number> = {}
+      existing.forEach((s: any) => { init[s.criteriaId] = Number(s.assessment) })
+      setAssessments(init)
+      setComment(existing[0]?.comment || '')
+    } else {
+      const raw = localStorage.getItem(draftKey)
+      if (raw) {
+        try { const p = JSON.parse(raw); if (p.assessments) setDraftBanner(p.savedAt || '') } catch (_) {}
       }
     }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [hasExisting]) // eslint-disable-line
+
+  const saveDraft = useCallback((a: Record<string, number>, c: string) => {
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => {
+      if (!hasExisting) localStorage.setItem(draftKey, JSON.stringify({ assessments: a, comment: c, savedAt: new Date().toISOString() }))
+    }, 1000)
+  }, [draftKey, hasExisting])
+
+  const handleSlider = (id: string, v: number) => setAssessments(prev => { const next = { ...prev, [id]: v }; saveDraft(next, comment); return next })
+  const handleComment = (v: string) => { setComment(v); saveDraft(assessments, v) }
+
+  const submitMut = useMutation({
+    mutationFn: async () => { for (const c of criteria) await judgingApi.submitScore({ projectId: projectId!, criteriaId: c.id, assessment: assessments[c.id] ?? 0, comment }) },
+    onSuccess: () => { localStorage.removeItem(draftKey); qc.invalidateQueries({ queryKey: ['my-scores'] }); setDone(true); setTimeout(() => navigate('/app/judge/projects'), 1500) },
+    onError: (e: any) => alert(e.message || 'Помилка'),
+  })
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !submitMut.isPending) { e.preventDefault(); submitMut.mutate() } }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
   }, [submitMut])
 
-  if (projectLoading || criteriaLoading || !teamData) {
-    return <div className="py-24"><LoadingSpinner /></div>
-  }
+  let total = 0
+  criteria.forEach((c: any) => { total += (assessments[c.id] ?? 0) * Number(c.weight) })
 
-  const project = projectData!
-
-  // Calculate live preview
-  let totalPreview = 0
-  criteriaList.forEach((c: any) => {
-    const val = assessments[c.id] || 0
-    const w = Number(c.weight)
-    const max = Number(c.maxScore)
-    if (max > 0) totalPreview += val * (w / max)
-  })
+  if (pLoading || cLoading) return <div className="py-24"><LoadingSpinner /></div>
+  if (!projectData) return null
+  const proj = projectData as any
 
   return (
-    <div className="animate-fade-in max-w-6xl mx-auto space-y-6">
-      <Link to="/app/judge/projects" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground mb-2">
-        <ChevronLeft className="mr-1 h-4 w-4" /> Назад до списку
+    <div className="animate-fade-in max-w-6xl mx-auto space-y-4">
+      <Link to="/app/judge/projects" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <ChevronLeft className="mr-1 h-4 w-4" /> Повернутись до списку
       </Link>
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        
-        {/* Left Column: Project Details */}
-        <div className="lg:w-3/5 space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold">{project.title}</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground bg-accent px-2 py-1 rounded-md">{teamData.name}</span>
-              {teamData.track?.name && <span>Трек: {teamData.track.name}</span>}
-              <span>•</span>
-              <span>Подано: {project.submittedAt ? formatDate(project.submittedAt) : 'Чернетка'}</span>
+      {done && (
+        <div className="rounded-xl bg-green-50 border border-green-200 p-4 flex items-center gap-3 text-green-800">
+          <CheckCircle className="h-5 w-5" /><span className="font-semibold">Оцінку збережено!</span>
+        </div>
+      )}
+
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* LEFT */}
+        <div className="lg:w-3/5 space-y-4">
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-3">
+            <h1 className="text-2xl font-bold">{proj.title || 'Проєкт'}</h1>
+            <div className="flex flex-wrap gap-2">
+              {teamData && <span className="px-3 py-1 rounded-full bg-accent text-sm font-medium">{(teamData as any).name}</span>}
+              {(teamData as any)?.track?.name && <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">{(teamData as any).track.name}</span>}
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm prose prose-sm max-w-none dark:prose-invert">
-            <h3 className="text-lg font-semibold mb-4 mt-0">Опис проєкту</h3>
-            <p className="whitespace-pre-wrap">{(project as any).description || 'Опис відсутній.'}</p>
+          <div className="flex gap-1 border-b border-border">
+            {([{ k: 'project', Icon: BookOpen, label: 'Проєкт' }, { k: 'team', Icon: Users, label: 'Команда' }] as const).map(({ k, Icon, label }) => (
+              <button key={k} onClick={() => setTab(k)} className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${tab === k ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+                <Icon className="h-4 w-4" />{label}
+              </button>
+            ))}
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Ресурси</h3>
-            {(!project.resources || project.resources.length === 0) ? (
-              <p className="text-sm text-muted-foreground">Команда не додала жодних ресурсів.</p>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {project.resources.map((res: any) => {
-                  const isGithub = res.url.includes('github.com')
-                  const isDemo = res.url.includes('vercel') || res.url.includes('netlify') || res.url.includes('demo')
-                  return (
-                    <a 
-                      key={res.id} 
-                      href={res.url} 
-                      target="_blank" 
-                      rel="noreferrer"
-                      className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary transition-colors bg-muted/20 hover:bg-muted/40"
-                    >
-                      <div className="shrink-0 p-2 bg-background rounded-md shadow-sm">
-                        {isGithub ? <div className="h-5 w-5 bg-muted rounded-full" /> : isDemo ? <MonitorPlay className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
-                      </div>
-                      <div className="overflow-hidden">
-                        <p className="text-sm font-medium truncate">{res.description || (isGithub ? 'Репозиторій' : 'Посилання')}</p>
-                        <p className="text-xs text-muted-foreground truncate">{res.url}</p>
-                      </div>
-                      <ExternalLink className="h-4 w-4 ml-auto text-muted-foreground" />
-                    </a>
-                  )
-                })}
+          {tab === 'project' && (
+            <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-5">
+              <div>
+                <h3 className="font-semibold mb-2">Опис</h3>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{proj.description || 'Опис відсутній.'}</p>
               </div>
-            )}
-          </div>
+              <div>
+                <h3 className="font-semibold mb-3">Ресурси</h3>
+                {!proj.resources?.length ? <p className="text-sm text-muted-foreground">Команда не додала ресурси.</p> : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {proj.resources.map((r: any) => {
+                      const type = r.type?.name || r.projectType?.name || ''
+                      const isGh = type.includes('repo') || r.url?.includes('github')
+                      const isDm = type.includes('demo') || r.url?.includes('demo')
+                      const Icon = isGh ? Code2 : isDm ? MonitorPlay : FileText
+                      return (
+                        <a key={r.id} href={r.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary transition-colors bg-muted/20">
+                          <div className="shrink-0 p-2 bg-background rounded-md"><Icon className="h-5 w-5 text-primary" /></div>
+                          <div className="min-w-0 flex-1"><p className="text-sm font-medium truncate">{isGh ? 'Репозиторій' : isDm ? 'Демо' : 'Презентація'}</p><p className="text-xs text-muted-foreground truncate">{r.url}</p></div>
+                          <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        </a>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {tab === 'team' && (
+            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+              <h3 className="font-semibold mb-4">Учасники</h3>
+              <ul className="divide-y divide-border">
+                {members.map((m: any) => (
+                  <li key={m.id} className="py-3 flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                      {(m.user?.fullName || 'U')[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{m.user?.fullName || 'Учасник'}</p>
+                      <p className="text-xs text-muted-foreground truncate">{m.user?.email}</p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${m.role === 'captain' ? 'bg-amber-100 text-amber-800' : 'bg-muted text-muted-foreground'}`}>
+                      {m.role === 'captain' ? 'Капітан' : 'Учасник'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
-        {/* Right Column: Scoring Form (Sticky) */}
+        {/* RIGHT */}
         <div className="lg:w-2/5">
-          <div className="sticky top-6 space-y-6">
-            
-            {hasExistingScores && (
-              <div className="rounded-lg bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 p-4 text-sm font-medium">
-                Ви вже оцінили цей проєкт. Можете змінити свою оцінку нижче.
+          <div className="sticky top-6 space-y-4">
+            {hasExisting && !done && (
+              <div className="rounded-lg bg-blue-50 border border-blue-200 text-blue-800 p-4 text-sm">
+                <p className="font-semibold">Ви вже оцінили цей проєкт</p>
+                {existing[0]?.updatedAt && <p className="text-xs mt-0.5 opacity-80">{formatRelativeTime(existing[0].updatedAt)} тому. Змінити можна до закінчення суддівства.</p>}
               </div>
             )}
 
-            <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden flex flex-col">
-              <div className="p-6 border-b border-border bg-muted/20">
-                <h3 className="text-xl font-bold">Виставити оцінку</h3>
+            {draftBanner !== null && !hasExisting && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 p-4 text-sm">
+                <p className="font-semibold">Знайдено незбережену чернетку</p>
+                {draftBanner && <p className="text-xs mt-0.5 opacity-80">Збережено {formatRelativeTime(draftBanner)} тому</p>}
+                <div className="flex gap-2 mt-3">
+                  <button onClick={() => { const r = localStorage.getItem(draftKey); if (r) { const p = JSON.parse(r); if (p.assessments) setAssessments(p.assessments); if (p.comment) setComment(p.comment) }; setDraftBanner(null) }} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-700">
+                    <RotateCcw className="h-3.5 w-3.5" />Відновити
+                  </button>
+                  <button onClick={() => { localStorage.removeItem(draftKey); setDraftBanner(null) }} className="text-xs px-3 py-1.5 rounded-md border border-amber-300 text-amber-700 hover:bg-amber-100">
+                    Ігнорувати
+                  </button>
+                </div>
               </div>
-              
-              <div className="p-6 space-y-8 flex-1 overflow-y-auto max-h-[60vh]">
-                {criteriaList.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">Критерії для цього треку ще не налаштовані.</p>
-                ) : (
-                  criteriaList.map((c: any) => {
-                    const max = Number(c.maxScore)
-                    const weight = Number(c.weight)
-                    const val = assessments[c.id] || 0
+            )}
 
+            <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/20 flex items-center gap-2">
+                <Save className="h-5 w-5 text-primary" /><h3 className="font-bold text-lg">Моя оцінка</h3>
+              </div>
+
+              <div className="p-6 space-y-6 max-h-[52vh] overflow-y-auto">
+                {criteria.map((c: any) => {
+                  const max = Number(c.maxScore) || 10
+                  const val = assessments[c.id] ?? 0
+                  return (
+                    <div key={c.id} className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div><h4 className="text-sm font-semibold">{c.name}</h4>{c.description && <p className="text-xs text-muted-foreground mt-0.5">{c.description}</p>}</div>
+                        <span className="shrink-0 text-xs bg-accent px-2 py-0.5 rounded font-medium">вага: {Math.round(Number(c.weight) * 100)}%</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <input type="range" min={0} max={max} step={1} value={val} onChange={e => handleSlider(c.id, Number(e.target.value))} className="flex-1 accent-primary cursor-pointer" />
+                        <span className="w-14 text-right font-mono font-bold text-primary text-sm">{val}<span className="text-xs text-muted-foreground font-normal">/{max}</span></span>
+                      </div>
+                      <div className="h-1 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-primary/60 rounded-full transition-all" style={{ width: `${(val / max) * 100}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
+
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-semibold">Коментар (необов'язково)</label>
+                    <span className={`text-xs ${comment.length > 450 ? 'text-destructive' : 'text-muted-foreground'}`}>{comment.length}/500</span>
+                  </div>
+                  <textarea value={comment} onChange={e => handleComment(e.target.value.slice(0, 500))} placeholder="Що сподобалось, що варто покращити..." rows={3} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none focus:border-primary focus:outline-none" />
+                </div>
+              </div>
+
+              {/* Score preview */}
+              {criteria.length > 0 && (
+                <div className="px-6 py-4 border-t border-border bg-muted/10 space-y-1.5">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Підсумкова оцінка</p>
+                  {criteria.map((c: any) => {
+                    const val = assessments[c.id] ?? 0
+                    const w = Number(c.weight)
                     return (
-                      <div key={c.id} className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-semibold text-sm">{c.name}</h4>
-                            {c.description && <p className="text-xs text-muted-foreground mt-0.5">{c.description}</p>}
-                          </div>
-                          <span className="shrink-0 bg-accent px-2 py-0.5 rounded text-xs font-medium" title="Вага критерію">
-                            Вага: {weight}
-                          </span>
-                        </div>
-                        
-                        <div className="flex items-center gap-4">
-                          <input 
-                            type="range" 
-                            min="0" 
-                            max={max} 
-                            step="1" 
-                            value={val}
-                            onChange={(e) => handleSliderChange(c.id, Number(e.target.value))}
-                            className="flex-1 accent-primary"
-                          />
-                          <div className="w-12 text-right font-mono font-bold text-lg text-primary">
-                            {val}<span className="text-sm text-muted-foreground font-normal">/{max}</span>
-                          </div>
-                        </div>
+                      <div key={c.id} className="flex justify-between text-xs text-muted-foreground">
+                        <span className="truncate mr-2">{c.name}</span>
+                        <span className="font-mono shrink-0">{val} × {Math.round(w * 100)}% = <span className="font-bold text-foreground">{(val * w).toFixed(2)}</span></span>
                       </div>
                     )
-                  })
-                )}
-
-                <div className="space-y-2 pt-4 border-t border-border">
-                  <label className="text-sm font-semibold">Коментар (необов'язково)</label>
-                  <textarea 
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    placeholder="Ваш фідбек для команди..."
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm min-h-[100px] resize-y"
-                  />
+                  })}
+                  <div className="border-t border-border pt-2 flex justify-between font-bold text-sm">
+                    <span>Загалом:</span>
+                    <span className="text-lg text-primary">{total.toFixed(2)}<span className="text-sm font-normal text-muted-foreground">/10</span></span>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="p-6 border-t border-border bg-muted/20">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm font-medium text-muted-foreground">Попередній підсумок:</span>
-                  <span className="text-2xl font-black">{totalPreview.toFixed(2)} <span className="text-lg text-muted-foreground font-medium">/ 100</span></span>
-                </div>
-                
-                <button 
-                  onClick={() => submitMut.mutate()}
-                  disabled={submitMut.isPending || criteriaList.length === 0}
-                  className="w-full rounded-md bg-primary px-4 py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-sm"
-                >
-                  {submitMut.isPending ? 'Збереження...' : hasExistingScores ? 'Оновити оцінку' : 'Зберегти оцінку'}
+              <div className="px-6 pb-6 pt-4 space-y-3">
+                <button onClick={() => submitMut.mutate()} disabled={submitMut.isPending || criteria.length === 0 || done} className="w-full rounded-md bg-primary px-4 py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                  {submitMut.isPending ? 'Збереження...' : hasExisting ? 'Оновити оцінку' : 'Зберегти оцінку'}
                 </button>
-                <p className="text-center text-xs text-muted-foreground mt-3">
-                  Можна також натиснути <kbd className="px-1.5 py-0.5 bg-background border border-border rounded">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-background border border-border rounded">Enter</kbd>
+                <p className="text-center text-xs text-muted-foreground">
+                  <kbd className="px-1.5 py-0.5 bg-muted border border-border rounded text-xs">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-muted border border-border rounded text-xs">Enter</kbd>
                 </p>
               </div>
             </div>

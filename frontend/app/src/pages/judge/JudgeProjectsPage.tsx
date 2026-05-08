@@ -1,222 +1,304 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, ShieldAlert, Clock, CheckCircle, ChevronRight, Folder } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { hackathonsApi } from '@/api/hackathons'
 import { judgingApi } from '@/api/judging'
 import { teamsApi } from '@/api/teams'
-import { formatDate } from '@/utils/format'
+import { formatRelativeTime } from '@/utils/format'
+
+type Filter = 'all' | 'unscored' | 'scored' | 'conflict'
 
 export function JudgeProjectsPage() {
-  const [activeHackathonId, setActiveHackathonId] = useState<string>(() => localStorage.getItem('judge_active_hackathon') || '')
-  const [filter, setFilter] = useState<'all' | 'scored' | 'unscored'>('all')
+  const [activeHackathonId, setActiveHackathonId] = useState<string>(
+    () => localStorage.getItem('judge_hackathon') || ''
+  )
+  const [filter, setFilter] = useState<Filter>('all')
 
   const { data: hackathonsData } = useQuery({
     queryKey: ['judge-hackathons'],
-    queryFn: () => hackathonsApi.list({ limit: 100 }).then(res => res.data.data)
+    queryFn: () => hackathonsApi.list({ limit: 100 }).then(res => res.data.data),
   })
 
-  // We fetch hackathons first to populate the selector. If only one exists, auto-select it.
+  const hackathons: any[] = hackathonsData || []
+
   useEffect(() => {
-    if (hackathonsData && hackathonsData.length > 0 && !activeHackathonId) {
-      setActiveHackathonId(hackathonsData[0].id)
+    if (hackathons.length > 0 && !activeHackathonId) {
+      const first = hackathons[0].id
+      setActiveHackathonId(first)
+      localStorage.setItem('judge_hackathon', first)
     }
-  }, [hackathonsData, activeHackathonId])
+  }, [hackathons, activeHackathonId])
 
-  useEffect(() => {
-    if (activeHackathonId) localStorage.setItem('judge_active_hackathon', activeHackathonId)
-  }, [activeHackathonId])
+  const handleHackathonChange = (id: string) => {
+    setActiveHackathonId(id)
+    localStorage.setItem('judge_hackathon', id)
+  }
 
-  // Fetch my tracks for this hackathon
   const { data: myTracksData } = useQuery({
     queryKey: ['my-tracks', activeHackathonId],
     queryFn: () => judgingApi.getMyTracks(activeHackathonId).then(res => res.data.data),
-    enabled: !!activeHackathonId
+    enabled: !!activeHackathonId,
   })
 
-  const myTracks = myTracksData || []
+  const myTracks: any[] = myTracksData || []
   const trackIds = myTracks.map((t: any) => t.trackId)
 
-  // Fetch teams for those tracks
   const { data: teamsData, isLoading: teamsLoading } = useQuery({
-    queryKey: ['judge-teams', activeHackathonId, trackIds],
+    queryKey: ['judge-teams', activeHackathonId, trackIds.join(',')],
     queryFn: async () => {
-      // Fetch teams for all assigned tracks
-      const promises = trackIds.map((tid: string) => teamsApi.list({ hackathon_id: activeHackathonId, track_id: tid, limit: 100 }))
-      const results = await Promise.all(promises)
-      return results.flatMap(r => r.data.data)
+      const results = await Promise.all(
+        trackIds.map((tid: string) =>
+          teamsApi.list({ hackathon_id: activeHackathonId, track_id: tid, limit: 100 }).then(r => r.data.data)
+        )
+      )
+      return results.flat()
     },
-    enabled: trackIds.length > 0
+    enabled: trackIds.length > 0,
   })
 
-  // Fetch my scores to see what's evaluated
   const { data: myScoresData } = useQuery({
     queryKey: ['my-scores'],
-    queryFn: () => judgingApi.getMyScores().then(res => res.data.data)
+    queryFn: () => judgingApi.getMyScores().then(res => res.data.data),
   })
 
-  // Fetch my conflicts
   const { data: myConflictsData } = useQuery({
     queryKey: ['my-conflicts'],
-    queryFn: () => judgingApi.getMyConflicts().then(res => res.data.data)
+    queryFn: () => judgingApi.getMyConflicts().then(res => res.data.data),
   })
 
-  const teams = teamsData || []
-  const myScores = myScoresData || []
-  const myConflicts = myConflictsData || []
+  const teams: any[] = teamsData || []
+  const myScores: any[] = myScoresData || []
+  const myConflicts: any[] = myConflictsData || []
 
-  const projects = teams
-    .filter((team: any) => team.projects && team.projects.length > 0)
+  // Build project list enriched with score/conflict status
+  const allProjects = teams
+    .filter((team: any) => team.projects?.length > 0)
     .map((team: any) => {
       const project = team.projects[0]
-      // A project is considered scored by me if I have at least one score for it
       const scored = myScores.some((s: any) => s.projectId === project.id)
       const hasConflict = myConflicts.some((c: any) => c.teamId === team.id)
-      return {
-        ...project,
-        team,
-        scored,
-        hasConflict
-      }
-    })
-    .filter((p: any) => {
-      if (filter === 'scored') return p.scored
-      if (filter === 'unscored') return !p.scored
-      return true
+      const trackName = team.track?.name || myTracks.find((t: any) => t.trackId === team.trackId)?.track?.name || 'Без треку'
+      return { ...project, team, scored, hasConflict, trackName }
     })
 
-  const totalProjects = teams.filter((t: any) => t.projects && t.projects.length > 0).length
-  const evaluatedCount = teams.filter((t: any) => t.projects && t.projects.length > 0 && myScores.some((s: any) => s.projectId === t.projects[0].id)).length
+  const filtered = allProjects.filter((p: any) => {
+    if (filter === 'scored')   return p.scored && !p.hasConflict
+    if (filter === 'unscored') return !p.scored && !p.hasConflict
+    if (filter === 'conflict') return p.hasConflict
+    return true
+  })
+
+  // Group by track
+  const byTrack = new Map<string, any[]>()
+  filtered.forEach((p: any) => {
+    if (!byTrack.has(p.trackName)) byTrack.set(p.trackName, [])
+    byTrack.get(p.trackName)!.push(p)
+  })
+
+  const totalProjects = allProjects.filter((p: any) => !p.hasConflict).length
+  const evaluatedCount = allProjects.filter((p: any) => p.scored && !p.hasConflict).length
   const progressPercent = totalProjects > 0 ? (evaluatedCount / totalProjects) * 100 : 0
+  const conflictsCount = allProjects.filter((p: any) => p.hasConflict).length
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <PageHeader title="Мої проєкти для оцінювання" subtitle="Переглядайте та оцінюйте проєкти команд з ваших треків" />
-        
-        {hackathonsData && hackathonsData.length > 0 && (
-          <select 
-            value={activeHackathonId} 
-            onChange={e => setActiveHackathonId(e.target.value)}
-            className="rounded-md border border-border bg-card px-3 py-2 text-sm shadow-sm min-w-[200px]"
+      {/* Header + hackathon selector */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <PageHeader
+          title="Проєкти для оцінювання"
+          subtitle="Переглядайте та оцінюйте проєкти команд з ваших треків"
+        />
+        {hackathons.length > 1 ? (
+          <select
+            value={activeHackathonId}
+            onChange={e => handleHackathonChange(e.target.value)}
+            className="rounded-md border border-border bg-card px-3 py-2 text-sm shadow-sm min-w-[200px] shrink-0"
           >
             <option value="">Оберіть хакатон...</option>
-            {hackathonsData.map((h: any) => (
+            {hackathons.map((h: any) => (
               <option key={h.id} value={h.id}>{h.title}</option>
             ))}
           </select>
-        )}
+        ) : hackathons.length === 1 ? (
+          <span className="shrink-0 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium">
+            {hackathons[0].title}
+          </span>
+        ) : null}
       </div>
 
       {!activeHackathonId ? (
-        <EmptyState title="Хакатон не обрано" description="Будь ласка, оберіть хакатон зі списку вище" />
+        <EmptyState title="Хакатон не обрано" description="Оберіть хакатон зі списку вище" />
       ) : myTracks.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-12 text-center bg-card">
-          <ShieldAlert className="h-10 w-10 text-muted-foreground mx-auto mb-4 opacity-50" />
-          <h3 className="text-lg font-semibold mb-2">Ви не призначені на жоден трек</h3>
-          <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-            Організатори хакатону ще не призначили вам трек для оцінювання. Зверніться до адміністратора.
-          </p>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-amber-900">Вас ще не призначено на жоден трек</p>
+            <p className="text-sm text-amber-700 mt-1">
+              Зверніться до організатора хакатону для отримання призначення.
+            </p>
+          </div>
         </div>
       ) : (
         <>
-          <div className="flex flex-wrap gap-2 mb-2">
-            <span className="text-sm text-muted-foreground">Ваші треки:</span>
+          {/* My tracks banner */}
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Ви суддя треків:</span>
             {myTracks.map((t: any) => (
-              <span key={t.trackId} className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">
+              <span key={t.trackId} className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
                 {t.track?.name || 'Трек'}
               </span>
             ))}
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-4 sm:p-6 shadow-sm">
-            <div className="flex justify-between text-sm mb-2">
-              <span className="font-medium">Оцінено {evaluatedCount} з {totalProjects} проєктів</span>
-              <span className="text-muted-foreground">{Math.round(progressPercent)}%</span>
+          {/* Progress */}
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-semibold">Прогрес оцінювання</span>
+              <span className="text-muted-foreground font-mono">{evaluatedCount} з {totalProjects} проєктів</span>
             </div>
-            <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-primary transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
+            <div className="relative h-3 w-full bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-700 rounded-full"
+                style={{ width: `${progressPercent}%` }}
+              />
             </div>
-            
-            <div className="mt-6 flex gap-2">
-              <button onClick={() => setFilter('all')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${filter === 'all' ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground hover:bg-muted'}`}>Всі</button>
-              <button onClick={() => setFilter('unscored')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${filter === 'unscored' ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground hover:bg-muted'}`}>Не оцінені</button>
-              <button onClick={() => setFilter('scored')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${filter === 'scored' ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground hover:bg-muted'}`}>Оцінені</button>
-            </div>
+            <p className="text-right text-xs text-muted-foreground">{Math.round(progressPercent)}% виконано</p>
           </div>
 
+          {/* Filter tabs */}
+          <div className="flex gap-1 border-b border-border pb-1">
+            {([
+              { key: 'all',      label: 'Всі',        count: allProjects.length },
+              { key: 'unscored', label: 'Не оцінені', count: allProjects.filter((p:any) => !p.scored && !p.hasConflict).length },
+              { key: 'scored',   label: 'Оцінені',    count: evaluatedCount },
+              { key: 'conflict', label: 'Конфлікти',  count: conflictsCount },
+            ] as const).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setFilter(tab.key as Filter)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  filter === tab.key
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {tab.label}
+                {tab.count > 0 && (
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${
+                    filter === tab.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Projects */}
           {teamsLoading ? (
             <div className="py-12"><LoadingSpinner /></div>
-          ) : projects.length === 0 ? (
-            <EmptyState title="Проєктів не знайдено" description="Команди ще не створили проєкти або не відповідають фільтру" />
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              title="Проєктів не знайдено"
+              description="Команди ще не подали проєкти або не відповідають фільтру"
+            />
           ) : (
-            <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="text-xs uppercase bg-muted/50 text-muted-foreground border-b border-border">
-                    <tr>
-                      <th className="px-6 py-4 font-semibold">Проєкт / Команда</th>
-                      <th className="px-6 py-4 font-semibold">Подано</th>
-                      <th className="px-6 py-4 font-semibold">Статус</th>
-                      <th className="px-6 py-4 font-semibold text-right">Дії</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
+            <div className="space-y-6">
+              {Array.from(byTrack.entries()).map(([trackName, projects]) => (
+                <div key={trackName} className="space-y-3">
+                  {/* Track header */}
+                  {myTracks.length > 1 && (
+                    <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                      <Folder className="h-4 w-4" />
+                      <span>{trackName}</span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        ({projects.length} {projects.length === 1 ? 'проєкт' : 'проєктів'})
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
                     {projects.map((project: any) => (
-                      <tr key={project.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="font-semibold text-foreground flex items-center gap-2">
-                            {project.title}
-                            {project.hasConflict && (
-                              <span title="Конфлікт інтересів" className="inline-flex items-center text-destructive">
-                                <AlertTriangle className="h-4 w-4" />
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5">{project.team.name}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
-                          {project.submittedAt ? formatDate(project.submittedAt) : 'Не подано'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {project.scored ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                              Оцінено
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                              Не оцінено
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <Link 
-                            to={`/app/judge/score/${project.id}`}
-                            className={`inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                              project.hasConflict 
-                                ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-50' 
-                                : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                            }`}
-                            onClick={e => {
-                              if (project.hasConflict) e.preventDefault()
-                            }}
-                            title={project.hasConflict ? 'Є конфлікт інтересів' : 'Перейти до оцінювання'}
-                          >
-                            {project.scored ? 'Редагувати' : 'Оцінити'}
-                          </Link>
-                        </td>
-                      </tr>
+                      <ProjectCard key={project.id} project={project} />
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </>
       )}
+    </div>
+  )
+}
+
+function ProjectCard({ project }: { project: any }) {
+  const submittedAgo = project.submittedAt ? formatRelativeTime(project.submittedAt) : null
+
+  return (
+    <div className={`rounded-xl border bg-card shadow-sm overflow-hidden transition-all hover:shadow-md ${
+      project.hasConflict ? 'border-amber-200 opacity-80' : 'border-border'
+    }`}>
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 space-y-1.5">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold truncate">{project.title || 'Без назви'}</h3>
+              {project.hasConflict && (
+                <span className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                  <AlertTriangle className="h-3 w-3" /> Конфлікт
+                </span>
+              )}
+              {project.scored && !project.hasConflict && (
+                <span className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  <CheckCircle className="h-3 w-3" /> Оцінено
+                </span>
+              )}
+              {!project.scored && !project.hasConflict && (
+                <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                  Не оцінено
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">Команда: <span className="font-medium text-foreground">{project.team.name}</span></p>
+            {submittedAgo && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Clock className="h-3 w-3" /> Подано {submittedAgo}
+              </p>
+            )}
+          </div>
+
+          {project.hasConflict ? (
+            <div className="shrink-0 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <ShieldAlert className="h-4 w-4" />
+              Оцінювання недоступне
+            </div>
+          ) : (
+            <Link
+              to={`/app/judge/score/${project.id}`}
+              className="shrink-0 flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              {project.scored ? 'Змінити' : 'Оцінити'}
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          )}
+        </div>
+
+        {/* Score progress bar */}
+        {!project.hasConflict && (
+          <div className="mt-4">
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${project.scored ? 'bg-green-500 w-full' : 'w-0'}`}
+              />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

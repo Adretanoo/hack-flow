@@ -1,320 +1,309 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Clock, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Clock, Trash2, ChevronDown, ChevronUp, AlertTriangle, CalendarDays } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
-import { EmptyState } from '@/components/shared/EmptyState'
 import { mentorshipApi } from '@/api/mentorship'
 import { hackathonsApi } from '@/api/hackathons'
 import { tracksApi } from '@/api/tracks'
 
-export function MentorAvailabilityPage() {
-  const queryClient = useQueryClient()
-  const [activeHackathonId, setActiveHackathonId] = useState<string>('')
-  
-  // Form State
-  const [showForm, setShowForm] = useState(false)
-  const [formTrackId, setFormTrackId] = useState<string>('')
-  const [formDate, setFormDate] = useState<string>('')
-  const [formStart, setFormStart] = useState<string>('10:00')
-  const [formEnd, setFormEnd] = useState<string>('12:00')
-  const [slotDuration, setSlotDuration] = useState<number>(30)
+const LS_KEY = 'mentor_hackathon'
+const TODAY = new Date().toISOString().split('T')[0]
 
-  // Fetch Hackathons
+const UK_DAYS = ['Неділя','Понеділок','Вівторок','Середа','Четвер','П\'ятниця','Субота']
+const UK_MONTHS = ['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня']
+
+function fmtDay(dt: Date) { return `${UK_DAYS[dt.getDay()]}, ${dt.getDate()} ${UK_MONTHS[dt.getMonth()]}` }
+function fmtTime(dt: Date) { return dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+
+export function MentorAvailabilityPage() {
+  const qc = useQueryClient()
+  const [hackathonId, setHackathonId] = useState(() => localStorage.getItem(LS_KEY) || '')
+
+  // Form state
+  const [formTrackId, setFormTrackId] = useState('')
+  const [formDate, setFormDate]       = useState('')
+  const [formStart, setFormStart]     = useState('10:00')
+  const [formEnd, setFormEnd]         = useState('12:00')
+  const [slotDuration, setSlotDuration] = useState(30)
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+
+  const changeHackathon = (id: string) => { setHackathonId(id); localStorage.setItem(LS_KEY, id) }
+
   const { data: hackathonsData } = useQuery({
     queryKey: ['mentor-hackathons'],
-    queryFn: () => hackathonsApi.list({ limit: 100 }).then(res => res.data.data) // Assuming it's an array based on prev fixes
+    queryFn: () => hackathonsApi.list({ limit: 100 }).then(r => r.data.data),
   })
+  const hackathons: any[] = hackathonsData || []
+  const effectiveHackathonId = hackathonId || hackathons[0]?.id || ''
 
-  // We should auto-select first hackathon if activeHackathonId is empty
-  // Wait, let's just let it be empty meaning "All" for list, but for Form we need to require one if there are multiple.
-  
-  // Fetch My Availabilities
   const { data: availabilitiesData, isLoading } = useQuery({
-    queryKey: ['my-availabilities', activeHackathonId],
-    queryFn: () => mentorshipApi.getMyAvailabilities(activeHackathonId || undefined).then(res => res.data.data)
+    queryKey: ['my-availabilities', hackathonId],
+    queryFn: () => mentorshipApi.getMyAvailabilities(hackathonId || undefined).then(r => r.data.data),
   })
 
-  // Fetch Tracks (for the selected hackathon in form)
-  const formHackathonId = activeHackathonId || (hackathonsData && hackathonsData.length > 0 ? (hackathonsData[0] as any).id : '')
   const { data: tracksData } = useQuery({
-    queryKey: ['tracks', formHackathonId],
-    queryFn: () => tracksApi.list({ hackathon_id: formHackathonId, limit: 100 }).then((res: any) => res.data.data),
-    enabled: !!formHackathonId
+    queryKey: ['tracks', effectiveHackathonId],
+    queryFn: () => tracksApi.list({ hackathon_id: effectiveHackathonId, limit: 100 }).then((r: any) => r.data.data),
+    enabled: !!effectiveHackathonId,
   })
+  const tracks: any[] = tracksData || []
+  const availabilities: any[] = availabilitiesData || []
 
-  const availabilities = availabilitiesData || []
-  const hackathons = hackathonsData || []
-  const tracks = tracksData || []
+  // Live preview
+  const { slots: previewSlots, remainder } = useMemo(() => {
+    if (!formDate || !formStart || !formEnd) return { slots: [], remainder: 0 }
+    const s = new Date(`${formDate}T${formStart}:00`)
+    const e = new Date(`${formDate}T${formEnd}:00`)
+    if (s >= e) return { slots: [], remainder: 0 }
+    const diffMins = (e.getTime() - s.getTime()) / 60000
+    const count = Math.floor(diffMins / slotDuration)
+    const rem   = diffMins % slotDuration
+    const list: string[] = []
+    let cur = new Date(s)
+    for (let i = 0; i < Math.min(count, 24); i++) {
+      list.push(fmtTime(cur))
+      cur = new Date(cur.getTime() + slotDuration * 60000)
+    }
+    return { slots: list, remainder: rem }
+  }, [formDate, formStart, formEnd, slotDuration])
 
-  // Mutations
   const createMut = useMutation({
     mutationFn: (data: any) => mentorshipApi.createAvailability(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-availabilities'] })
-      setShowForm(false)
-      // Reset some form state
-      setFormDate('')
-      setFormStart('10:00')
-      setFormEnd('12:00')
+      qc.invalidateQueries({ queryKey: ['my-availabilities'] })
+      setFormDate(''); setFormStart('10:00'); setFormEnd('12:00'); setFormTrackId('')
+      setFormErrors({})
     },
-    onError: (err: any) => alert(err.response?.data?.message || err.message)
+    onError: (err: any) => alert(err.message || 'Помилка'),
   })
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => mentorshipApi.deleteAvailability(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-availabilities'] })
-    },
-    onError: (err: any) => alert(err.response?.data?.message || err.message)
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-availabilities'] }),
+    onError: (err: any) => alert(err.message || 'Помилка'),
   })
 
-  // Expandable rows state
-  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
-  const toggleRow = (id: string) => setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }))
-
-  // Calculate live preview
-  let previewSlotsCount = 0
-  let previewBlocks: string[] = []
-  if (formDate && formStart && formEnd) {
-    const sDate = new Date(`${formDate}T${formStart}:00`)
-    const eDate = new Date(`${formDate}T${formEnd}:00`)
-    if (sDate < eDate) {
-      const diffMins = (eDate.getTime() - sDate.getTime()) / 60000
-      previewSlotsCount = Math.floor(diffMins / slotDuration)
-      
-      let curr = new Date(sDate)
-      for (let i=0; i<Math.min(previewSlotsCount, 20); i++) { // cap preview at 20 visually
-        previewBlocks.push(curr.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}))
-        curr = new Date(curr.getTime() + slotDuration * 60000)
-      }
-    }
+  const validate = (): boolean => {
+    const errs: Record<string, string> = {}
+    if (!formDate) { errs.date = 'Оберіть дату' }
+    else if (formDate < TODAY) { errs.date = 'Оберіть майбутню дату' }
+    if (formEnd <= formStart) { errs.end = 'Час закінчення має бути пізніше початку' }
+    if (previewSlots.length === 0) { errs.range = 'Збільшіть діапазон або зменшіть тривалість слоту' }
+    setFormErrors(errs)
+    return Object.keys(errs).length === 0
   }
 
   const handleCreate = () => {
-    if (!formDate || !formStart || !formEnd) return alert('Всі поля часу є обов\'язковими')
-    const sDate = new Date(`${formDate}T${formStart}:00`)
-    const eDate = new Date(`${formDate}T${formEnd}:00`)
-    
-    if (sDate >= eDate) return alert('Час завершення має бути пізніше за час початку')
-    if (sDate < new Date()) return alert('Не можна створити доступність у минулому')
-    if (previewSlotsCount < 1) return alert(`Проміжок часу занадто малий для слота тривалістю ${slotDuration} хв`)
-
-    createMut.mutate({
-      hackathonId: formHackathonId,
-      trackId: formTrackId || undefined,
-      startDatetime: sDate.toISOString(),
-      endDatetime: eDate.toISOString(),
-      slotDuration
-    })
+    if (!validate()) return
+    const s = new Date(`${formDate}T${formStart}:00`)
+    const e = new Date(`${formDate}T${formEnd}:00`)
+    createMut.mutate({ hackathonId: effectiveHackathonId, trackId: formTrackId || undefined, startDatetime: s.toISOString(), endDatetime: e.toISOString(), slotDuration })
   }
 
+  // Group availabilities by date
+  const byDate = useMemo(() => {
+    const map = new Map<string, any[]>()
+    availabilities.sort((a, b) => new Date(a.startDatetime).getTime() - new Date(b.startDatetime).getTime()).forEach(av => {
+      const key = new Date(av.startDatetime).toDateString()
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(av)
+    })
+    return map
+  }, [availabilities])
+
   return (
-    <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <PageHeader title="Розклад" subtitle="Керування вашими слотами для менторства" />
-        
-        {hackathons.length > 0 && (
-          <select 
-            value={activeHackathonId} 
-            onChange={e => setActiveHackathonId(e.target.value)}
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm"
-          >
+    <div className="space-y-5 animate-fade-in max-w-6xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <PageHeader title="Мій розклад" subtitle="Керування слотами для менторства" />
+        {hackathons.length > 1 ? (
+          <select value={hackathonId} onChange={e => changeHackathon(e.target.value)} className="rounded-md border border-border bg-card px-3 py-2 text-sm shadow-sm min-w-[180px] shrink-0">
             <option value="">Всі хакатони</option>
-            {hackathons.map((h: any) => (
-              <option key={h.id} value={h.id}>{h.title}</option>
-            ))}
+            {hackathons.map((h: any) => <option key={h.id} value={h.id}>{h.title}</option>)}
           </select>
-        )}
+        ) : hackathons.length === 1 ? (
+          <span className="shrink-0 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium">{hackathons[0].title}</span>
+        ) : null}
       </div>
 
-      {/* Add Availability Form Inline */}
-      {!showForm ? (
-        <button 
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 rounded-xl border border-dashed border-primary/50 bg-primary/5 text-primary px-4 py-6 w-full justify-center hover:bg-primary/10 transition-colors"
-        >
-          <Plus className="h-5 w-5" />
-          <span className="font-semibold">Додати доступність</span>
-        </button>
-      ) : (
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-6 animate-fade-in">
-          <div className="flex items-center justify-between border-b border-border pb-4">
-            <h3 className="text-lg font-semibold">Нова доступність</h3>
-            <button onClick={() => setShowForm(false)} className="text-sm text-muted-foreground hover:text-foreground">Скасувати</button>
-          </div>
+      <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
+        {/* ── LEFT: Existing availabilities ── */}
+        <div className="space-y-4 min-w-0">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <CalendarDays className="h-5 w-5" /> Існуючі доступності
+          </h3>
 
-          <div className="grid gap-6 md:grid-cols-2">
+          {isLoading ? <div className="py-12"><LoadingSpinner /></div>
+           : availabilities.length === 0 ? (
+            <div className="rounded-xl border-2 border-dashed border-border bg-card p-12 text-center space-y-3">
+              <Clock className="h-10 w-10 text-muted-foreground/30 mx-auto" />
+              <p className="font-semibold text-muted-foreground">Ви ще не додали жодного часового блоку</p>
+              <p className="text-sm text-muted-foreground">↗ Заповніть форму праворуч</p>
+            </div>
+           ) : (
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Трек (опціонально)</label>
-                <select value={formTrackId} onChange={e => setFormTrackId(e.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm">
-                  <option value="">Всі треки</option>
-                  {tracks.map((t: any) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-muted-foreground mt-1">Оберіть трек, якщо ви спеціалізуєтесь на певній темі</p>
-              </div>
+              {Array.from(byDate.entries()).map(([dateKey, avs]) => (
+                <div key={dateKey}>
+                  <p className="text-sm font-semibold text-muted-foreground mb-2">{fmtDay(new Date(avs[0].startDatetime))}</p>
+                  <div className="space-y-2">
+                    {avs.map((avail: any) => {
+                      const start = new Date(avail.startDatetime)
+                      const end   = new Date(avail.endDatetime)
+                      const dur   = avail.slotDuration || 30
+                      const totalSlots = Math.floor((end.getTime() - start.getTime()) / 60000 / dur)
+                      const slots: any[] = avail.slots || []
+                      const bookedSlots = slots.filter((s: any) => s.status !== 'cancelled')
+                      const bookedCount = bookedSlots.length
+                      const freeCount   = Math.max(0, totalSlots - bookedCount)
+                      const isExpanded  = expandedRows[avail.id]
+                      const canDelete   = bookedCount === 0
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Дата</label>
-                <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
-              </div>
+                      // Build full slot grid for expanded view
+                      const slotGrid: { time: string; slot?: any }[] = []
+                      let cur = new Date(start)
+                      for (let i = 0; i < totalSlots; i++) {
+                        const slotTime = new Date(cur)
+                        const matchSlot = bookedSlots.find((s: any) => Math.abs(new Date(s.startDatetime).getTime() - slotTime.getTime()) < 60000)
+                        slotGrid.push({ time: fmtTime(slotTime), slot: matchSlot })
+                        cur = new Date(cur.getTime() + dur * 60000)
+                      }
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Початок</label>
-                  <input type="time" step="900" value={formStart} onChange={e => setFormStart(e.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Кінець</label>
-                  <input type="time" step="900" value={formEnd} onChange={e => setFormEnd(e.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Тривалість слота</label>
-                <div className="flex gap-4">
-                  {[15, 30, 45, 60].map(dur => (
-                    <label key={dur} className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="radio" name="slotDuration" checked={slotDuration === dur} onChange={() => setSlotDuration(dur)} className="text-primary focus:ring-primary" />
-                      {dur} хв
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-lg bg-muted/30 p-4 border border-border flex flex-col">
-              <h4 className="text-sm font-semibold mb-2">Прев'ю розкладу</h4>
-              {(!formDate || !formStart || !formEnd) ? (
-                <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground text-center">
-                  Оберіть дату та час для попереднього перегляду
-                </div>
-              ) : previewSlotsCount > 0 ? (
-                <div className="space-y-4">
-                  <p className="text-sm font-medium text-green-600 dark:text-green-400">
-                    Буде створено {previewSlotsCount} слотів по {slotDuration} хвилин
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {previewBlocks.map((time, idx) => (
-                      <div key={idx} className="bg-primary/10 text-primary border border-primary/20 rounded px-2 py-1 text-xs font-mono font-medium">
-                        {time}
-                      </div>
-                    ))}
-                    {previewSlotsCount > 20 && <div className="text-xs text-muted-foreground px-2 py-1">... та ще {previewSlotsCount - 20}</div>}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-sm text-destructive text-center">
-                  Некоректний проміжок часу або занадто малий для слота
-                </div>
-              )}
-
-              <button 
-                onClick={handleCreate}
-                disabled={previewSlotsCount < 1 || createMut.isPending}
-                className="w-full mt-auto rounded-md bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-              >
-                {createMut.isPending ? 'Збереження...' : 'Підтвердити доступність'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Availabilities List */}
-      <div>
-        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <Clock className="h-5 w-5" /> Мої доступності
-        </h3>
-
-        {isLoading ? (
-          <div className="py-12"><LoadingSpinner /></div>
-        ) : availabilities.length === 0 ? (
-          <EmptyState title="Немає доступностей" description="Додайте свій перший розклад вище" />
-        ) : (
-          <div className="space-y-3">
-            {availabilities.sort((a: any, b: any) => new Date(b.startDatetime).getTime() - new Date(a.startDatetime).getTime()).map((avail: any) => {
-              const start = new Date(avail.startDatetime)
-              const end = new Date(avail.endDatetime)
-              const durMins = avail.slotDuration || 30
-              const totalSlots = Math.floor((end.getTime() - start.getTime()) / 60000 / durMins)
-              const slots = avail.slots || []
-              // Filter active bookings (booked or completed)
-              const activeBookings = slots.filter((s: any) => s.status !== 'cancelled')
-              const bookedCount = activeBookings.length
-              const freeCount = Math.max(0, totalSlots - bookedCount)
-              const isExpanded = expandedRows[avail.id]
-
-              return (
-                <div key={avail.id} className="rounded-xl border border-border bg-card overflow-hidden shadow-sm transition-all hover:border-primary/50">
-                  <div 
-                    className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer hover:bg-muted/10"
-                    onClick={() => toggleRow(avail.id)}
-                  >
-                    <div className="flex items-center gap-4">
-                      {isExpanded ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
-                      <div>
-                        <p className="font-bold text-base">{start.toLocaleDateString()}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} — {end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
-                          <span className="mx-2">•</span> 
-                          Слот: {durMins} хв
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4">
-                      <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-accent">
-                        {avail.track?.name || 'Всі треки'}
-                      </span>
-                      <div className="flex items-center gap-2 text-xs font-medium">
-                        <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 rounded border border-green-200 dark:border-green-800">
-                          {freeCount} вільних
-                        </span>
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded border border-blue-200 dark:border-blue-800">
-                          {bookedCount} заброньованих
-                        </span>
-                      </div>
-                      
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); deleteMut.mutate(avail.id) }}
-                        disabled={bookedCount > 0 || deleteMut.isPending}
-                        title={bookedCount > 0 ? "Неможливо видалити: є заброньовані слоти" : "Видалити доступність"}
-                        className="p-2 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {isExpanded && (
-                    <div className="border-t border-border bg-muted/20 p-4">
-                      <h5 className="text-sm font-semibold mb-3">Заброньовані слоти:</h5>
-                      {activeBookings.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">Жоден слот ще не заброньовано.</p>
-                      ) : (
-                        <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                          {activeBookings.sort((a: any, b: any) => new Date(a.startDatetime).getTime() - new Date(b.startDatetime).getTime()).map((slot: any) => (
-                            <div key={slot.id} className="p-3 rounded-lg border border-border bg-background text-sm">
-                              <p className="font-mono font-medium mb-1 text-primary">
-                                {new Date(slot.startDatetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                              </p>
-                              <p className="font-semibold truncate" title={slot.team?.name}>{slot.team?.name || 'Невідома команда'}</p>
-                              <p className="text-xs text-muted-foreground mt-0.5 uppercase tracking-wider">{slot.status}</p>
+                      return (
+                        <div key={avail.id} className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+                          <div className="p-4 flex items-center gap-3">
+                            <button onClick={() => setExpandedRows(p => ({ ...p, [avail.id]: !p[avail.id] }))} className="flex-1 text-left flex items-center gap-3 hover:text-primary transition-colors">
+                              {isExpanded ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
+                              <div>
+                                <p className="font-semibold">{fmtTime(start)} – {fmtTime(end)}</p>
+                                <p className="text-xs text-muted-foreground">Трек: {avail.track?.name || 'Всі треки'} · {dur} хв/слот</p>
+                              </div>
+                            </button>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded font-medium">● {bookedCount} заброньовано</span>
+                              <span className="px-2 py-1 bg-muted text-muted-foreground rounded font-medium">○ {freeCount} вільних</span>
                             </div>
-                          ))}
+                            <button
+                              onClick={() => { if (canDelete && confirm('Видалити цей часовий блок?')) deleteMut.mutate(avail.id) }}
+                              disabled={!canDelete || deleteMut.isPending}
+                              title={canDelete ? 'Видалити' : 'Неможливо видалити — є активні бронювання'}
+                              className="p-2 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          {isExpanded && (
+                            <div className="border-t border-border bg-muted/10 p-4">
+                              <div className="space-y-1.5">
+                                {slotGrid.map(({ time, slot }, i) => (
+                                  <div key={i} className={`flex items-center gap-3 p-2 rounded-lg text-sm ${slot ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800' : 'bg-background border border-border'}`}>
+                                    <span className="font-mono font-semibold w-12 shrink-0">{time}</span>
+                                    {slot ? (
+                                      <>
+                                        <span className="flex-1 font-medium truncate">{slot.team?.name || 'Команда'}</span>
+                                        {slot.meetingLink && (
+                                          <a href={slot.meetingLink} target="_blank" rel="noreferrer" className="text-xs text-primary underline shrink-0">Приєднатись</a>
+                                        )}
+                                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">✅ Заброньовано</span>
+                                      </>
+                                    ) : (
+                                      <span className="flex-1 text-muted-foreground">— Вільний</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+           )}
+        </div>
+
+        {/* ── RIGHT: Add form (always visible) ── */}
+        <div className="lg:sticky lg:top-6 h-fit">
+          <div className="rounded-xl border border-border bg-card shadow-sm p-6 space-y-5">
+            <h3 className="text-lg font-semibold border-b border-border pb-3">Додати доступність</h3>
+
+            {/* Track */}
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Трек</label>
+              <select value={formTrackId} onChange={e => setFormTrackId(e.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm focus:border-primary focus:outline-none">
+                <option value="">🌐 Всі треки</option>
+                {tracks.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">Залиште «Всі треки» якщо готові допомагати будь-якій команді</p>
+            </div>
+
+            {/* Date */}
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Дата</label>
+              <input type="date" value={formDate} min={TODAY} onChange={e => { setFormDate(e.target.value); setFormErrors(p => ({ ...p, date: '' })) }} className={`w-full rounded-md border px-3 py-2.5 text-sm focus:outline-none focus:border-primary bg-background ${formErrors.date ? 'border-destructive' : 'border-border'}`} />
+              {formErrors.date && <p className="text-xs text-destructive mt-1">{formErrors.date}</p>}
+            </div>
+
+            {/* Start / End */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Початок</label>
+                <input type="time" step="900" value={formStart} onChange={e => { setFormStart(e.target.value); setFormErrors(p => ({ ...p, end: '', range: '' })) }} className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:border-primary" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Кінець</label>
+                <input type="time" step="900" value={formEnd} onChange={e => { setFormEnd(e.target.value); setFormErrors(p => ({ ...p, end: '', range: '' })) }} className={`w-full rounded-md border px-3 py-2.5 text-sm focus:outline-none focus:border-primary bg-background ${formErrors.end ? 'border-destructive' : 'border-border'}`} />
+                {formErrors.end && <p className="text-xs text-destructive mt-1">{formErrors.end}</p>}
+              </div>
+            </div>
+
+            {/* Slot duration — toggle buttons */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Тривалість слоту</label>
+              <div className="flex gap-2">
+                {[15, 30, 45, 60].map(d => (
+                  <button key={d} type="button" onClick={() => setSlotDuration(d)} className={`flex-1 py-2 rounded-md text-sm font-semibold border-2 transition-all ${slotDuration === d ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-primary/40'}`}>
+                    {d} хв
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Live preview */}
+            <div className={`rounded-lg border p-4 space-y-3 ${formErrors.range ? 'border-destructive/50 bg-destructive/5' : 'border-border bg-muted/20'}`}>
+              {previewSlots.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center">{formErrors.range || 'Оберіть дату та час для попереднього перегляду'}</p>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-teal-700 dark:text-teal-400">
+                    📅 Буде створено {previewSlots.length} слотів по {slotDuration} хв
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {previewSlots.map((t, i) => (
+                      <span key={i} className="px-2 py-1 rounded-md bg-teal-500/15 text-teal-700 dark:text-teal-400 border border-teal-500/30 text-xs font-mono font-semibold">{t}</span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Загальний час: {Math.floor(previewSlots.length * slotDuration / 60) > 0 ? `${Math.floor(previewSlots.length * slotDuration / 60)} год ` : ''}{(previewSlots.length * slotDuration) % 60 > 0 ? `${(previewSlots.length * slotDuration) % 60} хв` : ''}
+                  </p>
+                  {remainder > 0 && (
+                    <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      Залишок {remainder} хв не вміщує повний слот і буде пропущено
                     </div>
                   )}
-                </div>
-              )
-            })}
+                </>
+              )}
+            </div>
+
+            <button onClick={handleCreate} disabled={previewSlots.length === 0 || createMut.isPending} className="w-full rounded-md bg-primary px-4 py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">
+              {createMut.isPending ? 'Збереження...' : 'Додати до розкладу'}
+            </button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   )

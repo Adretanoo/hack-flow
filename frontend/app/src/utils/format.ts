@@ -17,13 +17,17 @@ export function formatDateTime(dateStr: string): string {
   }
 }
 
-export function formatRelative(dateStr: string): string {
+export function formatRelative(dateStr: string | Date): string {
   try {
-    return formatDistanceToNow(parseISO(dateStr), { addSuffix: true, locale: uk })
+    const d = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr
+    return formatDistanceToNow(d, { addSuffix: false, locale: uk })
   } catch {
-    return dateStr
+    return String(dateStr)
   }
 }
+
+/** Alias for formatRelative — used in judge pages */
+export const formatRelativeTime = formatRelative
 
 export const STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Чернетка',
