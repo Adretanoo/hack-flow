@@ -19,7 +19,7 @@ export const usersApi = {
     api.get<ApiResponse<unknown>>(`/users/${id}`),
 
   getUserActivity: (id: string, params?: { page?: number; limit?: number }) =>
-    api.get<ApiResponse<unknown[]>>(`/audit-log/user/${id}`, { params }),
+    api.get<ApiResponse<unknown[]>>(`/users/${id}/activity`, { params }),
 
   updateRole: (id: string, role: string) =>
     api.put<ApiResponse<unknown>>(`/users/${id}/role`, { role }),

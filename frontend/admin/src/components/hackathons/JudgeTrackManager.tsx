@@ -55,9 +55,10 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
       toast.success('Суддю призначено')
       qc.invalidateQueries({ queryKey: ['judgeAssignments', hackathonId] })
     },
-    onError: (err: any) => {
-      const msg = err.response?.data?.error?.message || err.response?.data?.message || 'Помилка при призначенні';
-      toast.error(msg);
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: { message?: string }; message?: string } } }
+      const msg = e.response?.data?.error?.message || e.response?.data?.message || 'Помилка при призначенні'
+      toast.error(msg)
     },
   })
 
@@ -94,10 +95,10 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
       }
     },
     onSuccess: () => {
-      toast.success('Суддю повністю видалено з хакатону')
+      toast.success('Суддю знято з усіх треків')
       qc.invalidateQueries({ queryKey: ['judgeAssignments', hackathonId] })
     },
-    onError: () => toast.error('Помилка при повному видаленні'),
+    onError: () => toast.error('Помилка при видаленні'),
   })
 
   const toggleMut = useMutation({
@@ -121,7 +122,9 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
     <div className="space-y-4">
       {/* Matrix table */}
       {tracks.length === 0 ? (
-        <p className="text-sm text-muted-foreground italic">Спочатку додайте треки до хакатону.</p>
+        <p className="text-sm text-muted-foreground italic">
+          Треків ще немає. Додайте треки в налаштуваннях хакатону.
+        </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-sm">
@@ -133,13 +136,14 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
                     {t.name}
                   </th>
                 ))}
+                <th className="px-4 py-3 w-10" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {judges.length === 0 ? (
                 <tr>
-                  <td colSpan={tracks.length + 1} className="px-4 py-6 text-center text-sm text-muted-foreground">
-                    Суддів ще не призначено
+                  <td colSpan={tracks.length + 2} className="px-4 py-6 text-center text-sm text-muted-foreground">
+                    Суддів не призначено. Спочатку призначте роль судді користувачам.
                   </td>
                 </tr>
               ) : (
@@ -147,17 +151,17 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
                   if (!judge) return null
                   const j = judge as { id: string; fullName: string; email: string }
                   return (
-                    <tr key={j.id} className="bg-card hover:bg-muted/20 transition-colors">
-                      <td className="px-4 py-3 relative group">
+                    <tr key={j.id} className="bg-card hover:bg-muted/20 transition-colors group">
+                      <td className="px-4 py-3">
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-medium">{j.fullName}</p>
                             <p className="text-xs text-muted-foreground">{j.email}</p>
                           </div>
                           <button
-                            title="Видалити суддю"
+                            title="Видалити суддю з усіх треків"
                             onClick={() => {
-                              if (confirm('Ви впевнені, що хочете видалити цього суддю з усіх треків?')) {
+                              if (confirm(`Зняти суддю ${j.fullName} з усіх треків?`)) {
                                 removeAllMut.mutate(j.id)
                               }
                             }}
@@ -175,6 +179,7 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
                             <div className="flex flex-col items-center gap-1">
                               <button
                                 onClick={() => handleCellClick(j.id, track.id)}
+                                title={assigned ? 'Зняти' : 'Призначити'}
                                 className={clsx(
                                   'h-7 w-7 rounded-md border-2 transition-all',
                                   assigned
@@ -186,7 +191,7 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
                               </button>
                               {assigned && assignment && (
                                 <button
-                                  title="Head Judge"
+                                  title={assignment.isHeadJudge ? 'Прибрати Head Judge' : 'Зробити Head Judge'}
                                   onClick={() => toggleMut.mutate({ id: assignment.id, isHeadJudge: !assignment.isHeadJudge })}
                                   className={clsx(
                                     'flex h-5 items-center gap-0.5 rounded px-1 text-[10px] transition-colors',
@@ -203,6 +208,7 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
                           </td>
                         )
                       })}
+                      <td className="px-2" />
                     </tr>
                   )
                 })
@@ -215,38 +221,54 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
       {/* Assign new judge */}
       {showAssignForm ? (
         <div className="flex flex-wrap gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
-          <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}
-            className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring">
-            <option value="">Оберіть користувача…</option>
-            {users.map((u) => <option key={u.id} value={u.id}>{u.fullName} ({u.email})</option>)}
+          <select
+            value={selectedUserId}
+            onChange={(e) => setSelectedUserId(e.target.value)}
+            className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring"
+          >
+            <option value="">Обрати суддю…</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>{u.fullName} ({u.email})</option>
+            ))}
           </select>
-          <select value={selectedTrackId} onChange={(e) => setSelectedTrackId(e.target.value)}
-            className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring">
-            <option value="">Оберіть трек…</option>
+          <select
+            value={selectedTrackId}
+            onChange={(e) => setSelectedTrackId(e.target.value)}
+            className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring"
+          >
+            <option value="">Обрати трек…</option>
             <option value="ALL" className="font-semibold text-primary">Всі треки</option>
-            {tracks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            {tracks.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
           </select>
           <button
-            onClick={() => { 
+            onClick={() => {
+              if (!selectedUserId || !selectedTrackId) return
               if (selectedTrackId === 'ALL') {
                 assignToAllMut.mutate(selectedUserId)
               } else {
                 assignMut.mutate({ userId: selectedUserId, trackId: selectedTrackId })
               }
-              setShowAssignForm(false) 
+              setShowAssignForm(false)
             }}
             disabled={!selectedUserId || !selectedTrackId}
-            className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+            className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+          >
             Призначити
           </button>
-          <button onClick={() => setShowAssignForm(false)}
-            className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent">
+          <button
+            onClick={() => setShowAssignForm(false)}
+            className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent"
+          >
             Скасувати
           </button>
         </div>
       ) : (
-        <button onClick={() => setShowAssignForm(true)}
-          className="flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+        <button
+          onClick={() => setShowAssignForm(true)}
+          className="flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+        >
           <UserPlus className="h-4 w-4" /> Призначити суддю
         </button>
       )}

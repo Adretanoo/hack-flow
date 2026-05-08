@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { UsersRepository } from './users.repository';
+import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { getDatabaseConnection } from '../../config/database';
 import { authenticate } from '../../common/middleware/auth.middleware';
 
@@ -9,6 +10,7 @@ const Sec = [{ bearerAuth: [] }];
 
 export async function usersRoutes(app: FastifyInstance): Promise<void> {
   const db = getDatabaseConnection();
+  const auditRepo = new AuditLogRepository(db);
   const repository = new UsersRepository(db);
   const service = new UsersService(repository);
   const controller = new UsersController(service);
@@ -134,5 +136,30 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
       },
     }, (req, reply) => controller.deleteSocial(req, reply));
+
+    // ── Activity log for a user (admin use) ────────────────────────────────
+    auth.get('/:id/activity', {
+      schema: {
+        tags: ['Users'],
+        summary: 'Get activity log for a user',
+        security: Sec,
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'string', format: 'uuid' } },
+        },
+        querystring: {
+          type: 'object',
+          properties: {
+            limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          },
+        },
+      },
+    }, async (req, reply) => {
+      const { id } = req.params as { id: string };
+      const { limit = 20 } = req.query as { limit?: number };
+      const logs = await auditRepo.findByUser(id, limit);
+      return reply.send({ success: true, data: logs });
+    });
   });
 }

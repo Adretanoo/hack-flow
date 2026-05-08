@@ -26,19 +26,21 @@ export function formatRelative(dateStr: string): string {
 }
 
 export const STATUS_LABELS: Record<string, string> = {
-  DRAFT: 'Чернетка',
-  PUBLISHED: 'Опубліковано',
-  ARCHIVED: 'Архів',
-  PENDING: 'На розгляді',
-  APPROVED: 'Схвалено',
-  REJECTED: 'Відхилено',
-  DISQUALIFIED: 'Дискваліфіковано',
-  upcoming: 'Майбутній',
-  active: 'Активний',
-  past: 'Минулий',
-  booked: 'Заброньовано',
-  completed: 'Завершено',
-  cancelled: 'Скасовано',
+  DRAFT:         'Чернетка',
+  PUBLISHED:     'Опубліковано',
+  ARCHIVED:      'Архів',
+  PENDING:       'Очікує',
+  APPROVED:      'Схвалено',
+  REJECTED:      'Відхилено',
+  DISQUALIFIED:  'Дискваліфіковано',
+  upcoming:      'Майбутні',
+  active:        'Активні',
+  past:          'Завершені',
+  booked:        'Заброньовано',
+  completed:     'Завершено',
+  cancelled:     'Скасовано',
+  SUBMITTED:     'Подано',
+  REVIEWED:      'Переглянуто',
 }
 
 export function getStatusLabel(status: string): string {
