@@ -15,7 +15,9 @@ export type AuditAction =
   | 'assign_judge_track'
   | 'unassign_judge_track'
   | 'hackathon_status_transition'
-  | 'hackathon_status_override';
+  | 'hackathon_status_override'
+  | 'leave_team'
+  | 'transfer_captain';
 
 export type AuditEntity =
   | 'user'

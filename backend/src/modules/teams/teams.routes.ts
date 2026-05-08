@@ -25,11 +25,11 @@ export async function teamsRoutes(app: FastifyInstance): Promise<void> {
   const service = new TeamsService(repository, auditLog);
   const ctrl = new TeamsController(service);
 
+  // ── Public / read-only ────────────────────────────────────────
   app.get('/', {
     schema: {
       tags: ['Teams'],
       summary: 'List teams (paginated, filterable)',
-      description: 'Filter by ?hackathon_id=UUID and/or ?track_id=UUID.',
       querystring: {
         type: 'object',
         properties: {
@@ -64,12 +64,12 @@ export async function teamsRoutes(app: FastifyInstance): Promise<void> {
     },
   }, (req, reply) => ctrl.getMembers(req, reply));
 
+  // ── Authenticated ─────────────────────────────────────────────
   app.post('/', {
     onRequest: [authenticate],
     schema: {
       tags: ['Teams'],
-      summary: 'Create a new team',
-      description: 'The requester automatically becomes the team captain.',
+      summary: 'Create a new team (requester becomes captain)',
       security: Sec,
       body: {
         type: 'object',
@@ -128,11 +128,31 @@ export async function teamsRoutes(app: FastifyInstance): Promise<void> {
     },
   }, (req, reply) => ctrl.removeMember(req, reply));
 
+  app.delete('/:id/leave', {
+    onRequest: [authenticate],
+    schema: {
+      tags: ['Teams'],
+      summary: 'Leave a team (non-captain members only)',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.leaveTeam(req, reply));
+
+  app.get('/:id/invites/active', {
+    onRequest: [authenticate],
+    schema: {
+      tags: ['Teams'],
+      summary: 'Get active invite link for a team (captain only)',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.getActiveInvite(req, reply));
+
   app.post('/:id/invites', {
     onRequest: [authenticate],
     schema: {
       tags: ['Teams'],
-      summary: 'Generate an invite link (captain only)',
+      summary: 'Generate a new invite link (captain only — invalidates previous)',
       security: Sec,
       params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
       body: {
@@ -145,17 +165,58 @@ export async function teamsRoutes(app: FastifyInstance): Promise<void> {
     },
   }, (req, reply) => ctrl.createInvite(req, reply));
 
+  app.patch('/:id/transfer-captain', {
+    onRequest: [authenticate],
+    schema: {
+      tags: ['Teams'],
+      summary: 'Transfer captain role to another member',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        required: ['newCaptainId'],
+        properties: { newCaptainId: { type: 'string', format: 'uuid' } },
+      },
+    },
+  }, (req, reply) => ctrl.transferCaptain(req, reply));
+
+  // Public: preview team info for an invite token (used by /join/:token page)
+  app.get('/invite-info/:token', {
+    schema: {
+      tags: ['Teams'],
+      summary: 'Get team info for an invite token (unauthenticated)',
+      params: { type: 'object', required: ['token'], properties: { token: { type: 'string' } } },
+    },
+  }, async (req, reply) => {
+    const { token } = req.params as { token: string };
+    const invite = await repository.findInviteByToken(token);
+    if (!invite || !invite.active || invite.expiresAt < new Date()) {
+      return reply.status(404).send({ success: false, message: 'Запрошення не знайдено або застаріле' });
+    }
+    const team = await repository.findById(invite.teamId);
+    if (!team) return reply.status(404).send({ success: false, message: 'Команда не знайдена' });
+    return reply.send({
+      success: true,
+      data: {
+        id: team.id,
+        name: team.name,
+        hackathon: (team as any).hackathon,
+        track: (team as any).track,
+        invite: { expiresAt: invite.expiresAt, maxUses: invite.maxUses, usesCount: invite.usesCount },
+      },
+    });
+  });
+
   app.post('/join', {
     onRequest: [authenticate],
     schema: {
       tags: ['Teams'],
       summary: 'Join a team via invite token',
-      description: 'Audit-logged — creates a `join_team` event in user_action_logs.',
       security: Sec,
       body: {
         type: 'object',
         required: ['token'],
-        properties: { token: { type: 'string', description: 'Invite token from POST /:id/invites' } },
+        properties: { token: { type: 'string' } },
       },
     },
   }, (req, reply) => ctrl.joinViaToken(req, reply));
@@ -177,4 +238,46 @@ export async function teamsRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, (req, reply) => ctrl.updateApproval(req, reply));
+
+  // ── Join Requests ───────────────────────────────────────────
+
+  app.post('/:id/requests', {
+    onRequest: [authenticate],
+    schema: {
+      tags: ['Teams'],
+      summary: 'Send a join request to a team',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        properties: { message: { type: 'string', maxLength: 300 } },
+      },
+    },
+  }, (req, reply) => ctrl.sendJoinRequest(req, reply));
+
+  app.get('/:id/requests', {
+    onRequest: [authenticate],
+    schema: {
+      tags: ['Teams'],
+      summary: 'Get pending join requests (captain only)',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.getJoinRequests(req, reply));
+
+  app.patch('/requests/:requestId', {
+    onRequest: [authenticate],
+    schema: {
+      tags: ['Teams'],
+      summary: 'Accept or reject a join request (captain only)',
+      security: Sec,
+      params: { type: 'object', required: ['requestId'], properties: { requestId: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        required: ['action'],
+        properties: { action: { type: 'string', enum: ['accepted', 'rejected'] } },
+      },
+    },
+  }, (req, reply) => ctrl.respondToJoinRequest(req, reply));
 }
+

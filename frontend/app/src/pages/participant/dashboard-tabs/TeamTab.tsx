@@ -1,14 +1,16 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query'
-import { Users, UserPlus, Link as LinkIcon, LogOut, Copy, Trash2 } from 'lucide-react'
-import api from '@/api/client'
-import { teamsApi } from '@/api/teams'
+import {
+  Users, UserPlus, Link as LinkIcon, LogOut, Copy, CheckCheck,
+  Crown, Trash2, RefreshCw, AlertTriangle, Plus,
+} from 'lucide-react'
+import { teamsApi, extractToken } from '@/api/teams'
+import type { TeamMember, JoinRequest } from '@/api/teams'
 import { useAuthStore } from '@/store/auth.store'
 import { Avatar } from '@/components/shared/Avatar'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
-import { formatDate } from '@/utils/format'
-import type { Hackathon, Team, TeamMember } from '@/types/api.types'
+import type { Hackathon, Team } from '@/types/api.types'
 
 interface TeamTabProps {
   hackathon: Hackathon
@@ -16,235 +18,623 @@ interface TeamTabProps {
   stageInfo: ReturnType<typeof import('@/hooks/useHackathonStage').useHackathonStage>
 }
 
-export function TeamTab({ hackathon, myTeam, stageInfo }: TeamTabProps) {
-  const { user } = useAuthStore()
+// ─── State 1: No team ────────────────────────────────────────────────────────
+
+function NoTeamState({
+  hackathon,
+  stageInfo,
+  onCreated,
+}: {
+  hackathon: Hackathon
+  stageInfo: TeamTabProps['stageInfo']
+  onCreated: () => void
+}) {
+  const [mode, setMode] = useState<'none' | 'create' | 'join'>('none')
+  const [joinInput, setJoinInput] = useState('')
+  const [joinError, setJoinError] = useState('')
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<{
+    name: string
+    description?: string
+    trackId?: string
+  }>()
   const queryClient = useQueryClient()
-  const [inviteToken, setInviteToken] = useState('')
-  const [inviteError, setInviteError] = useState('')
-  const [copied, setCopied] = useState(false)
-
-  const { data: membersData } = useQuery({
-    queryKey: ['team-members', myTeam?.id],
-    queryFn: () => api.get<{ data: TeamMember[] }>(`/teams/${myTeam?.id}/members`).then((res: any) => res.data),
-    enabled: !!myTeam?.id,
-  })
-
-  // We mock api here because we didn't add it to teamsApi for members specifically, wait, I can just use client.
-  // Let me import api from client.
-  
-  const members = membersData?.data || []
-  const myMemberInfo = members.find((m: any) => m.userId === user?.id)
-  const isCaptain = myMemberInfo?.role === 'captain'
-
-  const { register, handleSubmit } = useForm()
 
   const createMut = useMutation({
-    mutationFn: (data: any) => teamsApi.create({ ...data, hackathonId: hackathon.id }),
+    mutationFn: (data: { name: string; description?: string; trackId?: string }) =>
+      teamsApi.create({ ...data, hackathonId: hackathon.id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-team'] })
-    }
+      onCreated()
+    },
   })
 
   const joinMut = useMutation({
     mutationFn: (token: string) => teamsApi.join(token),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-team'] })
+      onCreated()
     },
-    onError: (err: any) => setInviteError(err.message || 'Помилка приєднання')
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || err?.message || 'Помилка приєднання'
+      if (msg.includes('недійсний') || msg.includes('invalid') || msg.includes('expired')) {
+        setJoinError('Посилання недійсне або застаріле')
+      } else if (msg.includes('вже є') || msg.includes('already')) {
+        setJoinError('Ви вже в команді цього хакатону')
+      } else if (msg.includes('заповнена') || msg.includes('maximum')) {
+        setJoinError('Команда заповнена (досягнуто максимум учасників)')
+      } else {
+        setJoinError(msg)
+      }
+    },
   })
 
-  const generateInviteMut = useMutation({
-    mutationFn: () => teamsApi.createInvite(myTeam!.id, 10, 24),
-    onSuccess: (res) => {
-      const token = res.data.data.token
-      navigator.clipboard.writeText(token)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  })
-
-  const removeMemberMut = useMutation({
-    mutationFn: (userId: string) => teamsApi.removeMember(myTeam!.id, userId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['team-members'] })
-  })
-
-  if (!myTeam) {
-    return (
-      <div className="grid gap-8 md:grid-cols-2 mt-6">
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" /> Створити команду
-            </h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              Зберіть свою команду для участі в хакатоні
-            </p>
-          </div>
-          
-          <form onSubmit={handleSubmit((d) => createMut.mutate(d))} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Назва команди</label>
-              <input {...register('name', { required: true })} className="w-full rounded-md border border-border px-3 py-2 text-sm bg-background" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Опис</label>
-              <textarea {...register('description')} className="w-full rounded-md border border-border px-3 py-2 text-sm bg-background resize-none" rows={3} />
-            </div>
-            {hackathon.tracks && hackathon.tracks.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium mb-1">Напрямок (Track)</label>
-                <select {...register('trackId')} className="w-full rounded-md border border-border px-3 py-2 text-sm bg-background">
-                  <option value="">Не обрано</option>
-                  {hackathon.tracks.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <button 
-              type="submit" 
-              disabled={createMut.isPending || !stageInfo.canRegister}
-              className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {createMut.isPending ? <LoadingSpinner size="sm" /> : 'Створити'}
-            </button>
-            {!stageInfo.canRegister && <p className="text-xs text-destructive text-center">Реєстрація наразі недоступна</p>}
-          </form>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-6 h-fit">
-          <div>
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <LinkIcon className="h-5 w-5 text-primary" /> Приєднатись за посиланням
-            </h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              Введіть токен із запрошення від капітана
-            </p>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <input 
-                type="text" 
-                placeholder="Введіть токен..." 
-                value={inviteToken}
-                onChange={e => setInviteToken(e.target.value)}
-                className="w-full rounded-md border border-border px-3 py-2 text-sm bg-background" 
-              />
-              {inviteError && <p className="text-xs text-destructive mt-1">{inviteError}</p>}
-            </div>
-            <button 
-              onClick={() => joinMut.mutate(inviteToken)}
-              disabled={!inviteToken || joinMut.isPending || !stageInfo.canRegister}
-              className="w-full rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50"
-            >
-              {joinMut.isPending ? <LoadingSpinner size="sm" /> : 'Приєднатись'}
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const tracks = (hackathon as any).tracks || []
 
   return (
-    <div className="grid gap-8 lg:grid-cols-3 mt-6">
-      <div className="lg:col-span-2 space-y-6">
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm flex items-center justify-between">
+    <div className="mt-6 space-y-6">
+      {/* Cards row */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Create card */}
+        <div
+          className={`rounded-xl border bg-card p-6 shadow-sm space-y-4 transition-all ${
+            mode === 'create' ? 'border-primary ring-1 ring-primary/30' : 'border-border'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <Plus className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold">Створити команду</h3>
+              <p className="text-xs text-muted-foreground">Станьте капітаном та запросіть учасників</p>
+            </div>
+          </div>
+          {mode !== 'create' && (
+            <button
+              onClick={() => { setMode('create'); reset() }}
+              disabled={!stageInfo.canRegister}
+              className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              Створити
+            </button>
+          )}
+          {mode === 'create' && (
+            <form
+              onSubmit={handleSubmit((d) => createMut.mutate(d))}
+              className="space-y-4 pt-2 border-t border-border"
+            >
+              <div>
+                <label className="block text-sm font-medium mb-1">Назва команди *</label>
+                <input
+                  {...register('name', { required: "Назва обов'язкова", minLength: { value: 2, message: 'Мінімум 2 символи' } })}
+                  placeholder="Введіть назву..."
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm bg-background focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
+              </div>
+              {tracks.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Трек *</label>
+                  <select
+                    {...register('trackId')}
+                    className="w-full rounded-md border border-border px-3 py-2 text-sm bg-background focus:border-primary focus:outline-none"
+                  >
+                    <option value="">Оберіть трек ▾</option>
+                    {tracks.map((t: any) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">ℹ️ Трек змінити після створення не можна</p>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium mb-1">Опис (необов'язково)</label>
+                <textarea
+                  {...register('description')}
+                  rows={2}
+                  placeholder="Кілька слів про вашу команду..."
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm bg-background focus:border-primary focus:outline-none resize-none"
+                />
+              </div>
+              {createMut.isError && (
+                <p className="text-xs text-destructive">
+                  {(createMut.error as any)?.response?.data?.message || 'Помилка створення'}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMode('none')}
+                  className="flex-1 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
+                >
+                  Скасувати
+                </button>
+                <button
+                  type="submit"
+                  disabled={createMut.isPending}
+                  className="flex-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                >
+                  {createMut.isPending ? <LoadingSpinner size="sm" /> : 'Створити команду'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+
+        {/* Join card */}
+        <div
+          className={`rounded-xl border bg-card p-6 shadow-sm space-y-4 transition-all ${
+            mode === 'join' ? 'border-primary ring-1 ring-primary/30' : 'border-border'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-secondary/50 flex items-center justify-center">
+              <LinkIcon className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <h3 className="font-semibold">Приєднатись до команди</h3>
+              <p className="text-xs text-muted-foreground">Вставте посилання від капітана</p>
+            </div>
+          </div>
+          {mode !== 'join' && (
+            <button
+              onClick={() => { setMode('join'); setJoinInput(''); setJoinError('') }}
+              disabled={!stageInfo.canRegister}
+              className="w-full rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50 transition-colors"
+            >
+              Приєднатись
+            </button>
+          )}
+          {mode === 'join' && (
+            <div className="space-y-4 pt-2 border-t border-border">
+              <div>
+                <label className="block text-sm font-medium mb-1">Вставте посилання або токен</label>
+                <input
+                  type="text"
+                  placeholder="https://hackflow.com/join/abc123  або  abc123"
+                  value={joinInput}
+                  onChange={(e) => { setJoinInput(e.target.value); setJoinError('') }}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm bg-background focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Приклад: hackflow.com/join/xxxxxx</p>
+                {joinError && <p className="text-xs text-destructive mt-1">{joinError}</p>}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMode('none')}
+                  className="flex-1 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
+                >
+                  Скасувати
+                </button>
+                <button
+                  onClick={() => joinMut.mutate(extractToken(joinInput))}
+                  disabled={!joinInput.trim() || joinMut.isPending}
+                  className="flex-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                >
+                  {joinMut.isPending ? <LoadingSpinner size="sm" /> : 'Приєднатись'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      {!stageInfo.canRegister && (
+        <p className="text-sm text-muted-foreground text-center">Реєстрація наразі закрита</p>
+      )}
+    </div>
+  )
+}
+
+// ─── State 2/3: Has team ─────────────────────────────────────────────────────
+
+function HasTeamState({
+  hackathon,
+  myTeam,
+}: {
+  hackathon: Hackathon
+  myTeam: Team
+}) {
+  const { user } = useAuthStore()
+  const queryClient = useQueryClient()
+  const [copied, setCopied] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
+  const [confirmTransfer, setConfirmTransfer] = useState<string | null>(null)
+  const [confirmLeave, setConfirmLeave] = useState(false)
+
+  // Members
+  const { data: membersData, isLoading: membersLoading } = useQuery({
+    queryKey: ['team-members', myTeam.id],
+    queryFn: () => teamsApi.getMembers(myTeam.id).then((r) => r.data.data),
+  })
+  const members: TeamMember[] = membersData || []
+  const myMember = members.find((m) => m.user?.id === user?.id)
+  const isCaptain = myMember?.role === 'captain'
+
+  // Join requests (captain only)
+  const { data: requestsData, refetch: refetchRequests } = useQuery({
+    queryKey: ['join-requests', myTeam.id],
+    queryFn: () => teamsApi.getJoinRequests(myTeam.id).then((r) => r.data.data),
+    enabled: isCaptain,
+    retry: false,
+  })
+  const joinRequests: JoinRequest[] = requestsData || []
+
+  const respondMut = useMutation({
+    mutationFn: ({ requestId, action }: { requestId: string; action: 'accepted' | 'rejected' }) =>
+      teamsApi.respondToJoinRequest(requestId, action),
+    onSuccess: () => {
+      refetchRequests()
+      queryClient.invalidateQueries({ queryKey: ['team-members', myTeam.id] })
+    },
+  })
+  const { data: inviteData, refetch: refetchInvite } = useQuery({
+    queryKey: ['team-invite', myTeam.id],
+    queryFn: () => teamsApi.getActiveInvite(myTeam.id).then((r) => r.data.data),
+    enabled: isCaptain,
+    retry: false,
+  })
+  const invite = inviteData ?? null
+  const inviteUrl = invite ? `${window.location.origin}/join/${invite.token}` : null
+
+  const copyInvite = async () => {
+    if (!inviteUrl) return
+    await navigator.clipboard.writeText(inviteUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const newInviteMut = useMutation({
+    mutationFn: () => teamsApi.createInvite(myTeam.id, 10, 24),
+    onSuccess: () => refetchInvite(),
+  })
+
+  const removeMut = useMutation({
+    mutationFn: (userId: string) => teamsApi.removeMember(myTeam.id, userId),
+    onSuccess: () => {
+      setConfirmRemove(null)
+      queryClient.invalidateQueries({ queryKey: ['team-members', myTeam.id] })
+    },
+  })
+
+  const transferMut = useMutation({
+    mutationFn: (newCaptainId: string) => teamsApi.transferCaptain(myTeam.id, newCaptainId),
+    onSuccess: () => {
+      setConfirmTransfer(null)
+      queryClient.invalidateQueries({ queryKey: ['team-members', myTeam.id] })
+      queryClient.invalidateQueries({ queryKey: ['my-team'] })
+    },
+  })
+
+  const leaveMut = useMutation({
+    mutationFn: () => teamsApi.leaveTeam(myTeam.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-team'] })
+    },
+  })
+
+  // Approval status from team data
+  const approvalStatus = (myTeam as any).approvals?.[0]?.status ?? (myTeam as any).approvalStatus ?? 'PENDING'
+  const approvalColor =
+    approvalStatus === 'APPROVED' ? 'bg-green-100 text-green-700' :
+    approvalStatus === 'REJECTED' ? 'bg-red-100 text-red-700' :
+    'bg-amber-100 text-amber-700'
+  const approvalLabel =
+    approvalStatus === 'APPROVED' ? '✅ Схвалено' :
+    approvalStatus === 'REJECTED' ? '❌ Відхилено' : '⏳ На розгляді'
+
+  const track = (myTeam as any).track
+  const maxSize = (hackathon as any).maxTeamSize || 5
+
+  return (
+    <div className="mt-6 space-y-6">
+      {/* Team header */}
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl">
+            <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl">
               {myTeam.name.charAt(0).toUpperCase()}
             </div>
             <div>
               <h2 className="text-2xl font-bold">{myTeam.name}</h2>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`px-2 py-0.5 text-xs font-medium rounded-md ${
-                  myTeam.approvalStatus === 'APPROVED' ? 'bg-green-100 text-green-700' :
-                  myTeam.approvalStatus === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-                  'bg-red-100 text-red-700'
-                }`}>
-                  {myTeam.approvalStatus === 'APPROVED' ? 'Схвалено' :
-                  myTeam.approvalStatus === 'PENDING' ? 'Очікує' : 'Відхилено'}
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className={`px-2 py-0.5 text-xs font-medium rounded-md ${approvalColor}`}>
+                  {approvalLabel}
                 </span>
-                {myTeam.track && (
+                {track && (
                   <span className="text-xs text-muted-foreground bg-accent px-2 py-0.5 rounded-md">
-                    {myTeam.track.name}
+                    {track.name}
                   </span>
                 )}
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-          <div className="border-b border-border bg-muted/20 px-6 py-4 flex justify-between items-center">
-            <h3 className="font-semibold">Учасники команди ({members.length}/{hackathon.maxTeamSize})</h3>
-          </div>
-          <div className="divide-y divide-border">
-            {members.map((member: any) => (
-              <div key={member.id} className="flex items-center justify-between px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <Avatar name={member.user?.fullName || 'User'} url={member.user?.avatarUrl} />
-                  <div>
-                    <p className="font-medium text-sm">
-                      {member.user?.fullName} 
-                      {member.userId === user?.id && <span className="text-muted-foreground ml-1">(Ви)</span>}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Приєднався: {formatDate(member.joinedAt)}</p>
+      {/* Members */}
+      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+        <div className="border-b border-border bg-muted/20 px-6 py-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            Учасники команди
+            <span className={`ml-auto text-sm font-normal ${members.length >= maxSize ? 'text-red-500 font-semibold' : 'text-muted-foreground'}`}>
+              {members.length}/{maxSize} {members.length >= maxSize ? '(заповнена)' : ''}
+            </span>
+          </h3>
+        </div>
+
+        {membersLoading ? (
+          <div className="p-6"><LoadingSpinner /></div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {members.map((member) => {
+              const isMe = member.user?.id === user?.id
+              const isThisCaptain = member.role === 'captain'
+              const memberName = member.user?.fullName || 'Учасник'
+
+              return (
+                <li key={member.id} className="px-6 py-4">
+                  {/* Confirm transfer row */}
+                  {confirmTransfer === member.userId && (
+                    <div className="mb-3 p-4 rounded-lg border border-amber-200 bg-amber-50 space-y-3">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-sm text-amber-900">Передати роль капітана?</p>
+                          <p className="text-sm text-amber-700 mt-1">
+                            {memberName} стане новим капітаном. Ви станете звичайним учасником і втратите доступ до керування командою.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setConfirmTransfer(null)}
+                          className="flex-1 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+                        >
+                          Скасувати
+                        </button>
+                        <button
+                          onClick={() => transferMut.mutate(member.userId)}
+                          disabled={transferMut.isPending}
+                          className="flex-1 rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50 transition-colors"
+                        >
+                          {transferMut.isPending ? <LoadingSpinner size="sm" /> : 'Передати капітанство'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Confirm remove row */}
+                  {confirmRemove === member.userId && (
+                    <div className="mb-3 p-3 rounded-lg border border-red-200 bg-red-50 flex items-center gap-3">
+                      <p className="text-sm text-red-700 flex-1">
+                        Видалити <b>{memberName}</b> з команди?
+                      </p>
+                      <button
+                        onClick={() => removeMut.mutate(member.userId)}
+                        disabled={removeMut.isPending}
+                        className="rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                      >
+                        Так
+                      </button>
+                      <button
+                        onClick={() => setConfirmRemove(null)}
+                        className="rounded-md border border-border px-3 py-1 text-xs hover:bg-accent"
+                      >
+                        Ні
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3">
+                    <Avatar name={memberName} url={member.user?.avatarUrl} size="sm" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        {memberName}
+                        {isMe && <span className="ml-1 text-xs text-muted-foreground">(ви)</span>}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {isThisCaptain ? '👑 Капітан' : 'Учасник'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* Captain can: transfer captain to others, remove non-captains */}
+                      {isCaptain && !isThisCaptain && (
+                        <>
+                          <button
+                            onClick={() => setConfirmTransfer(confirmTransfer === member.userId ? null : member.userId)}
+                            className="flex items-center gap-1 px-2 py-1 rounded-md border border-border text-xs hover:bg-accent transition-colors"
+                            title="Зробити капітаном"
+                          >
+                            <Crown className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Капітан</span>
+                          </button>
+                          <button
+                            onClick={() => setConfirmRemove(confirmRemove === member.userId ? null : member.userId)}
+                            className="p-1.5 rounded-md border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+                            title="Видалити з команди"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
+                      {/* Non-captain sees leave on own row */}
+                      {!isCaptain && isMe && (
+                        <button
+                          onClick={() => setConfirmLeave(true)}
+                          className="flex items-center gap-1 px-2 py-1 rounded-md border border-red-200 text-red-600 text-xs hover:bg-red-50 transition-colors"
+                        >
+                          <LogOut className="h-3.5 w-3.5" />
+                          <span>Покинути</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {member.role === 'captain' && (
-                    <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-md">
-                      Капітан
-                    </span>
-                  )}
-                  {isCaptain && member.userId !== user?.id && (
-                    <button 
-                      onClick={() => {
-                        if (confirm('Видалити учасника?')) removeMemberMut.mutate(member.userId)
-                      }}
-                      className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
-                      title="Видалити"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* Leave confirm */}
+      {confirmLeave && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-5 space-y-3">
+          <p className="font-semibold text-red-800">Покинути команду?</p>
+          <p className="text-sm text-red-700">Повернутись можна тільки по новому запрошенню від капітана.</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setConfirmLeave(false)}
+              className="flex-1 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-white transition-colors"
+            >
+              Скасувати
+            </button>
+            <button
+              onClick={() => leaveMut.mutate()}
+              disabled={leaveMut.isPending}
+              className="flex-1 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {leaveMut.isPending ? <LoadingSpinner size="sm" /> : 'Покинути команду'}
+            </button>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="space-y-6">
-        {stageInfo.canRegister && (
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
-            <h3 className="font-semibold flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-primary" /> Запросити учасників
-            </h3>
+      {/* Join Requests panel — captain only */}
+      {isCaptain && (
+        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          <div className="border-b border-border bg-muted/20 px-6 py-4 flex items-center gap-2">
+            <UserPlus className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Вхідні заявки</h3>
+            {joinRequests.length > 0 && (
+              <span className="ml-auto flex items-center justify-center h-5 w-5 rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                {joinRequests.length}
+              </span>
+            )}
+          </div>
+          {joinRequests.length === 0 ? (
+            <div className="px-6 py-5 text-sm text-muted-foreground text-center">
+              Поки що немає нових заявок
+            </div>
+          ) : (
+            <ul className="divide-y divide-border">
+              {joinRequests.map((req) => {
+                const name = req.user?.fullName || 'Учасник'
+                return (
+                  <li key={req.id} className="px-6 py-4 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={name} url={req.user?.avatarUrl} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{req.user?.email}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => respondMut.mutate({ requestId: req.id, action: 'rejected' })}
+                          disabled={respondMut.isPending}
+                          className="px-2.5 py-1 rounded-md border border-red-200 text-red-600 text-xs hover:bg-red-50 disabled:opacity-50 transition-colors"
+                        >
+                          Відхилити
+                        </button>
+                        <button
+                          onClick={() => respondMut.mutate({ requestId: req.id, action: 'accepted' })}
+                          disabled={respondMut.isPending}
+                          className="px-2.5 py-1 rounded-md bg-green-600 text-white text-xs font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
+                        >
+                          Прийняти ✓
+                        </button>
+                      </div>
+                    </div>
+                    {req.message && (
+                      <p className="text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-2 ml-9">
+                        &ldquo;{req.message}&rdquo;
+                      </p>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* Invite section — captain only */}
+      {isCaptain && (
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Запросити учасника</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Поділіться посиланням — перейшовши по ньому, користувач автоматично приєднається до вашої команди.
+          </p>
+
+          {invite && inviteUrl ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm font-mono truncate text-muted-foreground">
+                  {window.location.origin}/join/…{invite.token.slice(-12)}
+                </div>
+                <button
+                  onClick={copyInvite}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                    copied
+                      ? 'bg-green-100 text-green-700 border border-green-200'
+                      : 'border border-border hover:bg-accent'
+                  }`}
+                >
+                  {copied ? (
+                    <><CheckCheck className="h-4 w-4" /> Скопійовано ✓</>
+                  ) : (
+                    <><Copy className="h-4 w-4" /> Копіювати</>
+                  )}
+                </button>
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Дійсне до: {new Date(invite.expiresAt).toLocaleString('uk-UA')}</span>
+                <span>Використано: {invite.usesCount} / {invite.maxUses}</span>
+              </div>
+            </div>
+          ) : (
             <p className="text-sm text-muted-foreground">
-              Згенеруйте токен запрошення для нових учасників
+              Активне посилання відсутнє. Натисніть кнопку нижче, щоб створити нове.
             </p>
-            <button
-              onClick={() => generateInviteMut.mutate()}
-              disabled={generateInviteMut.isPending}
-              className="w-full rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 flex items-center justify-center gap-2"
-            >
-              <Copy className="h-4 w-4" />
-              {copied ? 'Скопійовано!' : 'Згенерувати та скопіювати'}
-            </button>
-          </div>
-        )}
+          )}
 
-        {!isCaptain && (
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-            <button className="w-full rounded-md border border-destructive/20 bg-destructive/5 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 flex items-center justify-center gap-2 transition-colors">
-              <LogOut className="h-4 w-4" />
-              Покинути команду
-            </button>
-          </div>
-        )}
-      </div>
+          <button
+            onClick={() => {
+              if (invite && !window.confirm('Попереднє посилання стане недійсним. Продовжити?')) return
+              newInviteMut.mutate()
+            }}
+            disabled={newInviteMut.isPending}
+            className="flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50 transition-colors"
+          >
+            {newInviteMut.isPending
+              ? <LoadingSpinner size="sm" />
+              : <><RefreshCw className="h-4 w-4" /> Створити нове посилання</>
+            }
+          </button>
+        </div>
+      )}
     </div>
   )
+}
+
+// ─── Main export ──────────────────────────────────────────────────────────────
+
+export function TeamTab({ hackathon, myTeam, stageInfo }: TeamTabProps) {
+  const queryClient = useQueryClient()
+
+  if (!myTeam) {
+    return (
+      <NoTeamState
+        hackathon={hackathon}
+        stageInfo={stageInfo}
+        onCreated={() => queryClient.invalidateQueries({ queryKey: ['my-team'] })}
+      />
+    )
+  }
+
+  return <HasTeamState hackathon={hackathon} myTeam={myTeam} />
 }

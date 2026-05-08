@@ -1,5 +1,5 @@
 import type { TeamsRepository } from './teams.repository';
-import { NotFoundError, ConflictError, ForbiddenError } from '../../common/errors/http-errors';
+import { NotFoundError, ConflictError, ForbiddenError, ValidationError } from '../../common/errors/http-errors';
 import { generateId } from '../../utils/uuid';
 import type { CreateTeamDto, UpdateTeamDto, CreateInviteDto } from './teams.schema';
 import type { AuditLogRepository } from '../audit-log/audit-log.repository';
@@ -22,6 +22,10 @@ export class TeamsService {
     const team = await this.repo.findById(id);
     if (!team) throw new NotFoundError('Team');
     return team;
+  }
+
+  async getMyTeamForHackathon(hackathonId: string, userId: string) {
+    return this.repo.findUserTeamForHackathon(hackathonId, userId);
   }
 
   async listByHackathon(hackathonId: string) {
@@ -54,7 +58,19 @@ export class TeamsService {
 
   async removeMember(teamId: string, userId: string, requesterId: string) {
     await this.assertCaptain(teamId, requesterId);
+    if (userId === requesterId) throw new ValidationError('Капітан не може видалити себе. Спочатку передайте капітанство.');
     await this.repo.removeMember(teamId, userId);
+  }
+
+  async leaveTeam(teamId: string, userId: string) {
+    const members = await this.repo.getMembers(teamId);
+    const myMember = members.find((m) => m.userId === userId);
+    if (!myMember) throw new NotFoundError('Ви не є учасником цієї команди');
+    if (myMember.role === 'captain') {
+      throw new ForbiddenError('Капітан не може покинути команду. Спочатку передайте капітанство іншому учаснику.');
+    }
+    await this.repo.removeMember(teamId, userId);
+    this.auditLog?.log(userId, 'leave_team', 'team', teamId).catch(() => undefined);
   }
 
   async createInvite(teamId: string, dto: CreateInviteDto, requesterId: string) {
@@ -62,6 +78,20 @@ export class TeamsService {
     const token = generateId();
     const expiresAt = new Date(Date.now() + dto.expiresInHours * 60 * 60 * 1000);
     return this.repo.createInvite({ teamId, token, createdBy: requesterId, expiresAt, maxUses: dto.maxUses });
+  }
+
+  async getActiveInvite(teamId: string, requesterId: string) {
+    await this.assertCaptain(teamId, requesterId);
+    return this.repo.getActiveInvite(teamId);
+  }
+
+  async transferCaptain(teamId: string, newCaptainId: string, currentUserId: string) {
+    await this.assertCaptain(teamId, currentUserId);
+    const isMember = await this.repo.isMember(teamId, newCaptainId);
+    if (!isMember) throw new NotFoundError('Цей користувач не є учасником команди');
+    if (newCaptainId === currentUserId) throw new ValidationError('Ви вже є капітаном');
+    await this.repo.transferCaptain(teamId, currentUserId, newCaptainId);
+    this.auditLog?.log(currentUserId, 'transfer_captain', 'team', teamId).catch(() => undefined);
   }
 
   async joinViaToken(token: string, userId: string) {
@@ -91,9 +121,45 @@ export class TeamsService {
     return this.repo.upsertApproval({ teamId, status, approvedBy: approverId, comment });
   }
 
+  async sendJoinRequest(teamId: string, userId: string, message?: string) {
+    const team = await this.repo.findById(teamId);
+    if (!team) throw new NotFoundError('Team');
+    const alreadyMember = await this.repo.isMember(teamId, userId);
+    if (alreadyMember) throw new ConflictError('Ви вже є учасником цієї команди');
+    const hasRequest = await this.repo.hasActiveRequest(teamId, userId);
+    if (hasRequest) throw new ConflictError('Ви вже подали заявку до цієї команди');
+    return this.repo.createJoinRequest(teamId, userId, message);
+  }
+
+  async getJoinRequests(teamId: string, requesterId: string) {
+    await this.assertCaptain(teamId, requesterId);
+    return this.repo.getJoinRequests(teamId);
+  }
+
+  async getUserJoinRequestStatus(teamId: string, userId: string) {
+    return this.repo.getUserJoinRequestStatus(teamId, userId);
+  }
+
+  async respondToJoinRequest(
+    requestId: string,
+    action: 'accepted' | 'rejected',
+    captainId: string,
+  ) {
+    const req = await this.repo.findJoinRequest(requestId);
+    if (!req) throw new NotFoundError('Join request not found');
+    await this.assertCaptain(req.teamId, captainId);
+    if (req.status !== 'pending') throw new ConflictError('Цю заявку вже оброблено');
+    await this.repo.updateJoinRequest(requestId, action);
+    if (action === 'accepted') {
+      await this.repo.addMember(req.teamId, req.userId, 'participant');
+      this.auditLog?.log(req.userId, 'join_team', 'team', req.teamId).catch(() => undefined);
+    }
+    return { requestId, action };
+  }
+
   private async assertCaptain(teamId: string, userId: string): Promise<void> {
     const members = await this.repo.getMembers(teamId);
     const isCaptain = members.some((m) => m.userId === userId && m.role === 'captain');
-    if (!isCaptain) throw new ForbiddenError('Only the team captain can perform this action');
+    if (!isCaptain) throw new ForbiddenError('Тільки капітан команди може виконати цю дію');
   }
 }

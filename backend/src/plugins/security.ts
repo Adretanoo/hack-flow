@@ -18,10 +18,23 @@ export default fp(async function securityPlugin(app: FastifyInstance): Promise<v
   });
 
   if (env.NODE_ENV !== 'test') {
+    // Try to use Redis for rate-limiting; fall back to in-memory if Redis is unavailable.
+    let redisStore: ReturnType<typeof getRedisClient> | undefined;
+    try {
+      const client = getRedisClient();
+      // Quick ping — if it throws synchronously or the client is already in a bad state,
+      // we skip Redis and use the default in-memory store.
+      if (client.status === 'ready' || client.status === 'connecting') {
+        redisStore = client;
+      }
+    } catch {
+      app.log.warn('[rate-limit] Redis unavailable — using in-memory store');
+    }
+
     await app.register(rateLimit, {
       max: env.RATE_LIMIT_MAX,
       timeWindow: env.RATE_LIMIT_WINDOW_MS,
-      redis: getRedisClient(),
+      ...(redisStore ? { redis: redisStore } : {}),
       keyGenerator: (request) => request.ip,
       errorResponseBuilder: (_request, context) => ({
         statusCode: 429,

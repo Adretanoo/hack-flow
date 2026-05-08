@@ -38,6 +38,12 @@ export const approvalStatusEnum = pgEnum('approval_status', [
   'DISQUALIFIED',
 ]);
 
+export const joinRequestStatusEnum = pgEnum('join_request_status', [
+  'pending',
+  'accepted',
+  'rejected',
+]);
+
 export const projectStatusEnum = pgEnum('project_status', [
   'DRAFT',
   'SUBMITTED',
@@ -283,6 +289,20 @@ export const teamInvites = pgTable('team_invites', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+export const teamJoinRequests = pgTable('team_join_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  teamId: uuid('team_id')
+    .notNull()
+    .references(() => teams.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  message: text('message'),
+  status: joinRequestStatusEnum('status').default('pending').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // ── Projects ──────────────────────────────────────────────────
 
 export const projectResourceTypes = pgTable('project_resource_types', {
@@ -463,6 +483,7 @@ export const teamsRelations = relations(teams, ({ one, many }) => ({
   invites: many(teamInvites),
   approvals: many(teamApprovals),
   projects: many(projects),
+  joinRequests: many(teamJoinRequests),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -540,4 +561,9 @@ export const teamInvitesRelations = relations(teamInvites, ({ one }) => ({
 
 export const projectResourcesRelations = relations(projectResources, ({ one }) => ({
   project: one(projects, { fields: [projectResources.projectId], references: [projects.id] }),
+}));
+
+export const teamJoinRequestsRelations = relations(teamJoinRequests, ({ one }) => ({
+  team: one(teams, { fields: [teamJoinRequests.teamId], references: [teams.id] }),
+  user: one(users, { fields: [teamJoinRequests.userId], references: [users.id] }),
 }));

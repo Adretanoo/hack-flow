@@ -32,7 +32,13 @@ export function LoginPage() {
       const { accessToken, refreshToken, user } = response.data.data
       setTokens(accessToken, refreshToken)
       setUser(user)
-      navigate('/app') // RoleGuard will redirect from there
+      // Auto-join if user came via invite link
+      const pendingToken = sessionStorage.getItem('hackflow_pending_join_token')
+      if (pendingToken) {
+        navigate(`/join/${pendingToken}`)
+      } else {
+        navigate('/app')
+      }
     } catch (err: any) {
       setError(err.message || 'Помилка авторизації')
     } finally {

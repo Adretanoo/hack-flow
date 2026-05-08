@@ -11,6 +11,7 @@ import { ProfilePage } from '@/pages/shared/ProfilePage'
 import { HackathonsPage } from '@/pages/participant/HackathonsPage'
 import { HackathonDashboardPage } from '@/pages/participant/HackathonDashboardPage'
 import { MatchmakingPage } from '@/pages/participant/MatchmakingPage'
+import { JoinTeamPage } from '@/pages/participant/JoinTeamPage'
 
 import { JudgeProjectsPage } from '@/pages/judge/JudgeProjectsPage'
 import { JudgeScorePage } from '@/pages/judge/JudgeScorePage'
@@ -21,19 +22,18 @@ import { MentorSlotsPage } from '@/pages/mentor/MentorSlotsPage'
 
 import { useAuthStore } from '@/store/auth.store'
 
-// Helper component to redirect based on role
 function AppRedirect() {
   const { user } = useAuthStore()
   if (!user) return <Navigate to="/login" />
-  
   if (user.role === 'judge') return <Navigate to="/app/judge/projects" />
   if (user.role === 'mentor') return <Navigate to="/app/mentor/slots" />
-  
-  // Default to participant
   return <Navigate to="/app/hackathons" />
 }
 
 export const router = createBrowserRouter([
+  // Public join page — standalone, no layout wrapper needed
+  { path: '/join/:token', element: <JoinTeamPage /> },
+
   {
     path: '/',
     element: <AppLayout />,
@@ -49,23 +49,23 @@ export const router = createBrowserRouter([
     element: <AppCabinetLayout />,
     children: [
       { index: true, element: <AppRedirect /> },
-      { 
-        path: 'profile', 
+      {
+        path: 'profile',
         element: (
           <RoleGuard roles={['participant', 'judge', 'mentor', 'admin']}>
             <ProfilePage />
           </RoleGuard>
-        ) 
+        ),
       },
       { path: 'hackathons', element: <RoleGuard roles={['participant', 'admin']}><HackathonsPage /></RoleGuard> },
       { path: 'hackathons/:hackathonId', element: <RoleGuard roles={['participant', 'admin']}><HackathonDashboardPage /></RoleGuard> },
-          { path: 'matchmaking', element: <RoleGuard roles={['participant', 'admin']}><MatchmakingPage /></RoleGuard> },
-          { path: 'judge/projects', element: <RoleGuard roles={['judge', 'admin']}><JudgeProjectsPage /></RoleGuard> },
-          { path: 'judge/score/:projectId', element: <RoleGuard roles={['judge', 'admin']}><JudgeScorePage /></RoleGuard> },
-          { path: 'judge/scores', element: <RoleGuard roles={['judge', 'admin']}><JudgeScoresOverviewPage /></RoleGuard> },
-          { path: 'judge/conflicts', element: <RoleGuard roles={['judge', 'admin']}><JudgeConflictsPage /></RoleGuard> },
-          { path: 'mentor/availability', element: <RoleGuard roles={['mentor', 'admin']}><MentorAvailabilityPage /></RoleGuard> },
-          { path: 'mentor/slots', element: <RoleGuard roles={['mentor', 'admin']}><MentorSlotsPage /></RoleGuard> },
+      { path: 'matchmaking', element: <RoleGuard roles={['participant', 'admin']}><MatchmakingPage /></RoleGuard> },
+      { path: 'judge/projects', element: <RoleGuard roles={['judge', 'admin']}><JudgeProjectsPage /></RoleGuard> },
+      { path: 'judge/score/:projectId', element: <RoleGuard roles={['judge', 'admin']}><JudgeScorePage /></RoleGuard> },
+      { path: 'judge/scores', element: <RoleGuard roles={['judge', 'admin']}><JudgeScoresOverviewPage /></RoleGuard> },
+      { path: 'judge/conflicts', element: <RoleGuard roles={['judge', 'admin']}><JudgeConflictsPage /></RoleGuard> },
+      { path: 'mentor/availability', element: <RoleGuard roles={['mentor', 'admin']}><MentorAvailabilityPage /></RoleGuard> },
+      { path: 'mentor/slots', element: <RoleGuard roles={['mentor', 'admin']}><MentorSlotsPage /></RoleGuard> },
     ],
   },
 ])

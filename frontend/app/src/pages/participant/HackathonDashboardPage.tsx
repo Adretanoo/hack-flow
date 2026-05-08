@@ -25,15 +25,31 @@ export function HackathonDashboardPage() {
     enabled: !!hackathonId,
   })
 
-  // We fetch the user's team for this specific hackathon
+  // Fetch user's own team for this hackathon specifically (not all teams)
   const { data: teamData, isLoading: teamLoading } = useQuery({
     queryKey: ['my-team', hackathonId, user?.id],
-    queryFn: () => teamsApi.list({ hackathon_id: hackathonId, limit: 1 }),
+    queryFn: async () => {
+      // List teams for this hackathon, then find the one where current user is a member
+      const res = await teamsApi.list({ hackathon_id: hackathonId, limit: 100 })
+      const allTeams = res.data?.data || []
+      // Find which team the current user belongs to
+      for (const team of allTeams) {
+        try {
+          const membersRes = await teamsApi.getMembers(team.id)
+          const members = membersRes.data?.data || []
+          const isMember = members.some((m: any) => m.user?.id === user?.id || m.userId === user?.id)
+          if (isMember) return team
+        } catch {
+          // skip
+        }
+      }
+      return null
+    },
     enabled: !!hackathonId && !!user?.id,
   })
 
   const hackathon = hackathonData?.data?.data
-  const myTeam = teamData?.data?.data?.[0]
+  const myTeam = teamData ?? undefined
   const stageInfo = useHackathonStage(hackathon)
 
   if (hackathonLoading || teamLoading) {
@@ -65,7 +81,7 @@ export function HackathonDashboardPage() {
               <StatusBadge status={hackathon.status} />
               {stageInfo.activeStage && (
                 <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                  Етап: {stageInfo.activeStage.type || stageInfo.activeStage.name}
+                  Етап: {(stageInfo.activeStage as any).type || (stageInfo.activeStage as any).name}
                 </span>
               )}
             </div>
