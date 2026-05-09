@@ -51,10 +51,29 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
         properties: {
           teamId: { type: 'string', format: 'uuid' },
           stageId: { type: 'string', format: 'uuid' },
+          title: { type: 'string', maxLength: 255 },
+          description: { type: 'string' },
         },
       },
     },
   }, (req, reply) => ctrl.create(req, reply));
+
+  app.patch('/:id', {
+    onRequest: [authenticate],
+    schema: {
+      tags: ['Projects'],
+      summary: 'Update project title / description (DRAFT only)',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', maxLength: 255 },
+          description: { type: 'string' },
+        },
+      },
+    },
+  }, (req, reply) => ctrl.update(req, reply));
 
   app.post('/:id/submit', {
     onRequest: [authenticate],

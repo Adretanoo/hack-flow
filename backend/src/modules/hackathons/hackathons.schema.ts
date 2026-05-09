@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const CreateTrackSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().optional(),
+  guidelines: z.string().optional(),
 });
 
 export const StageTypeEnum = z.enum([

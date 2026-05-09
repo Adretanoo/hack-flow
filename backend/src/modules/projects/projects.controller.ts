@@ -35,6 +35,12 @@ export class ProjectsController {
     return reply.status(201).send({ success: true, data: await this.service.create(body) });
   }
 
+  async update(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    const body = UpdateProjectSchema.parse(request.body);
+    return reply.send({ success: true, data: await this.service.update(id, body) });
+  }
+
   async submit(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const { id } = UuidParamSchema.parse(request.params);
     const userId = (request.user as JwtPayload | undefined)?.sub;

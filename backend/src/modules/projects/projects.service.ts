@@ -23,6 +23,14 @@ export class ProjectsService {
     return this.repo.create(dto);
   }
 
+  async update(id: string, dto: UpdateProjectDto) {
+    const p = await this.getById(id);
+    if (p.status !== 'DRAFT') {
+      throw new ValidationError('Редагувати можна лише чернетки проєкту (статус DRAFT).');
+    }
+    return this.repo.update(id, dto);
+  }
+
   async submit(id: string, userId?: string) {
     await this.getById(id);
     const resources = await this.repo.getResources(id);

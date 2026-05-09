@@ -68,6 +68,7 @@ export interface Track {
   hackathonId: string
   name: string
   description?: string | null
+  guidelines?: string | null
 }
 
 export type StageType = 'REGISTRATION' | 'HACKING' | 'PRESENTATION' | 'JUDGING' | 'FINISHED' | 'CUSTOM'

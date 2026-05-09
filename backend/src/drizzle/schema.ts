@@ -196,6 +196,10 @@ export const tracks = pgTable('tracks', {
     .references(() => hackathons.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
+  guidelines: text('guidelines'),
+  allowedTechnologies: text('allowed_technologies'),
+  expectedOutcome: text('expected_outcome'),
+  externalUrl: varchar('external_url', { length: 500 }),
 });
 
 // ── Awards ────────────────────────────────────────────────────
@@ -329,6 +333,8 @@ export const projects = pgTable('projects', {
   stageId: uuid('stage_id')
     .notNull()
     .references(() => stages.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }),
+  description: text('description'),
   status: projectStatusEnum('status').default('DRAFT').notNull(),
   submittedAt: timestamp('submitted_at'),
   reviewedAt: timestamp('reviewed_at'),

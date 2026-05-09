@@ -3,9 +3,13 @@ import { z } from 'zod';
 export const CreateProjectSchema = z.object({
   teamId: z.string().uuid(),
   stageId: z.string().uuid(),
+  title: z.string().min(1).max(255).optional(),
+  description: z.string().optional(),
 });
 
 export const UpdateProjectSchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  description: z.string().optional(),
   status: z.enum(['DRAFT', 'SUBMITTED', 'REVIEWED', 'APPROVED', 'REJECTED']).optional(),
   comment: z.string().optional(),
 });
