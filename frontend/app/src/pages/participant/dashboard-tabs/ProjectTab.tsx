@@ -82,6 +82,42 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
     return <div className="py-24 text-center">Спершу створіть або приєднайтесь до команди</div>
   }
 
+  // Команди з цими статусами не можуть подавати проєкти
+  const isBlocked =
+    myTeam.approvalStatus === 'REJECTED' || myTeam.approvalStatus === 'DISQUALIFIED'
+
+  if (isBlocked) {
+    const latestComment = (myTeam as any).approvals?.[0]?.comment as string | undefined
+    const isRejected = myTeam.approvalStatus === 'REJECTED'
+    return (
+      <div className={`mt-6 rounded-xl border p-8 text-center space-y-3 ${
+        isRejected
+          ? 'border-red-200 bg-red-50'
+          : 'border-orange-200 bg-orange-50'
+      }`}>
+        <div className={`text-4xl`}>{isRejected ? '⛔' : '🚫'}</div>
+        <h3 className={`text-xl font-bold ${isRejected ? 'text-red-800' : 'text-orange-800'}`}>
+          {isRejected ? 'Команду відхилено' : 'Команду дискваліфіковано'}
+        </h3>
+        {latestComment ? (
+          <div className={`mx-auto max-w-md rounded-lg px-4 py-3 text-sm ${
+            isRejected ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+          }`}>
+            <span className="font-medium">Причина: </span>{latestComment}
+          </div>
+        ) : (
+          <p className={`text-sm ${isRejected ? 'text-red-600' : 'text-orange-600'}`}>
+            Зверніться до організаторів для уточнення деталей.
+          </p>
+        )}
+        <p className={`text-xs ${isRejected ? 'text-red-500' : 'text-orange-500'}`}>
+          Прикріплення проєкту недоступне для команд з цим статусом.
+          Ви можете брати участь у хакатоні та переглядати треки.
+        </p>
+      </div>
+    )
+  }
+
   if (isLoading) return <div className="py-24"><LoadingSpinner /></div>
 
   if (!project) {

@@ -241,19 +241,71 @@ export function TeamDetailPage() {
       {/* Approval tab */}
       {activeTab === 'approval' && (
         <div className="space-y-5">
+          {/* Current status banner for REJECTED / DISQUALIFIED */}
+          {(team.approvalStatus === 'REJECTED' || team.approvalStatus === 'DISQUALIFIED') && (
+            <div className={clsx(
+              'rounded-xl border p-4 space-y-1',
+              team.approvalStatus === 'REJECTED'
+                ? 'border-red-200 bg-red-50 text-red-800'
+                : 'border-orange-200 bg-orange-50 text-orange-800',
+            )}>
+              <p className="font-semibold text-sm">
+                {team.approvalStatus === 'REJECTED' ? '⛔ Команду відхилено' : '🚫 Команду дискваліфіковано'}
+              </p>
+              {approvals[0]?.comment && (
+                <p className="text-sm opacity-90">Причина: {approvals[0].comment}</p>
+              )}
+            </div>
+          )}
+
           <div className="rounded-xl border border-border bg-card p-5 space-y-3">
             <h4 className="font-semibold">Змінити рішення</h4>
             <select value={approvalStatus} onChange={(e) => setApprovalStatus(e.target.value)} className={inputCls}>
               <option value="APPROVED">Схвалено</option>
+              <option value="PENDING">Очікує</option>
               <option value="REJECTED">Відхилено</option>
               <option value="DISQUALIFIED">Дискваліфіковано</option>
-              <option value="PENDING">Очікує</option>
             </select>
-            <textarea rows={3} value={approvalComment} onChange={(e) => setApprovalComment(e.target.value)}
-              placeholder="Коментар (обов'язковий для REJECTED/DISQUALIFIED)"
-              className={inputCls + ' resize-none'} />
-            <button onClick={() => approvalMut.mutate()} disabled={approvalMut.isPending}
-              className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors">
+
+            {/* Comment — required for REJECTED / DISQUALIFIED */}
+            <div>
+              <label className="block text-xs font-medium mb-1 text-muted-foreground">
+                {approvalStatus === 'REJECTED'
+                  ? 'Причина відхилення *'
+                  : approvalStatus === 'DISQUALIFIED'
+                    ? 'Причина дискваліфікації *'
+                    : 'Коментар (необов\u2019язково)'}
+              </label>
+              <textarea
+                rows={3}
+                value={approvalComment}
+                onChange={(e) => setApprovalComment(e.target.value)}
+                placeholder={
+                  approvalStatus === 'REJECTED'
+                    ? 'Вкажіть причину відхилення...'
+                    : approvalStatus === 'DISQUALIFIED'
+                      ? 'Вкажіть причину дискваліфікації...'
+                      : 'Додатковий коментар...'
+                }
+                className={clsx(
+                  inputCls + ' resize-none',
+                  (approvalStatus === 'REJECTED' || approvalStatus === 'DISQUALIFIED') &&
+                    !approvalComment.trim() && 'border-destructive focus:border-destructive focus:ring-destructive/20',
+                )}
+              />
+              {(approvalStatus === 'REJECTED' || approvalStatus === 'DISQUALIFIED') && !approvalComment.trim() && (
+                <p className="mt-1 text-xs text-destructive">Обов'язкове поле для цього статусу</p>
+              )}
+            </div>
+
+            <button
+              onClick={() => approvalMut.mutate()}
+              disabled={
+                approvalMut.isPending ||
+                ((approvalStatus === 'REJECTED' || approvalStatus === 'DISQUALIFIED') && !approvalComment.trim())
+              }
+              className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            >
               Зберегти рішення
             </button>
           </div>
