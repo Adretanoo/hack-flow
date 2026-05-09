@@ -168,12 +168,22 @@ export const hackathons = pgTable('hackathons', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+export const stageTypeEnum = pgEnum('stage_type', [
+  'REGISTRATION',
+  'HACKING',
+  'PRESENTATION',
+  'JUDGING',
+  'FINISHED',
+  'CUSTOM',
+]);
+
 export const stages = pgTable('stages', {
   id: uuid('id').primaryKey().defaultRandom(),
   hackathonId: uuid('hackathon_id')
     .notNull()
     .references(() => hackathons.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 255 }).notNull(),
+  type: stageTypeEnum('type').notNull().default('CUSTOM'),
   orderIndex: integer('order_index').notNull(),
   startDate: timestamp('start_date').notNull(),
   endDate: timestamp('end_date').notNull(),

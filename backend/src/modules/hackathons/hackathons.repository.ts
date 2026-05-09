@@ -49,21 +49,23 @@ export class HackathonsRepository {
   }
 
   async findById(id: string) {
-    const [row, tracksList, teamsCount] = await Promise.all([
+    const [row, tracksList, stagesList, teamsCount] = await Promise.all([
       this.db.select().from(hackathons).where(eq(hackathons.id, id)).limit(1),
       this.db.select().from(tracks).where(eq(tracks.hackathonId, id)),
-      this.db.select({ count: count() }).from(teams).where(eq(teams.hackathonId, id))
+      this.db.select().from(stages).where(eq(stages.hackathonId, id)).orderBy(stages.orderIndex),
+      this.db.select({ count: count() }).from(teams).where(eq(teams.hackathonId, id)),
     ]);
 
     if (!row || row.length === 0) return null;
-    
+
     return {
       ...row[0],
       tracks: tracksList,
+      stages: stagesList,
       _count: {
         teams: Number(teamsCount[0]?.count ?? 0),
-        projects: 0 // Will implement later if needed
-      }
+        projects: 0,
+      },
     };
   }
 

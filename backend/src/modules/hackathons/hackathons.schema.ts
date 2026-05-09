@@ -5,8 +5,18 @@ export const CreateTrackSchema = z.object({
   description: z.string().optional(),
 });
 
+export const StageTypeEnum = z.enum([
+  'REGISTRATION',
+  'HACKING',
+  'PRESENTATION',
+  'JUDGING',
+  'FINISHED',
+  'CUSTOM',
+]);
+
 export const CreateStageSchema = z.object({
   name: z.string().min(1).max(255),
+  type: StageTypeEnum.default('CUSTOM'),
   orderIndex: z.number().int().min(0),
   startDate: z.string().datetime(),
   endDate: z.string().datetime(),

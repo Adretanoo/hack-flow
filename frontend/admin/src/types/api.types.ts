@@ -70,10 +70,13 @@ export interface Track {
   description?: string | null
 }
 
+export type StageType = 'REGISTRATION' | 'HACKING' | 'PRESENTATION' | 'JUDGING' | 'FINISHED' | 'CUSTOM'
+
 export interface Stage {
   id: string
   hackathonId: string
   name: string
+  type: StageType
   startDate: string
   endDate: string
   orderIndex: number

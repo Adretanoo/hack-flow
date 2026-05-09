@@ -200,10 +200,10 @@ async function seedTracksAndCriteria(hackathons: any) {
   
   const h1 = hackathons['IT-Fest 2025'];
   await db.insert(stages).values([
-    { hackathonId: h1.id, name: 'REGISTRATION', startDate: new Date(now.getTime() - 7*86400000), endDate: new Date(now.getTime() - 2*86400000), orderIndex: 1 },
-    { hackathonId: h1.id, name: 'HACKING', startDate: new Date(now.getTime() - 2*86400000), endDate: new Date(now.getTime() + 1*86400000), orderIndex: 2 },
-    { hackathonId: h1.id, name: 'JUDGING', startDate: new Date(now.getTime() + 1*86400000), endDate: new Date(now.getTime() + 2*86400000), orderIndex: 3 },
-    { hackathonId: h1.id, name: 'FINISHED', startDate: new Date(now.getTime() + 2*86400000), endDate: new Date(now.getTime() + 3*86400000), orderIndex: 4 },
+    { hackathonId: h1.id, name: 'Реєстрація',  type: 'REGISTRATION', startDate: new Date(now.getTime() - 7*86400000), endDate: new Date(now.getTime() - 2*86400000), orderIndex: 1 },
+    { hackathonId: h1.id, name: 'Хакінг',       type: 'HACKING',      startDate: new Date(now.getTime() - 2*86400000), endDate: new Date(now.getTime() + 1*86400000), orderIndex: 2 },
+    { hackathonId: h1.id, name: 'Суддівство',   type: 'JUDGING',      startDate: new Date(now.getTime() + 1*86400000), endDate: new Date(now.getTime() + 2*86400000), orderIndex: 3 },
+    { hackathonId: h1.id, name: 'Завершено',    type: 'FINISHED',     startDate: new Date(now.getTime() + 2*86400000), endDate: new Date(now.getTime() + 3*86400000), orderIndex: 4 },
   ]);
 
   const [t1w, t1a, t1m] = await db.insert(tracks).values([
@@ -230,10 +230,10 @@ async function seedTracksAndCriteria(hackathons: any) {
 
   const h2 = hackathons['CyberHack 2025'];
   await db.insert(stages).values([
-    { hackathonId: h2.id, name: 'REGISTRATION', startDate: new Date(now.getTime() + 1*86400000), endDate: new Date(now.getTime() + 5*86400000), orderIndex: 1 },
-    { hackathonId: h2.id, name: 'HACKING', startDate: new Date(now.getTime() + 5*86400000), endDate: new Date(now.getTime() + 7*86400000), orderIndex: 2 },
-    { hackathonId: h2.id, name: 'JUDGING', startDate: new Date(now.getTime() + 7*86400000), endDate: new Date(now.getTime() + 8*86400000), orderIndex: 3 },
-    { hackathonId: h2.id, name: 'FINISHED', startDate: new Date(now.getTime() + 8*86400000), endDate: new Date(now.getTime() + 9*86400000), orderIndex: 4 },
+    { hackathonId: h2.id, name: 'Реєстрація',  type: 'REGISTRATION', startDate: new Date(now.getTime() + 1*86400000), endDate: new Date(now.getTime() + 5*86400000), orderIndex: 1 },
+    { hackathonId: h2.id, name: 'Хакінг',       type: 'HACKING',      startDate: new Date(now.getTime() + 5*86400000), endDate: new Date(now.getTime() + 7*86400000), orderIndex: 2 },
+    { hackathonId: h2.id, name: 'Суддівство',   type: 'JUDGING',      startDate: new Date(now.getTime() + 7*86400000), endDate: new Date(now.getTime() + 8*86400000), orderIndex: 3 },
+    { hackathonId: h2.id, name: 'Завершено',    type: 'FINISHED',     startDate: new Date(now.getTime() + 8*86400000), endDate: new Date(now.getTime() + 9*86400000), orderIndex: 4 },
   ]);
 
   const [t2c] = await db.insert(tracks).values([
@@ -243,10 +243,10 @@ async function seedTracksAndCriteria(hackathons: any) {
 
   const h3 = hackathons['EduTech Sprint'];
   await db.insert(stages).values([
-    { hackathonId: h3.id, name: 'REGISTRATION', startDate: new Date(now.getTime() - 30*86400000), endDate: new Date(now.getTime() - 25*86400000), orderIndex: 1 },
-    { hackathonId: h3.id, name: 'HACKING', startDate: new Date(now.getTime() - 25*86400000), endDate: new Date(now.getTime() - 23*86400000), orderIndex: 2 },
-    { hackathonId: h3.id, name: 'JUDGING', startDate: new Date(now.getTime() - 23*86400000), endDate: new Date(now.getTime() - 22*86400000), orderIndex: 3 },
-    { hackathonId: h3.id, name: 'FINISHED', startDate: new Date(now.getTime() - 22*86400000), endDate: new Date(now.getTime() - 21*86400000), orderIndex: 4 },
+    { hackathonId: h3.id, name: 'Реєстрація',  type: 'REGISTRATION', startDate: new Date(now.getTime() - 30*86400000), endDate: new Date(now.getTime() - 25*86400000), orderIndex: 1 },
+    { hackathonId: h3.id, name: 'Хакінг',       type: 'HACKING',      startDate: new Date(now.getTime() - 25*86400000), endDate: new Date(now.getTime() - 23*86400000), orderIndex: 2 },
+    { hackathonId: h3.id, name: 'Суддівство',   type: 'JUDGING',      startDate: new Date(now.getTime() - 23*86400000), endDate: new Date(now.getTime() - 22*86400000), orderIndex: 3 },
+    { hackathonId: h3.id, name: 'Завершено',    type: 'FINISHED',     startDate: new Date(now.getTime() - 22*86400000), endDate: new Date(now.getTime() - 21*86400000), orderIndex: 4 },
   ]);
 
   const [t3e, t3h] = await db.insert(tracks).values([

@@ -15,8 +15,9 @@ export function HackathonCard({ hackathon }: HackathonCardProps) {
     hackathon.status === 'DRAFT' ? 'from-blue-500 to-cyan-400' :
     'from-slate-500 to-gray-400'
 
-  // Get active stage if exists
-  const activeStage = hackathon.stages?.find(s => s.status === 'ACTIVE')
+  // Get active stage by dates (stages have no status field — use date window)
+  const now = new Date()
+  const activeStage = hackathon.stages?.find(s => now >= new Date(s.startDate) && now <= new Date(s.endDate))
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-all hover:shadow-md hover:-translate-y-1">

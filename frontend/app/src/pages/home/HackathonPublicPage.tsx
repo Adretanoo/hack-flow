@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/auth.store'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { formatDate } from '@/utils/format'
+import { useHackathonStage } from '@/hooks/useHackathonStage'
 
 export function HackathonPublicPage() {
   const { id } = useParams<{ id: string }>()
@@ -18,13 +19,26 @@ export function HackathonPublicPage() {
     enabled: !!id,
   })
 
-  if (isLoading) return <div className="py-24"><LoadingSpinner size="lg" /></div>
-  
+  // Визначає активний етап за датами — викликається завжди (до будь-яких early returns).
+  // useHackathonStage коректно обробляє undefined і повертає canRegister: false.
   const hackathon = data?.data?.data
-  if (!hackathon) return <div className="py-24 text-center">Хакатон не знайдено</div>
+  const { activeStage, canRegister: stageAllowsRegistration } = useHackathonStage(hackathon)
 
-  const activeStage = hackathon.stages?.find((s: any) => s.status === 'ACTIVE')
-  const isRegistrationOpen = activeStage?.type === 'REGISTRATION'
+  // Реєстрація відкрита:
+  // • якщо є стейджі → тільки stage-логіка (REGISTRATION stage з активними датами)
+  // • якщо стейджів немає → fallback: хакатон PUBLISHED і дата в межах startDate..endDate
+  const hasStages = hackathon != null && (hackathon.stages?.length ?? 0) > 0
+  const now = new Date()
+  const withinDates =
+    hackathon != null &&
+    new Date(hackathon.startDate) <= now &&
+    now <= new Date(hackathon.endDate)
+  const isRegistrationOpen = hasStages
+    ? stageAllowsRegistration
+    : hackathon?.status === 'PUBLISHED' && withinDates
+
+  if (isLoading) return <div className="py-24"><LoadingSpinner size="lg" /></div>
+  if (!hackathon) return <div className="py-24 text-center">Хакатон не знайдено</div>
 
   return (
     <div className="animate-fade-in space-y-8">
@@ -122,18 +136,18 @@ export function HackathonPublicPage() {
             )}
 
             <div className="pt-4 border-t border-border">
-              {!user ? (
-                <Link to="/register" className="flex w-full justify-center rounded-md bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors">
-                  Увійти для реєстрації
-                </Link>
-              ) : isRegistrationOpen ? (
-                <Link to={`/app/hackathons/${hackathon.id}/join`} className="flex w-full justify-center rounded-md bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors">
-                  Подати заявку на участь
-                </Link>
-              ) : (
+              {!isRegistrationOpen ? (
                 <button disabled className="flex w-full justify-center rounded-md bg-muted px-4 py-3 text-sm font-semibold text-muted-foreground cursor-not-allowed">
                   Реєстрація закрита
                 </button>
+              ) : !user ? (
+                <Link to="/register" className="flex w-full justify-center rounded-md bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors">
+                  Увійти для реєстрації
+                </Link>
+              ) : (
+                <Link to={`/app/hackathons/${hackathon.id}`} className="flex w-full justify-center rounded-md bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors">
+                  Подати заявку на участь
+                </Link>
               )}
             </div>
           </div>

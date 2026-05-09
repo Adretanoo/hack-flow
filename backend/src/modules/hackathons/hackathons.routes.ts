@@ -85,7 +85,7 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
           contactEmail: { type: 'string', format: 'email' },
           tags: { type: 'array', items: { type: 'string' } },
           tracks: { type: 'array', items: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, description: { type: 'string' } } } },
-          stages: { type: 'array', items: { type: 'object', required: ['name', 'orderIndex', 'startDate', 'endDate'], properties: { name: { type: 'string' }, orderIndex: { type: 'integer' }, startDate: { type: 'string', format: 'date-time' }, endDate: { type: 'string', format: 'date-time' } } } },
+          stages: { type: 'array', items: { type: 'object', required: ['name', 'orderIndex', 'startDate', 'endDate'], properties: { name: { type: 'string' }, type: { type: 'string', enum: ['REGISTRATION', 'HACKING', 'PRESENTATION', 'JUDGING', 'FINISHED', 'CUSTOM'], default: 'CUSTOM' }, orderIndex: { type: 'integer' }, startDate: { type: 'string', format: 'date-time' }, endDate: { type: 'string', format: 'date-time' } } } },
           awards: { type: 'array', items: { type: 'object', required: ['name', 'place'], properties: { name: { type: 'string' }, place: { type: 'integer' }, description: { type: 'string' }, certificate: { type: 'string' } } } },
         },
       },
@@ -179,14 +179,15 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
     schema: {
       tags: ['Hackathons'],
       summary: 'Add a stage to a hackathon — admin only',
-      description: 'Stage names: REGISTRATION, HACKING, JUDGING, FINISHED. Dates drive automatic status transitions.',
+      description: 'Use type enum to define the semantic role of the stage. Dates drive date-based activation.',
       security: Sec,
       params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
       body: {
         type: 'object',
         required: ['name', 'startDate', 'endDate', 'orderIndex'],
         properties: {
-          name: { type: 'string', minLength: 1, maxLength: 100, description: 'e.g. REGISTRATION, HACKING, JUDGING, FINISHED' },
+          name: { type: 'string', minLength: 1, maxLength: 100 },
+          type: { type: 'string', enum: ['REGISTRATION', 'HACKING', 'PRESENTATION', 'JUDGING', 'FINISHED', 'CUSTOM'], default: 'CUSTOM' },
           startDate: { type: 'string', format: 'date-time' },
           endDate: { type: 'string', format: 'date-time' },
           orderIndex: { type: 'integer', minimum: 0 },
@@ -206,6 +207,7 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
         type: 'object',
         properties: {
           name: { type: 'string', minLength: 1, maxLength: 100 },
+          type: { type: 'string', enum: ['REGISTRATION', 'HACKING', 'PRESENTATION', 'JUDGING', 'FINISHED', 'CUSTOM'] },
           startDate: { type: 'string', format: 'date-time' },
           endDate: { type: 'string', format: 'date-time' },
           orderIndex: { type: 'integer', minimum: 0 },
