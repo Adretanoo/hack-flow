@@ -26,6 +26,42 @@ export async function teamsRoutes(app: FastifyInstance): Promise<void> {
   const ctrl = new TeamsController(service);
 
   // ── Public / read-only ────────────────────────────────────────
+
+  // GET /teams/my-teams — all teams the user is a member of (across all hackathons)
+  app.get('/my-teams', {
+    onRequest: [authenticate],
+    schema: {
+      tags: ['Teams'],
+      summary: "Get all teams the current user is a member of",
+      security: Sec,
+    },
+  }, async (req, reply) => {
+    const { sub } = req.user as { sub: string };
+    const teams = await service.getMyTeams(sub);
+    return reply.send({ success: true, data: teams });
+  });
+
+  // GET /teams/my-team?hackathonId=<uuid> — returns the current user's team
+  // (with approvals!) for a given hackathon. Must come BEFORE /:id routes.
+  app.get('/my-team', {
+    onRequest: [authenticate],
+    schema: {
+      tags: ['Teams'],
+      summary: "Get current user's team for a hackathon (includes approvals)",
+      security: Sec,
+      querystring: {
+        type: 'object',
+        required: ['hackathonId'],
+        properties: { hackathonId: { type: 'string', format: 'uuid' } },
+      },
+    },
+  }, async (req, reply) => {
+    const { sub } = req.user as { sub: string };
+    const { hackathonId } = req.query as { hackathonId: string };
+    const team = await service.getMyTeamForHackathon(hackathonId, sub);
+    return reply.send({ success: true, data: team ?? null });
+  });
+
   app.get('/', {
     schema: {
       tags: ['Teams'],
@@ -238,6 +274,27 @@ export async function teamsRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, (req, reply) => ctrl.updateApproval(req, reply));
+
+  // Admin: change team track (without requiring captain role)
+  app.patch('/:id/track', {
+    onRequest: [authenticate, authorize('admin')],
+    schema: {
+      tags: ['Teams'],
+      summary: 'Change team track — admin only',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        required: ['trackId'],
+        properties: { trackId: { type: 'string', format: 'uuid' } },
+      },
+    },
+  }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const { trackId } = req.body as { trackId: string };
+    const updated = await repository.update(id, { trackId });
+    return reply.send({ success: true, data: updated });
+  });
 
   // ── Join Requests ───────────────────────────────────────────
 

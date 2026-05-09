@@ -28,6 +28,10 @@ export class TeamsService {
     return this.repo.findUserTeamForHackathon(hackathonId, userId);
   }
 
+  async getMyTeams(userId: string) {
+    return this.repo.findMyTeams(userId);
+  }
+
   async listByHackathon(hackathonId: string) {
     return this.repo.findByHackathon(hackathonId);
   }
@@ -48,12 +52,21 @@ export class TeamsService {
     await this.assertCaptain(id, requesterId);
     const updated = await this.repo.update(id, dto);
     if (!updated) throw new NotFoundError('Team');
+    // Зміни потребують повторного затвердження організатором
+    await this.repo.upsertApproval({
+      teamId: id,
+      status: 'PENDING',
+      approvedBy: requesterId,
+      comment: 'Команда внесла зміни — очікується перегляд організатором',
+    });
+    this.auditLog?.log(requesterId, 'update_team', 'team', id).catch(() => undefined);
     return updated;
   }
 
   async remove(id: string, requesterId: string) {
     await this.assertCaptain(id, requesterId);
     await this.repo.remove(id);
+    this.auditLog?.log(requesterId, 'delete_team', 'team', id).catch(() => undefined);
   }
 
   async getMembers(teamId: string) {

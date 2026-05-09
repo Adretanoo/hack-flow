@@ -54,6 +54,14 @@ export const teamsApi = {
 
   getById: (id: string) => api.get<ApiResponse<Team>>(`/teams/${id}`),
 
+  /** Get current user's team for a hackathon — includes approvals. */
+  getMyTeam: (hackathonId: string) =>
+    api.get<ApiResponse<Team | null>>('/teams/my-team', { params: { hackathonId } }),
+
+  /** Get all teams the user is a member of (across all hackathons). */
+  getMyTeams: () =>
+    api.get<ApiResponse<Team[]>>('/teams/my-teams'),
+
   getMembers: (id: string) => api.get<ApiResponse<TeamMember[]>>(`/teams/${id}/members`),
 
   create: (data: {
@@ -66,6 +74,13 @@ export const teamsApi = {
 
   update: (id: string, data: { name?: string; description?: string; trackId?: string; logo?: string }) =>
     api.patch<ApiResponse<Team>>(`/teams/${id}`, data),
+
+  deleteTeam: (id: string) =>
+    api.delete<ApiResponse<void>>(`/teams/${id}`),
+
+  /** Admin-only: move a team to a different track. */
+  changeTrack: (teamId: string, trackId: string) =>
+    api.patch<ApiResponse<Team>>(`/teams/${teamId}/track`, { trackId }),
 
   /** Join via raw token (or full URL — extract token before calling) */
   join: (token: string) =>

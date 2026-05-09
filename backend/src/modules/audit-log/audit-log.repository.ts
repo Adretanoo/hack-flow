@@ -7,6 +7,8 @@ export type AuditAction =
   | 'register'
   | 'refresh_token'
   | 'create_team'
+  | 'update_team'
+  | 'delete_team'
   | 'join_team'
   | 'submit_project'
   | 'submit_score'

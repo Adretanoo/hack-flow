@@ -52,11 +52,11 @@ function MyHackathonsList() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['my-teams', user?.id],
-    queryFn: () => teamsApi.list({ limit: 50 }),
+    queryFn: () => teamsApi.getMyTeams().then(res => res.data?.data ?? []),
     enabled: !!user?.id,
   })
 
-  const teams = data?.data?.data || []
+  const teams = data ?? []
 
   if (isLoading) return <div className="py-24"><LoadingSpinner /></div>
 
@@ -71,36 +71,50 @@ function MyHackathonsList() {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {teams.map((team) => (
-        <div key={team.id} className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-all hover:shadow-md hover:-translate-y-1">
-          <div className="p-5 flex flex-col h-full">
-            <div className="mb-3 flex justify-between items-start">
-              <span className={`px-2 py-1 text-xs font-medium rounded-md ${
-                team.approvalStatus === 'APPROVED' ? 'bg-green-100 text-green-700' :
-                team.approvalStatus === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-                'bg-red-100 text-red-700'
-              }`}>
-                {team.approvalStatus === 'APPROVED' ? 'Схвалено' :
-                 team.approvalStatus === 'PENDING' ? 'Очікує' : 'Відхилено'}
-              </span>
-            </div>
-            <h3 className="mb-1 text-xl font-bold leading-tight group-hover:text-primary transition-colors">
-              <Link to={`/app/hackathons/${team.hackathonId}`} className="focus:outline-none">
-                <span className="absolute inset-0" aria-hidden="true" />
-                {team.hackathon?.title}
-              </Link>
-            </h3>
-            <p className="text-sm font-medium text-muted-foreground mt-2 border-t border-border pt-2">
-              Команда: <span className="text-foreground">{team.name}</span>
-            </p>
-            {team.track && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Трек: {team.track.name}
+      {teams.map((team) => {
+        const latestApproval = (team as any).approvals?.[0]
+        const status = latestApproval?.status ?? 'PENDING'
+        const statusColor =
+          status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+          status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+          status === 'DISQUALIFIED' ? 'bg-orange-100 text-orange-700' :
+          'bg-amber-100 text-amber-700'
+        const statusLabel =
+          status === 'APPROVED' ? 'Схвалено' :
+          status === 'REJECTED' ? 'Відхилено' :
+          status === 'DISQUALIFIED' ? 'Дискваліфіковано' : 'Очікує'
+
+        return (
+          <div key={team.id} className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-all hover:shadow-md hover:-translate-y-1">
+            <div className="p-5 flex flex-col h-full">
+              <div className="mb-3 flex justify-between items-start">
+                <span className={`px-2 py-1 text-xs font-medium rounded-md ${statusColor}`}>
+                  {statusLabel}
+                </span>
+              </div>
+              <h3 className="mb-1 text-xl font-bold leading-tight group-hover:text-primary transition-colors">
+                <Link to={`/app/hackathons/${team.hackathonId}`} className="focus:outline-none">
+                  <span className="absolute inset-0" aria-hidden="true" />
+                  {(team.hackathon as any)?.title ?? '—'}
+                </Link>
+              </h3>
+              <p className="text-sm font-medium text-muted-foreground mt-2 border-t border-border pt-2">
+                Команда: <span className="text-foreground">{team.name}</span>
               </p>
-            )}
+              {(team.track as any)?.name && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Трек: {(team.track as any).name}
+                </p>
+              )}
+              {latestApproval?.comment && (status === 'REJECTED' || status === 'DISQUALIFIED') && (
+                <p className="mt-2 text-xs text-red-600 bg-red-50 rounded px-2 py-1">
+                  {latestApproval.comment}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

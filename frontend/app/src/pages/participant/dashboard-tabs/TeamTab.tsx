@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query'
 import {
   Users, UserPlus, Link as LinkIcon, LogOut, Copy, CheckCheck,
-  Crown, Trash2, RefreshCw, AlertTriangle, Plus,
+  Crown, Trash2, RefreshCw, AlertTriangle, Plus, Pencil, XCircle,
 } from 'lucide-react'
 import { teamsApi, extractToken } from '@/api/teams'
 import type { TeamMember, JoinRequest } from '@/api/teams'
@@ -241,6 +241,11 @@ function HasTeamState({
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
   const [confirmTransfer, setConfirmTransfer] = useState<string | null>(null)
   const [confirmLeave, setConfirmLeave] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [deleteConfirmName, setDeleteConfirmName] = useState('')
+  const [showDeleteZone, setShowDeleteZone] = useState(false)
+
+  const tracks = (hackathon as any).tracks as Array<{ id: string; name: string }> || []
 
   // Members
   const { data: membersData, isLoading: membersLoading } = useQuery({
@@ -313,15 +318,47 @@ function HasTeamState({
     },
   })
 
+  // Edit team (resets approval to PENDING)
+  const { register: regEdit, handleSubmit: handleEditSubmit, reset: resetEdit } = useForm<{
+    name: string
+    description?: string
+    trackId?: string
+  }>({
+    defaultValues: {
+      name: myTeam.name,
+      description: (myTeam as any).description ?? '',
+      trackId: (myTeam as any).track?.id ?? (myTeam as any).trackId ?? '',
+    },
+  })
+
+  const updateMut = useMutation({
+    mutationFn: (data: { name: string; description?: string; trackId?: string }) =>
+      teamsApi.update(myTeam.id, { ...data, trackId: data.trackId || undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-team'] })
+      setEditMode(false)
+    },
+  })
+
+  // Delete team (no approval needed)
+  const deleteMut = useMutation({
+    mutationFn: () => teamsApi.deleteTeam(myTeam.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-team'] })
+    },
+  })
+
   // Approval status from team data
   const approvalStatus = (myTeam as any).approvals?.[0]?.status ?? (myTeam as any).approvalStatus ?? 'PENDING'
   const approvalColor =
     approvalStatus === 'APPROVED' ? 'bg-green-100 text-green-700' :
     approvalStatus === 'REJECTED' ? 'bg-red-100 text-red-700' :
+    approvalStatus === 'DISQUALIFIED' ? 'bg-orange-100 text-orange-700' :
     'bg-amber-100 text-amber-700'
   const approvalLabel =
     approvalStatus === 'APPROVED' ? '✅ Схвалено' :
-    approvalStatus === 'REJECTED' ? '❌ Відхилено' : '⏳ На розгляді'
+    approvalStatus === 'REJECTED' ? '❌ Відхилено' :
+    approvalStatus === 'DISQUALIFIED' ? '🚫 Дискваліфіковано' : '⏳ На розгляді'
 
   const track = (myTeam as any).track
   const maxSize = (hackathon as any).maxTeamSize || 5
@@ -615,6 +652,135 @@ function HasTeamState({
               : <><RefreshCw className="h-4 w-4" /> Створити нове посилання</>
             }
           </button>
+        </div>
+      )}
+
+      {/* ── Captain: Edit team ─────────────────────────────────────── */}
+      {isCaptain && (
+        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          <button
+            onClick={() => { setEditMode((v) => !v); resetEdit({ name: myTeam.name, description: (myTeam as any).description ?? '', trackId: (myTeam as any).track?.id ?? '' }) }}
+            className="w-full flex items-center gap-2 px-6 py-4 text-left border-b border-border bg-muted/20 hover:bg-muted/40 transition-colors"
+          >
+            <Pencil className="h-4 w-4 text-primary" />
+            <span className="font-semibold">Редагувати команду</span>
+            <span className="ml-auto text-xs text-muted-foreground">
+              {editMode ? 'Згорнути ▲' : 'Розгорнути ▼'}
+            </span>
+          </button>
+
+          {editMode && (
+            <form
+              onSubmit={handleEditSubmit((d) => updateMut.mutate(d))}
+              className="p-6 space-y-4"
+            >
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                ⚠️ Після збереження статус команди буде змінено на <strong>«Очікує перегляду»</strong> — організатор повинен повторно затвердити зміни.
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Назва команди *</label>
+                <input
+                  {...regEdit('name', { required: true, minLength: 2 })}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm bg-background focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Опис</label>
+                <textarea
+                  {...regEdit('description')}
+                  rows={3}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm bg-background resize-none focus:border-primary focus:outline-none"
+                />
+              </div>
+              {tracks.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Запит на зміну треку</label>
+                  <select
+                    {...regEdit('trackId')}
+                    className="w-full rounded-md border border-border px-3 py-2 text-sm bg-background focus:border-primary focus:outline-none"
+                  >
+                    <option value="">— Без треку —</option>
+                    {tracks.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">Зміна треку потребує затвердження організатора.</p>
+                </div>
+              )}
+              {updateMut.isError && (
+                <p className="text-xs text-destructive">{(updateMut.error as any)?.message || 'Помилка збереження'}</p>
+              )}
+              {updateMut.isSuccess && (
+                <p className="text-xs text-green-600">✅ Зміни збережено. Очікуйте затвердження організатора.</p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditMode(false)}
+                  className="flex-1 rounded-md border border-border px-4 py-2 text-sm hover:bg-accent transition-colors"
+                >
+                  Скасувати
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateMut.isPending}
+                  className="flex-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                >
+                  {updateMut.isPending ? 'Збереження...' : 'Зберегти зміни'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
+      {/* ── Captain: Delete team (no approval needed) ─────────────── */}
+      {isCaptain && (
+        <div className="rounded-xl border border-red-200 bg-red-50/50 shadow-sm overflow-hidden">
+          <button
+            onClick={() => { setShowDeleteZone((v) => !v); setDeleteConfirmName('') }}
+            className="w-full flex items-center gap-2 px-6 py-4 text-left border-b border-red-200 hover:bg-red-50 transition-colors"
+          >
+            <XCircle className="h-4 w-4 text-destructive" />
+            <span className="font-semibold text-destructive">Видалити команду</span>
+            <span className="ml-auto text-xs text-muted-foreground">
+              {showDeleteZone ? 'Згорнути ▲' : 'Розгорнути ▼'}
+            </span>
+          </button>
+
+          {showDeleteZone && (
+            <div className="p-6 space-y-4">
+              <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-100 px-4 py-3">
+                <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                <div className="text-sm text-red-800">
+                  <p className="font-semibold">Незворотня дія!</p>
+                  <p className="mt-1">Команда буде розпущена. Всі учасники, запрошення та дані команди будуть видалені. Відновити неможливо.</p>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Введіть назву команди <strong>{myTeam.name}</strong> для підтвердження:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmName}
+                  onChange={(e) => setDeleteConfirmName(e.target.value)}
+                  placeholder={myTeam.name}
+                  className="w-full rounded-md border border-red-300 px-3 py-2 text-sm bg-background focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-400"
+                />
+              </div>
+              {deleteMut.isError && (
+                <p className="text-xs text-destructive">{(deleteMut.error as any)?.message || 'Помилка видалення'}</p>
+              )}
+              <button
+                onClick={() => deleteMut.mutate()}
+                disabled={deleteConfirmName !== myTeam.name || deleteMut.isPending}
+                className="w-full rounded-md bg-destructive px-4 py-2 text-sm font-semibold text-white hover:bg-destructive/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {deleteMut.isPending ? 'Видалення...' : '🗑 Видалити команду назавжди'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -25,26 +25,10 @@ export function HackathonDashboardPage() {
     enabled: !!hackathonId,
   })
 
-  // Fetch user's own team for this hackathon specifically (not all teams)
+  // Fetch user's own team with full approval data
   const { data: teamData, isLoading: teamLoading } = useQuery({
     queryKey: ['my-team', hackathonId, user?.id],
-    queryFn: async () => {
-      // List teams for this hackathon, then find the one where current user is a member
-      const res = await teamsApi.list({ hackathon_id: hackathonId, limit: 100 })
-      const allTeams = res.data?.data || []
-      // Find which team the current user belongs to
-      for (const team of allTeams) {
-        try {
-          const membersRes = await teamsApi.getMembers(team.id)
-          const members = membersRes.data?.data || []
-          const isMember = members.some((m: any) => m.user?.id === user?.id || m.userId === user?.id)
-          if (isMember) return team
-        } catch {
-          // skip
-        }
-      }
-      return null
-    },
+    queryFn: () => teamsApi.getMyTeam(hackathonId!).then(res => res.data?.data ?? null),
     enabled: !!hackathonId && !!user?.id,
   })
 

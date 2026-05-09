@@ -11,7 +11,12 @@ export class TeamsRepository {
     const row = await this.db.query.teams.findFirst({
       where: (t, { and, eq, isNull }) => and(eq(t.id, id), isNull(t.deletedAt)),
       with: {
-        hackathon: { columns: { id: true, title: true, maxTeamSize: true } },
+        hackathon: {
+          columns: { id: true, title: true, maxTeamSize: true },
+          with: {
+            tracks: { columns: { id: true, name: true } },
+          },
+        },
         track: { columns: { id: true, name: true } },
         approvals: {
           orderBy: (a, { desc }) => [desc(a.approvedAt)],
@@ -31,20 +36,51 @@ export class TeamsRepository {
 
   /** Returns the team + role for the current user in a given hackathon, or null. */
   async findUserTeamForHackathon(hackathonId: string, userId: string) {
-    const row = await this.db.query.teamMembers.findFirst({
-      where: (m, { eq }) => eq(m.userId, userId),
+    // Step 1: find which team the user belongs to in this specific hackathon
+    const memberRows = await this.db
+      .select({ teamId: teamMembers.teamId, role: teamMembers.role })
+      .from(teamMembers)
+      .innerJoin(teams, eq(teamMembers.teamId, teams.id))
+      .where(
+        and(
+          eq(teamMembers.userId, userId),
+          eq(teams.hackathonId, hackathonId),
+          isNull(teams.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    if (memberRows.length === 0) return null;
+    const { teamId, role } = memberRows[0];
+
+    // Step 2: fetch full team data (with approvals, track, hackathon)
+    const team = await this.findById(teamId);
+    if (!team) return null;
+    return { ...team, myRole: role };
+  }
+
+  /** Returns all non-deleted teams where userId is a member (across all hackathons). */
+  async findMyTeams(userId: string) {
+    const memberRows = await this.db
+      .select({ teamId: teamMembers.teamId, role: teamMembers.role })
+      .from(teamMembers)
+      .innerJoin(teams, eq(teamMembers.teamId, teams.id))
+      .where(and(eq(teamMembers.userId, userId), isNull(teams.deletedAt)));
+
+    if (memberRows.length === 0) return [];
+
+    return this.db.query.teams.findMany({
+      where: (t, { inArray, isNull, and }) =>
+        and(
+          inArray(t.id, memberRows.map((r) => r.teamId)),
+          isNull(t.deletedAt),
+        ),
       with: {
-        team: {
-          with: {
-            hackathon: { columns: { id: true, title: true, maxTeamSize: true } },
-            track: { columns: { id: true, name: true } },
-            approvals: { orderBy: (a, { desc }) => [desc(a.approvedAt)], limit: 1 },
-          },
-        },
+        hackathon: { columns: { id: true, title: true } },
+        track: { columns: { id: true, name: true } },
+        approvals: { orderBy: (a, { desc }) => [desc(a.approvedAt)], limit: 1 },
       },
     });
-    if (!row || row.team.hackathonId !== hackathonId || row.team.deletedAt) return null;
-    return { ...row.team, myRole: row.role };
   }
 
   async findAllPaginated(

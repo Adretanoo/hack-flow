@@ -30,4 +30,7 @@ export const teamsApi = {
 
   createInvite: (teamId: string, data?: { maxUses?: number; expiresInHours?: number }) =>
     api.post<ApiResponse<unknown>>(`/teams/${teamId}/invites`, data ?? {}),
+
+  changeTrack: (teamId: string, trackId: string) =>
+    api.patch<ApiResponse<unknown>>(`/teams/${teamId}/track`, { trackId }),
 }

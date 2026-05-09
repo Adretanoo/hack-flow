@@ -38,6 +38,7 @@ export function TeamDetailPage() {
   const [approvalComment, setApprovalComment] = useState('')
   const [reviewStatus, setReviewStatus] = useState('APPROVED')
   const [reviewComment, setReviewComment] = useState('')
+  const [selectedTrackId, setSelectedTrackId] = useState('')
 
   const { data: teamData, isLoading } = useQuery({
     queryKey: ['team', id],
@@ -84,6 +85,16 @@ export function TeamDetailPage() {
       qc.invalidateQueries({ queryKey: ['team-project', id] })
     },
     onError: () => toast.error('Помилка при рецензуванні'),
+  })
+
+  const changeTrackMut = useMutation({
+    mutationFn: () => teamsApi.changeTrack(id!, selectedTrackId),
+    onSuccess: () => {
+      toast.success('Трек змінено')
+      qc.invalidateQueries({ queryKey: ['team', id] })
+      setSelectedTrackId('')
+    },
+    onError: () => toast.error('Помилка зміни треку'),
   })
 
   if (isLoading) return <LoadingSpinner className="py-20" />
@@ -241,6 +252,44 @@ export function TeamDetailPage() {
       {/* Approval tab */}
       {activeTab === 'approval' && (
         <div className="space-y-5">
+          {/* ── Track change (admin) ────────────────────────────────── */}
+          {(() => {
+            const hackathonTracks = ((team.hackathon as any)?.tracks ?? []) as Array<{ id: string; name: string }>
+            const currentTrack = (team.track as { id?: string; name?: string } | null)
+            if (hackathonTracks.length === 0) return null
+            return (
+              <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+                <h4 className="font-semibold">Трек команди</h4>
+                <p className="text-sm text-muted-foreground">
+                  Поточний трек: <span className="font-medium text-foreground">{currentTrack?.name ?? 'Без треку'}</span>
+                </p>
+                {team.approvalStatus !== 'DISQUALIFIED' && (
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedTrackId}
+                      onChange={(e) => setSelectedTrackId(e.target.value)}
+                      className={inputCls}
+                    >
+                      <option value="">— Оберіть трек —</option>
+                      {hackathonTracks.map((t) => (
+                        <option key={t.id} value={t.id} disabled={t.id === currentTrack?.id}>
+                          {t.name}{t.id === currentTrack?.id ? ' (поточний)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => changeTrackMut.mutate()}
+                      disabled={!selectedTrackId || selectedTrackId === currentTrack?.id || changeTrackMut.isPending}
+                      className="shrink-0 rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {changeTrackMut.isPending ? 'Зміна...' : 'Змінити'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
           {/* Current status banner for REJECTED / DISQUALIFIED */}
           {(team.approvalStatus === 'REJECTED' || team.approvalStatus === 'DISQUALIFIED') && (
             <div className={clsx(
