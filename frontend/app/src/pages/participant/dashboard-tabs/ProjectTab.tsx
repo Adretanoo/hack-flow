@@ -6,6 +6,7 @@ import {
   BookOpen, ChevronDown, ChevronUp, Send, FileText, CheckCircle2, AlertCircle,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
+import rehypeRaw from 'rehype-raw'
 import { projectsApi } from '@/api/projects'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import type { Hackathon, Team } from '@/types/api.types'
@@ -57,7 +58,7 @@ function TrackManual({ track }: { track: any }) {
               prose-code:bg-muted prose-code:px-1 prose-code:rounded prose-code:text-sm
               prose-blockquote:border-primary prose-blockquote:text-muted-foreground
             ">
-              <ReactMarkdown>{track.guidelines}</ReactMarkdown>
+              <ReactMarkdown rehypePlugins={[rehypeRaw]}>{track.guidelines}</ReactMarkdown>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground italic text-center py-4">

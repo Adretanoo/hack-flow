@@ -9,6 +9,8 @@ import { useHackathonStage } from '@/hooks/useHackathonStage'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import ReactMarkdown from 'react-markdown'
+import rehypeRaw from 'rehype-raw'
+import { formatDate } from '@/utils/format'
 
 import { TeamTab } from '@/pages/participant/dashboard-tabs/TeamTab'
 import { ProjectTab } from '@/pages/participant/dashboard-tabs/ProjectTab'
@@ -81,11 +83,14 @@ export function HackathonDashboardPage() {
         (stageInfo.activeStage as any).type === 'HACKING' &&
         (stageInfo.activeStage as any).description && (
           <div className="rounded-xl border border-amber-300/50 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700/40 p-5">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
               <ClipboardList className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
               <h2 className="font-bold text-amber-800 dark:text-amber-300">
                 Завдання етапу: {(stageInfo.activeStage as any).name}
               </h2>
+              <span className="ml-auto text-xs text-amber-600/70 dark:text-amber-400/60 font-mono whitespace-nowrap">
+                {formatDate((stageInfo.activeStage as any).startDate)} — {formatDate((stageInfo.activeStage as any).endDate)}
+              </span>
             </div>
             <div className="prose prose-sm max-w-none
               prose-headings:text-amber-900 dark:prose-headings:text-amber-200
@@ -93,8 +98,9 @@ export function HackathonDashboardPage() {
               prose-li:text-amber-800 dark:prose-li:text-amber-300
               prose-strong:text-amber-900 dark:prose-strong:text-amber-200
               prose-a:text-amber-700 prose-code:bg-amber-100 dark:prose-code:bg-amber-900
+              prose-img:rounded-lg prose-img:mx-auto
             ">
-              <ReactMarkdown>{(stageInfo.activeStage as any).description}</ReactMarkdown>
+              <ReactMarkdown rehypePlugins={[rehypeRaw]}>{(stageInfo.activeStage as any).description}</ReactMarkdown>
             </div>
           </div>
         )}

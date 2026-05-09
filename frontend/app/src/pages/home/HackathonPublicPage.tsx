@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
+import rehypeRaw from 'rehype-raw'
 import {
   Calendar, MapPin, Users, Globe, ExternalLink, ChevronLeft,
   ChevronDown, ChevronUp, BookOpen, Clock, Tag,
@@ -59,7 +60,7 @@ function TrackAccordion({ track }: { track: any }) {
               prose-code:bg-muted prose-code:px-1 prose-code:rounded
               prose-blockquote:border-primary prose-blockquote:text-muted-foreground
             ">
-              <ReactMarkdown>{track.guidelines}</ReactMarkdown>
+              <ReactMarkdown rehypePlugins={[rehypeRaw]}>{track.guidelines}</ReactMarkdown>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground italic text-center py-4">
