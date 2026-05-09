@@ -9,7 +9,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { usePagination } from '@/hooks/usePagination'
 import { useDebounce } from '@/hooks/useDebounce'
 import { formatDate } from '@/utils/format'
-import { Eye, Search } from 'lucide-react'
+import { Eye, Search, Bell } from 'lucide-react'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import type { Team } from '@/types/api.types'
@@ -89,6 +89,8 @@ export function TeamsListPage() {
   const total = data?.data.total ?? 0
   const hackathons = hackData?.data.data ?? []
   const tracks = tracksData?.data.data ?? []
+
+  const pendingCount = rawTeams.filter(t => t.approvalStatus === 'PENDING').length
 
   // PENDING teams first
   const teams = [...rawTeams].sort((a, b) => {
@@ -198,7 +200,29 @@ export function TeamsListPage() {
         <p className="text-sm text-muted-foreground">Управління командами та їхнім затвердженням</p>
       </div>
 
-      {/* Toolbar */}
+      {/* Pending alert */}
+      {pendingCount > 0 && statusFilter !== 'PENDING' && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100">
+            <Bell className="h-5 w-5 text-amber-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-800">
+              {pendingCount} {pendingCount === 1 ? 'команда очікує' : pendingCount < 5 ? 'команди очікують' : 'команд очікують'} затвердження
+            </p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Команди що змінили назву, опис або трек автоматично переходять у статус «Очікує».
+            </p>
+          </div>
+          <button
+            onClick={() => { setStatusFilter('PENDING'); setPage(1) }}
+            className="shrink-0 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 transition-colors"
+          >
+            Переглянути
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth.store'
 import { LogOut } from 'lucide-react'
 import { Avatar } from '@/components/shared/Avatar'
+import { NotificationBell } from '@/components/shared/NotificationBell'
 
 export function Navbar() {
   const { user, logout } = useAuthStore()
@@ -24,10 +25,11 @@ export function Navbar() {
           </nav>
           <div className="flex items-center space-x-4">
             {user ? (
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
                 <Link to="/app" className="text-sm font-medium text-foreground/60 hover:text-foreground/80">
                   Кабінет
                 </Link>
+                <NotificationBell />
                 <div className="flex items-center space-x-2">
                   <Link to="/app/profile" className="flex items-center gap-2 hover:bg-accent rounded-md p-1.5 transition-colors">
                     <Avatar name={user.fullName} url={user.avatarUrl} size="sm" />
@@ -49,3 +51,4 @@ export function Navbar() {
     </header>
   )
 }
+

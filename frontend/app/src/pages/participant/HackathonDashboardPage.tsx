@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, Users, FolderKanban, GraduationCap, Trophy } from 'lucide-react'
+import { ChevronLeft, Users, FolderKanban, GraduationCap, Trophy, Settings } from 'lucide-react'
 import { hackathonsApi } from '@/api/hackathons'
 import { teamsApi } from '@/api/teams'
 import { useAuthStore } from '@/store/auth.store'
@@ -13,11 +13,12 @@ import { TeamTab } from '@/pages/participant/dashboard-tabs/TeamTab'
 import { ProjectTab } from '@/pages/participant/dashboard-tabs/ProjectTab'
 import { MentorsTab } from '@/pages/participant/dashboard-tabs/MentorsTab'
 import { ResultsTab } from '@/pages/participant/dashboard-tabs/ResultsTab'
+import { SettingsTab } from '@/pages/participant/dashboard-tabs/SettingsTab'
 
 export function HackathonDashboardPage() {
   const { hackathonId } = useParams<{ hackathonId: string }>()
   const { user } = useAuthStore()
-  const [activeTab, setActiveTab] = useState<'team' | 'project' | 'mentors' | 'results'>('team')
+  const [activeTab, setActiveTab] = useState<'team' | 'project' | 'mentors' | 'results' | 'settings'>('team')
 
   const { data: hackathonData, isLoading: hackathonLoading } = useQuery({
     queryKey: ['hackathon', hackathonId],
@@ -45,10 +46,11 @@ export function HackathonDashboardPage() {
   }
 
   const tabs = [
-    { id: 'team', label: 'Моя команда', icon: Users },
-    { id: 'project', label: 'Проєкт', icon: FolderKanban },
-    { id: 'mentors', label: 'Ментори', icon: GraduationCap },
-    { id: 'results', label: 'Результати', icon: Trophy },
+    { id: 'team',     label: 'Моя команда', icon: Users },
+    { id: 'project',  label: 'Проєкт',      icon: FolderKanban },
+    { id: 'mentors',  label: 'Ментори',     icon: GraduationCap },
+    { id: 'results',  label: 'Результати',  icon: Trophy },
+    { id: 'settings', label: 'Налаштування', icon: Settings },
   ] as const
 
   return (
@@ -96,10 +98,11 @@ export function HackathonDashboardPage() {
       </div>
 
       <div className="pt-2">
-        {activeTab === 'team' && <TeamTab hackathon={hackathon} myTeam={myTeam} stageInfo={stageInfo} />}
-        {activeTab === 'project' && <ProjectTab hackathon={hackathon} myTeam={myTeam} stageInfo={stageInfo} />}
-        {activeTab === 'mentors' && <MentorsTab hackathon={hackathon} myTeam={myTeam} stageInfo={stageInfo} />}
-        {activeTab === 'results' && <ResultsTab hackathon={hackathon} myTeam={myTeam} stageInfo={stageInfo} />}
+        {activeTab === 'team'     && <TeamTab hackathon={hackathon} myTeam={myTeam} stageInfo={stageInfo} />}
+        {activeTab === 'project'  && <ProjectTab hackathon={hackathon} myTeam={myTeam} stageInfo={stageInfo} />}
+        {activeTab === 'mentors'  && <MentorsTab hackathon={hackathon} myTeam={myTeam} stageInfo={stageInfo} />}
+        {activeTab === 'results'  && <ResultsTab hackathon={hackathon} myTeam={myTeam} stageInfo={stageInfo} />}
+        {activeTab === 'settings' && <SettingsTab hackathon={hackathon} myTeam={myTeam} />}
       </div>
     </div>
   )

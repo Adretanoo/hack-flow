@@ -10,7 +10,7 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { formatDate, formatDateTime } from '@/utils/format'
 import { toast } from 'sonner'
-import { ArrowLeft, ExternalLink, Trash2 } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Trash2, AlertCircle } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { Team, TeamMember, TeamApproval, Project } from '@/types/api.types'
 
@@ -132,14 +132,39 @@ export function TeamDetailPage() {
         </div>
       </div>
 
+      {/* ── PENDING alert banner ───────────────────────────────────── */}
+      {team.approvalStatus === 'PENDING' && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+          <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-800">Команда очікує затвердження</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Команда змінила назву, опис або трек — або подала нову заявку. Перейдіть на вкладку «Затвердження» щоб розглянути і ухвалити або відхилити.
+            </p>
+          </div>
+          <button
+            onClick={() => setActiveTab('approval')}
+            className="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 transition-colors"
+          >
+            Затвердити
+          </button>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="border-b border-border">
         <div className="flex">
           {TABS.map(({ key, label }) => (
             <button key={key} onClick={() => setActiveTab(key)}
-              className={clsx('border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
+              className={clsx('relative border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
                 activeTab === key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
               {label}
+              {key === 'approval' && team.approvalStatus === 'PENDING' && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -249,48 +274,37 @@ export function TeamDetailPage() {
         </div>
       )}
 
-      {/* Approval tab */}
       {activeTab === 'approval' && (
         <div className="space-y-5">
-          {/* ── Track change (admin) ────────────────────────────────── */}
-          {(() => {
-            const hackathonTracks = ((team.hackathon as any)?.tracks ?? []) as Array<{ id: string; name: string }>
-            const currentTrack = (team.track as { id?: string; name?: string } | null)
-            if (hackathonTracks.length === 0) return null
-            return (
-              <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-                <h4 className="font-semibold">Трек команди</h4>
-                <p className="text-sm text-muted-foreground">
-                  Поточний трек: <span className="font-medium text-foreground">{currentTrack?.name ?? 'Без треку'}</span>
-                </p>
-                {team.approvalStatus !== 'DISQUALIFIED' && (
-                  <div className="flex gap-2">
-                    <select
-                      value={selectedTrackId}
-                      onChange={(e) => setSelectedTrackId(e.target.value)}
-                      className={inputCls}
-                    >
-                      <option value="">— Оберіть трек —</option>
-                      {hackathonTracks.map((t) => (
-                        <option key={t.id} value={t.id} disabled={t.id === currentTrack?.id}>
-                          {t.name}{t.id === currentTrack?.id ? ' (поточний)' : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => changeTrackMut.mutate()}
-                      disabled={!selectedTrackId || selectedTrackId === currentTrack?.id || changeTrackMut.isPending}
-                      className="shrink-0 rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {changeTrackMut.isPending ? 'Зміна...' : 'Змінити'}
-                    </button>
+
+          {/* ── What changed (context for admin) ─────────────────── */}
+          {team.approvalStatus === 'PENDING' && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 space-y-2">
+              <p className="text-sm font-semibold text-amber-800">⏳ Команда очікує вашого рішення</p>
+              <p className="text-xs text-amber-700">
+                Команда подала нову заявку або змінила назву, опис або запитала зміну треку.
+                Перевірте поточні дані команди і ухваліть або відхиліть зі зазначенням причини.
+              </p>
+              <div className="grid grid-cols-2 gap-3 pt-1 text-sm">
+                <div>
+                  <p className="text-xs text-amber-600 font-medium mb-0.5">Назва</p>
+                  <p className="font-semibold">{team.name}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-amber-600 font-medium mb-0.5">Трек</p>
+                  <p className="font-semibold">{(team.track as any)?.name ?? 'Без треку'}</p>
+                </div>
+                {(team as any).description && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-amber-600 font-medium mb-0.5">Опис</p>
+                    <p>{(team as any).description}</p>
                   </div>
                 )}
               </div>
-            )
-          })()}
+            </div>
+          )}
 
-          {/* Current status banner for REJECTED / DISQUALIFIED */}
+          {/* ── Admin decision ───────────────────────────────────── */}
           {(team.approvalStatus === 'REJECTED' || team.approvalStatus === 'DISQUALIFIED') && (
             <div className={clsx(
               'rounded-xl border p-4 space-y-1',
@@ -302,28 +316,30 @@ export function TeamDetailPage() {
                 {team.approvalStatus === 'REJECTED' ? '⛔ Команду відхилено' : '🚫 Команду дискваліфіковано'}
               </p>
               {approvals[0]?.comment && (
-                <p className="text-sm opacity-90">Причина: {approvals[0].comment}</p>
+                <p className="text-sm opacity-90">Причина: <span className="font-medium">{approvals[0].comment}</span></p>
               )}
             </div>
           )}
 
           <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-            <h4 className="font-semibold">Змінити рішення</h4>
+            <h4 className="font-semibold">Рішення організатора</h4>
+            <p className="text-xs text-muted-foreground">Це рішення буде видимо команді в їхньому кабінеті.</p>
             <select value={approvalStatus} onChange={(e) => setApprovalStatus(e.target.value)} className={inputCls}>
-              <option value="APPROVED">Схвалено</option>
-              <option value="PENDING">Очікує</option>
-              <option value="REJECTED">Відхилено</option>
-              <option value="DISQUALIFIED">Дискваліфіковано</option>
+              <option value="APPROVED">Схвалити</option>
+              <option value="PENDING">Повернути на розгляд</option>
+              <option value="REJECTED">Відхилити</option>
+              <option value="DISQUALIFIED">Дискваліфікувати</option>
             </select>
 
-            {/* Comment — required for REJECTED / DISQUALIFIED */}
             <div>
               <label className="block text-xs font-medium mb-1 text-muted-foreground">
                 {approvalStatus === 'REJECTED'
-                  ? 'Причина відхилення *'
+                  ? 'Причина відхилення — буде показана команді *'
                   : approvalStatus === 'DISQUALIFIED'
-                    ? 'Причина дискваліфікації *'
-                    : 'Коментар (необов\u2019язково)'}
+                    ? 'Причина дискваліфікації — буде показана команді *'
+                  : approvalStatus === 'APPROVED'
+                    ? 'Коментар для команди (необов’язково)'
+                  : 'Коментар (необов’язково)'}
               </label>
               <textarea
                 rows={3}
@@ -331,10 +347,10 @@ export function TeamDetailPage() {
                 onChange={(e) => setApprovalComment(e.target.value)}
                 placeholder={
                   approvalStatus === 'REJECTED'
-                    ? 'Вкажіть причину відхилення...'
+                    ? 'Вкажіть причину — команда побачить цей текст у своєму кабінеті...'
                     : approvalStatus === 'DISQUALIFIED'
-                      ? 'Вкажіть причину дискваліфікації...'
-                      : 'Додатковий коментар...'
+                      ? 'Вкажіть причину дискваліфікації — команда побачить цей текст у своєму кабінеті...'
+                    : 'Необов’язковий коментар для команди...'
                 }
                 className={clsx(
                   inputCls + ' resize-none',
@@ -343,7 +359,7 @@ export function TeamDetailPage() {
                 )}
               />
               {(approvalStatus === 'REJECTED' || approvalStatus === 'DISQUALIFIED') && !approvalComment.trim() && (
-                <p className="mt-1 text-xs text-destructive">Обов'язкове поле для цього статусу</p>
+                <p className="mt-1 text-xs text-destructive">Обов’язкове поле — команда побачить цю причину</p>
               )}
             </div>
 
@@ -355,11 +371,53 @@ export function TeamDetailPage() {
               }
               className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
-              Зберегти рішення
+              {approvalMut.isPending ? 'Зберігаємо...' : 'Зберегти рішення'}
             </button>
           </div>
+
+          {/* ── Admin track override ───────────────────────────────── */}
+          {(() => {
+            const hackathonTracks = ((team.hackathon as any)?.tracks ?? []) as Array<{ id: string; name: string }>
+            const currentTrack = (team.track as { id?: string; name?: string } | null)
+            if (hackathonTracks.length === 0) return null
+            return (
+              <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+                <div>
+                  <h4 className="font-semibold">Трек команди</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Поточний трек: <span className="font-medium text-foreground">{currentTrack?.name ?? 'Без треку'}</span>.
+                    {' '}Ця зміна не потребує затвердження — набуде чинною одразу.
+                  </p>
+                </div>
+                {team.approvalStatus !== 'DISQUALIFIED' && (
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedTrackId}
+                      onChange={(e) => setSelectedTrackId(e.target.value)}
+                      className={inputCls}
+                    >
+                      <option value="">— Оберіть новий трек —</option>
+                      {hackathonTracks.map((t) => (
+                        <option key={t.id} value={t.id} disabled={t.id === currentTrack?.id}>
+                          {t.name}{t.id === currentTrack?.id ? ' (поточний)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => changeTrackMut.mutate()}
+                      disabled={!selectedTrackId || selectedTrackId === currentTrack?.id || changeTrackMut.isPending}
+                      className="shrink-0 rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {changeTrackMut.isPending ? 'Зміна...' : 'Призначити трек'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
           <div>
-            <h4 className="mb-3 font-semibold">Історія</h4>
+            <h4 className="mb-3 font-semibold">Історія рішень</h4>
             <ApprovalTimeline entries={approvals} />
           </div>
         </div>

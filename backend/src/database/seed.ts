@@ -51,7 +51,7 @@ async function cleanDatabase() {
 
 async function getRoles() {
   const DEFAULT_ROLES = ['admin', 'judge', 'mentor', 'participant'] as const;
-  
+
   for (const name of DEFAULT_ROLES) {
     await db.insert(roles).values({ name }).onConflictDoNothing().execute();
   }
@@ -143,9 +143,9 @@ async function seedTags() {
 
 async function seedHackathons(tags: any) {
   const createdHackathons: any = {};
-  
+
   const now = new Date();
-  
+
   // Hackathon 1
   const [h1] = await db.insert(hackathons).values({
     title: 'IT-Fest 2025',
@@ -157,8 +157,8 @@ async function seedHackathons(tags: any) {
     maxTeamSize: 5,
     status: 'PUBLISHED',
     banner: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&q=80&w=2000',
-    startDate: new Date(now.getTime() - 7*86400000),
-    endDate: new Date(now.getTime() + 3*86400000),
+    startDate: new Date(now.getTime() - 7 * 86400000),
+    endDate: new Date(now.getTime() + 3 * 86400000),
   }).returning();
   createdHackathons['IT-Fest 2025'] = h1;
 
@@ -172,8 +172,8 @@ async function seedHackathons(tags: any) {
     subtitle: 'Хакатон з кібербезпеки',
     online: true,
     status: 'PUBLISHED',
-    startDate: new Date(now.getTime() + 1*86400000),
-    endDate: new Date(now.getTime() + 9*86400000),
+    startDate: new Date(now.getTime() + 1 * 86400000),
+    endDate: new Date(now.getTime() + 9 * 86400000),
   }).returning();
   createdHackathons['CyberHack 2025'] = h2;
   await db.insert(hackathonTagRelations).values({ hackathonId: h2.id, tagId: tags['cybersecurity'].id });
@@ -183,8 +183,8 @@ async function seedHackathons(tags: any) {
     title: 'EduTech Sprint',
     online: true,
     status: 'ARCHIVED',
-    startDate: new Date(now.getTime() - 30*86400000),
-    endDate: new Date(now.getTime() - 21*86400000),
+    startDate: new Date(now.getTime() - 30 * 86400000),
+    endDate: new Date(now.getTime() - 21 * 86400000),
   }).returning();
   createdHackathons['EduTech Sprint'] = h3;
   await db.insert(hackathonTagRelations).values([
@@ -197,13 +197,13 @@ async function seedHackathons(tags: any) {
 
 async function seedTracksAndCriteria(hackathons: any) {
   const now = new Date();
-  
+
   const h1 = hackathons['IT-Fest 2025'];
   await db.insert(stages).values([
-    { hackathonId: h1.id, name: 'Реєстрація',  type: 'REGISTRATION', startDate: new Date(now.getTime() - 7*86400000), endDate: new Date(now.getTime() - 2*86400000), orderIndex: 1 },
-    { hackathonId: h1.id, name: 'Хакінг',       type: 'HACKING',      startDate: new Date(now.getTime() - 2*86400000), endDate: new Date(now.getTime() + 1*86400000), orderIndex: 2 },
-    { hackathonId: h1.id, name: 'Суддівство',   type: 'JUDGING',      startDate: new Date(now.getTime() + 1*86400000), endDate: new Date(now.getTime() + 2*86400000), orderIndex: 3 },
-    { hackathonId: h1.id, name: 'Завершено',    type: 'FINISHED',     startDate: new Date(now.getTime() + 2*86400000), endDate: new Date(now.getTime() + 3*86400000), orderIndex: 4 },
+    { hackathonId: h1.id, name: 'REGISTRATION', startDate: new Date(now.getTime() - 7 * 86400000), endDate: new Date(now.getTime() - 2 * 86400000), orderIndex: 1 },
+    { hackathonId: h1.id, name: 'HACKING', startDate: new Date(now.getTime() - 2 * 86400000), endDate: new Date(now.getTime() + 1 * 86400000), orderIndex: 2 },
+    { hackathonId: h1.id, name: 'JUDGING', startDate: new Date(now.getTime() + 1 * 86400000), endDate: new Date(now.getTime() + 2 * 86400000), orderIndex: 3 },
+    { hackathonId: h1.id, name: 'FINISHED', startDate: new Date(now.getTime() + 2 * 86400000), endDate: new Date(now.getTime() + 3 * 86400000), orderIndex: 4 },
   ]);
 
   const [t1w, t1a, t1m] = await db.insert(tracks).values([
@@ -230,10 +230,10 @@ async function seedTracksAndCriteria(hackathons: any) {
 
   const h2 = hackathons['CyberHack 2025'];
   await db.insert(stages).values([
-    { hackathonId: h2.id, name: 'Реєстрація',  type: 'REGISTRATION', startDate: new Date(now.getTime() + 1*86400000), endDate: new Date(now.getTime() + 5*86400000), orderIndex: 1 },
-    { hackathonId: h2.id, name: 'Хакінг',       type: 'HACKING',      startDate: new Date(now.getTime() + 5*86400000), endDate: new Date(now.getTime() + 7*86400000), orderIndex: 2 },
-    { hackathonId: h2.id, name: 'Суддівство',   type: 'JUDGING',      startDate: new Date(now.getTime() + 7*86400000), endDate: new Date(now.getTime() + 8*86400000), orderIndex: 3 },
-    { hackathonId: h2.id, name: 'Завершено',    type: 'FINISHED',     startDate: new Date(now.getTime() + 8*86400000), endDate: new Date(now.getTime() + 9*86400000), orderIndex: 4 },
+    { hackathonId: h2.id, name: 'REGISTRATION', startDate: new Date(now.getTime() + 1 * 86400000), endDate: new Date(now.getTime() + 5 * 86400000), orderIndex: 1 },
+    { hackathonId: h2.id, name: 'HACKING', startDate: new Date(now.getTime() + 5 * 86400000), endDate: new Date(now.getTime() + 7 * 86400000), orderIndex: 2 },
+    { hackathonId: h2.id, name: 'JUDGING', startDate: new Date(now.getTime() + 7 * 86400000), endDate: new Date(now.getTime() + 8 * 86400000), orderIndex: 3 },
+    { hackathonId: h2.id, name: 'FINISHED', startDate: new Date(now.getTime() + 8 * 86400000), endDate: new Date(now.getTime() + 9 * 86400000), orderIndex: 4 },
   ]);
 
   const [t2c] = await db.insert(tracks).values([
@@ -243,10 +243,10 @@ async function seedTracksAndCriteria(hackathons: any) {
 
   const h3 = hackathons['EduTech Sprint'];
   await db.insert(stages).values([
-    { hackathonId: h3.id, name: 'Реєстрація',  type: 'REGISTRATION', startDate: new Date(now.getTime() - 30*86400000), endDate: new Date(now.getTime() - 25*86400000), orderIndex: 1 },
-    { hackathonId: h3.id, name: 'Хакінг',       type: 'HACKING',      startDate: new Date(now.getTime() - 25*86400000), endDate: new Date(now.getTime() - 23*86400000), orderIndex: 2 },
-    { hackathonId: h3.id, name: 'Суддівство',   type: 'JUDGING',      startDate: new Date(now.getTime() - 23*86400000), endDate: new Date(now.getTime() - 22*86400000), orderIndex: 3 },
-    { hackathonId: h3.id, name: 'Завершено',    type: 'FINISHED',     startDate: new Date(now.getTime() - 22*86400000), endDate: new Date(now.getTime() - 21*86400000), orderIndex: 4 },
+    { hackathonId: h3.id, name: 'REGISTRATION', startDate: new Date(now.getTime() - 30 * 86400000), endDate: new Date(now.getTime() - 25 * 86400000), orderIndex: 1 },
+    { hackathonId: h3.id, name: 'HACKING', startDate: new Date(now.getTime() - 25 * 86400000), endDate: new Date(now.getTime() - 23 * 86400000), orderIndex: 2 },
+    { hackathonId: h3.id, name: 'JUDGING', startDate: new Date(now.getTime() - 23 * 86400000), endDate: new Date(now.getTime() - 22 * 86400000), orderIndex: 3 },
+    { hackathonId: h3.id, name: 'FINISHED', startDate: new Date(now.getTime() - 22 * 86400000), endDate: new Date(now.getTime() - 21 * 86400000), orderIndex: 4 },
   ]);
 
   const [t3e, t3h] = await db.insert(tracks).values([
@@ -262,7 +262,7 @@ async function seedTeams(hackathons: any, users: any) {
   const createdTeams: any = {};
 
   const h1HackingStage = await db.query.stages.findFirst({ where: (s, { eq, and }) => and(eq(s.hackathonId, h1.id), eq(s.name, 'HACKING')) });
-  
+
   // Team 1
   const [team1] = await db.insert(teams).values({ hackathonId: h1.id, name: 'ByteForce', trackId: h1.tracks['Web Development'].id }).returning();
   await db.insert(teamMembers).values([
@@ -313,7 +313,7 @@ async function seedTeams(hackathons: any, users: any) {
 
   // EduTech Sprint Teams
   const h3FinishedStage = await db.query.stages.findFirst({ where: (s, { eq, and }) => and(eq(s.hackathonId, h3.id), eq(s.name, 'FINISHED')) });
-  
+
   const [team6] = await db.insert(teams).values({ hackathonId: h3.id, name: 'LearnTech', trackId: h3.tracks['EdTech'].id }).returning();
   await db.insert(teamMembers).values([{ teamId: team6.id, userId: users.user1.id, role: 'captain' }]);
   await db.insert(teamApprovals).values({ teamId: team6.id, status: 'APPROVED' });
@@ -337,9 +337,9 @@ async function seedProjects(teams: any) {
     teamId: teams['ByteForce'].id,
     stageId: (await db.query.teamStage.findFirst({ where: (s, { eq }) => eq(s.teamId, teams['ByteForce'].id) }))!.stageId,
     status: 'SUBMITTED',
-    submittedAt: new Date(now.getTime() - 6*3600000),
+    submittedAt: new Date(now.getTime() - 6 * 3600000),
   }).returning();
-  
+
   const [typeRepo] = await db.insert(schema.projectResourceTypes).values({ name: 'repository' }).returning();
   const [typeDemo] = await db.insert(schema.projectResourceTypes).values({ name: 'demo' }).returning();
   const [typePres] = await db.insert(schema.projectResourceTypes).values({ name: 'presentation' }).returning();
@@ -363,7 +363,7 @@ async function seedProjects(teams: any) {
     teamId: teams['MobileFirst'].id,
     stageId: (await db.query.teamStage.findFirst({ where: (s, { eq }) => eq(s.teamId, teams['MobileFirst'].id) }))!.stageId,
     status: 'SUBMITTED',
-    submittedAt: new Date(now.getTime() - 3*3600000),
+    submittedAt: new Date(now.getTime() - 3 * 3600000),
   });
 
   // EduTech Sprint Projects
@@ -397,7 +397,7 @@ async function seedMentorAvailabilities(hackathons: any, users: any, teams: any)
 
   await db.insert(mentorSlots).values([
     { mentorAvailabilityId: avail1.id, teamId: teams['ByteForce'].id, startDatetime: m1Start, durationMinute: 30, status: 'booked', meetingLink: 'https://meet.google.com/abc-defg-hij' },
-    { mentorAvailabilityId: avail1.id, teamId: teams['MobileFirst'].id, startDatetime: new Date(m1Start.getTime() + 30*60000), durationMinute: 30, status: 'completed' }
+    { mentorAvailabilityId: avail1.id, teamId: teams['MobileFirst'].id, startDatetime: new Date(m1Start.getTime() + 30 * 60000), durationMinute: 30, status: 'completed' }
   ]);
 
   // Mentor 2 (AI/ML)
@@ -430,7 +430,7 @@ async function seedMentorAvailabilities(hackathons: any, users: any, teams: any)
 
 async function seedJudgeAssignments(hackathons: any, users: any) {
   const h1 = hackathons['IT-Fest 2025'];
-  
+
   await db.insert(judgeTrack).values([
     // Web Dev
     { hackathonId: h1.id, userId: users.judge1.id, trackId: h1.tracks['Web Development'].id, isHeadJudge: true },
@@ -484,42 +484,42 @@ async function seedConflicts(users: any, teams: any) {
 
 async function seed() {
   console.log('🌱 Starting seed...');
-  
+
   if (process.env.SEED_CLEAN === 'true') {
     console.log('🧹 Cleaning existing data...');
     await cleanDatabase();
   }
-  
+
   console.log('👤 Seeding users...');
   const users = await seedUsers();
-  
+
   console.log('🏷️  Seeding tags...');
   const tags = await seedTags();
-  
+
   console.log('🏆 Seeding hackathons...');
   const hackathons = await seedHackathons(tags);
-  
+
   console.log('🎯 Seeding tracks & criteria...');
   await seedTracksAndCriteria(hackathons);
-  
+
   console.log('👥 Seeding teams & members...');
   const teams = await seedTeams(hackathons, users);
-  
+
   console.log('📁 Seeding projects...');
   await seedProjects(teams);
-  
+
   console.log('🧑🏫 Seeding mentor availabilities...');
   await seedMentorAvailabilities(hackathons, users, teams);
-  
+
   console.log('⚖️  Seeding judge assignments...');
   await seedJudgeAssignments(hackathons, users);
-  
+
   console.log('⭐ Seeding scores...');
   await seedScores(hackathons, users);
-  
+
   console.log('⚠️  Seeding conflicts...');
   await seedConflicts(users, teams);
-  
+
   console.log('✅ Seed complete!');
   console.log('');
   console.log('Test accounts (password: Password123!):');
@@ -527,7 +527,7 @@ async function seed() {
   console.log('  Judge:    judge1@hackflow.com');
   console.log('  Mentor:   mentor1@hackflow.com');
   console.log('  User:     user1@hackflow.com');
-  
+
   process.exit(0);
 }
 
