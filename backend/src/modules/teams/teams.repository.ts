@@ -17,7 +17,7 @@ export class TeamsRepository {
             tracks: { columns: { id: true, name: true } },
           },
         },
-        track: { columns: { id: true, name: true } },
+        track: { columns: { id: true, name: true, guidelines: true } },
         approvals: {
           orderBy: (a, { desc }) => [desc(a.approvedAt)],
           with: { reviewer: { columns: { fullName: true } } },
@@ -77,7 +77,7 @@ export class TeamsRepository {
         ),
       with: {
         hackathon: { columns: { id: true, title: true } },
-        track: { columns: { id: true, name: true } },
+        track: { columns: { id: true, name: true, guidelines: true } },
         approvals: { orderBy: (a, { desc }) => [desc(a.approvedAt)], limit: 1 },
       },
     });

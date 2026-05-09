@@ -81,6 +81,7 @@ export interface Stage {
   startDate: string
   endDate: string
   orderIndex: number
+  description?: string | null
 }
 
 // ── Team ──────────────────────────────────────────────────────────────────

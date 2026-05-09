@@ -32,13 +32,30 @@ export class ProjectsService {
   }
 
   async submit(id: string, userId?: string) {
-    await this.getById(id);
+    const p = await this.getById(id);
     const resources = await this.repo.getResources(id);
     const hasGit = resources.some(r => /github|gitlab|bitbucket/i.test(r.url));
     if (!hasGit) {
       throw new ValidationError('Проєкт повинен містити посилання на Git-репозиторій (GitHub, GitLab, Bitbucket) для подання на перевірку.');
     }
-    const result = await this.repo.update(id, { status: 'SUBMITTED', submittedAt: new Date() });
+
+    // Calculate late submission in minutes (0 if on time)
+    const now = new Date();
+    let submittedLateByMinutes: number | undefined;
+    if (p.stageId) {
+      // Fetch stage to check endDate
+      const stage = await this.repo.findStageById(p.stageId);
+      if (stage && stage.endDate && now > new Date(stage.endDate)) {
+        const diffMs = now.getTime() - new Date(stage.endDate).getTime();
+        submittedLateByMinutes = Math.round(diffMs / 60000);
+      }
+    }
+
+    const result = await this.repo.update(id, {
+      status: 'SUBMITTED',
+      submittedAt: now,
+      ...(submittedLateByMinutes !== undefined ? { submittedLateByMinutes } : {}),
+    });
     if (userId) {
       this.auditLog?.log(userId, 'submit_project', 'project', id).catch(() => undefined);
     }

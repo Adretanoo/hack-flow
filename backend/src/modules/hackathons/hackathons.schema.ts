@@ -21,6 +21,7 @@ export const CreateStageSchema = z.object({
   orderIndex: z.number().int().min(0),
   startDate: z.string().datetime(),
   endDate: z.string().datetime(),
+  description: z.string().optional(),
 });
 
 export const CreateAwardSchema = z.object({

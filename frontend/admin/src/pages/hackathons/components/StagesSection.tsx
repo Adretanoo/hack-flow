@@ -44,147 +44,13 @@ const STAGE_TYPE_COLORS: Record<StageType, string> = {
   CUSTOM:       'bg-gray-100 text-gray-600 border-gray-200',
 }
 
-const emptyForm = { name: '', type: 'CUSTOM' as StageType, startDate: '', endDate: '', orderIndex: '1' }
+const emptyForm = { name: '', type: 'CUSTOM' as StageType, startDate: '', endDate: '', orderIndex: '1', description: '' }
 
-export function StagesSection({ hackathonId, stages: initialStages = [], hackathonStart, hackathonEnd, mode = 'edit', onChange }: StagesSectionProps) {
-  const qc = useQueryClient()
-  const [adding, setAdding] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState(emptyForm)
+type FormState = typeof emptyForm
 
-  // Local state for create mode
-  const [localStages, setLocalStages] = useState<Array<Stage & { id: string }>>([])
-
-  const { data: stagesData } = useQuery({
-    queryKey: ['stages', hackathonId],
-    queryFn: () => hackathonsApi.listStages(hackathonId!),
-    enabled: mode === 'edit' && !!hackathonId,
-  })
-
-  const stages = mode === 'edit' ? (stagesData?.data.data ?? initialStages) : localStages
-  const sorted = [...stages].sort((a, b) => a.orderIndex - b.orderIndex)
-
-  const createMut = useMutation({
-    mutationFn: () =>
-      hackathonsApi.createStage(hackathonId!, {
-        name: form.name,
-        type: form.type,
-        startDate: new Date(form.startDate).toISOString(),
-        endDate: new Date(form.endDate).toISOString(),
-        orderIndex: Number(form.orderIndex),
-      }),
-    onSuccess: () => {
-      toast.success('Стадію додано')
-      qc.invalidateQueries({ queryKey: ['stages', hackathonId] })
-      qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
-      setAdding(false)
-      setForm({ ...emptyForm, orderIndex: String(sorted.length + 2) })
-    },
-    onError: () => toast.error('Помилка при створенні стадії'),
-  })
-
-  const updateMut = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Stage> }) =>
-      hackathonsApi.updateStage(id, {
-        name: data.name,
-        type: data.type,
-        startDate: data.startDate ? new Date(data.startDate).toISOString() : undefined,
-        endDate: data.endDate ? new Date(data.endDate).toISOString() : undefined,
-        orderIndex: data.orderIndex !== undefined ? Number(data.orderIndex) : undefined,
-      }),
-    onSuccess: () => {
-      toast.success('Стадію оновлено')
-      qc.invalidateQueries({ queryKey: ['stages', hackathonId] })
-      qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
-      setEditingId(null)
-    },
-    onError: () => toast.error('Помилка при оновленні стадії'),
-  })
-
-  const deleteMut = useMutation({
-    mutationFn: (stageId: string) => hackathonsApi.deleteStage(stageId),
-    onSuccess: () => {
-      toast.success('Стадію видалено')
-      qc.invalidateQueries({ queryKey: ['stages', hackathonId] })
-      qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
-    },
-    onError: () => toast.error('Помилка при видаленні'),
-  })
-
-  const notifyParent = (arr: Array<Stage & { id: string }>) => {
-    onChange?.(arr.map(s => ({ name: s.name, type: s.type, startDate: s.startDate, endDate: s.endDate, orderIndex: s.orderIndex })))
-  }
-
-  const handleSaveAdd = () => {
-    if (mode === 'create') {
-      const newStage = {
-        id: Date.now().toString(),
-        hackathonId: '',
-        name: form.name,
-        type: form.type,
-        startDate: new Date(form.startDate).toISOString(),
-        endDate: new Date(form.endDate).toISOString(),
-        orderIndex: Number(form.orderIndex),
-      } as Stage & { id: string }
-      const newArr = [...localStages, newStage]
-      setLocalStages(newArr)
-      notifyParent(newArr)
-      setAdding(false)
-      setForm({ ...emptyForm, orderIndex: String(newArr.length + 1) })
-    } else {
-      createMut.mutate()
-    }
-  }
-
-  const handleSaveEdit = (id: string) => {
-    if (mode === 'create') {
-      const newArr = localStages.map(x =>
-        x.id === id
-          ? { ...x, name: form.name, type: form.type, startDate: new Date(form.startDate).toISOString(), endDate: new Date(form.endDate).toISOString(), orderIndex: Number(form.orderIndex) }
-          : x,
-      )
-      setLocalStages(newArr)
-      notifyParent(newArr)
-      setEditingId(null)
-    } else {
-      updateMut.mutate({ id, data: { name: form.name, type: form.type, startDate: form.startDate, endDate: form.endDate, orderIndex: Number(form.orderIndex) } })
-    }
-  }
-
-  const handleDelete = (id: string) => {
-    if (mode === 'create') {
-      const newArr = localStages.filter(x => x.id !== id)
-      setLocalStages(newArr)
-      notifyParent(newArr)
-    } else {
-      deleteMut.mutate(id)
-    }
-  }
-
-  const handleCancel = () => {
-    setAdding(false)
-    setEditingId(null)
-    setForm({ ...emptyForm, orderIndex: String(sorted.length + 1) })
-  }
-
-  // Build timeline — relative widths based on duration
-  const rangeStart = hackathonStart
-    ? new Date(hackathonStart).getTime()
-    : sorted[0]
-    ? new Date(sorted[0].startDate).getTime()
-    : Date.now()
-
-  const rangeEnd = hackathonEnd
-    ? new Date(hackathonEnd).getTime()
-    : sorted.length > 0
-    ? new Date(sorted[sorted.length - 1].endDate).getTime()
-    : Date.now() + 86400000
-
-  const totalMs = rangeEnd - rangeStart || 1
-  const now = Date.now()
-
-  // ── Stage form fields (reused in both add and edit) ────────────────────
-  const StageFormFields = () => (
+// ── Stage form fields ─ declared OUTSIDE parent to prevent focus loss on re-render ──
+function StageFormFields({ form, setForm }: { form: FormState; setForm: (f: FormState) => void }) {
+  return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -241,8 +107,161 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
           />
         </div>
       </div>
+      <div>
+        <label className="text-xs text-muted-foreground mb-1 block">
+          Завдання <span className="font-normal">(видно учасникам тільки під час активного етапу — не розкривайте наперед!)</span>
+        </label>
+        <textarea
+          rows={3}
+          placeholder="Наприклад: Розробіть MVP та підготуйте демо. Подайте репозиторій до завершення етапу."
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+          className={inputCls + ' resize-none'}
+        />
+      </div>
     </div>
   )
+}
+
+export function StagesSection({ hackathonId, stages: initialStages = [], hackathonStart, hackathonEnd, mode = 'edit', onChange }: StagesSectionProps) {
+  const qc = useQueryClient()
+  const [adding, setAdding] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState(emptyForm)
+
+  // Local state for create mode
+  const [localStages, setLocalStages] = useState<Array<Stage & { id: string }>>([])
+
+  const { data: stagesData } = useQuery({
+    queryKey: ['stages', hackathonId],
+    queryFn: () => hackathonsApi.listStages(hackathonId!),
+    enabled: mode === 'edit' && !!hackathonId,
+  })
+
+  const stages = mode === 'edit' ? (stagesData?.data.data ?? initialStages) : localStages
+  const sorted = [...stages].sort((a, b) => a.orderIndex - b.orderIndex)
+
+  const createMut = useMutation({
+    mutationFn: () =>
+      hackathonsApi.createStage(hackathonId!, {
+        name: form.name,
+        type: form.type,
+        startDate: new Date(form.startDate).toISOString(),
+        endDate: new Date(form.endDate).toISOString(),
+        orderIndex: Number(form.orderIndex),
+        description: form.description.trim() || undefined,
+      }),
+    onSuccess: () => {
+      toast.success('Стадію додано')
+      qc.invalidateQueries({ queryKey: ['stages', hackathonId] })
+      qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
+      setAdding(false)
+      setForm({ ...emptyForm, orderIndex: String(sorted.length + 2) })
+    },
+    onError: () => toast.error('Помилка при створенні стадії'),
+  })
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Stage> & { description?: string } }) =>
+      hackathonsApi.updateStage(id, {
+        name: data.name,
+        type: data.type,
+        startDate: data.startDate ? new Date(data.startDate).toISOString() : undefined,
+        endDate: data.endDate ? new Date(data.endDate).toISOString() : undefined,
+        orderIndex: data.orderIndex !== undefined ? Number(data.orderIndex) : undefined,
+        description: (data as any).description?.trim() || undefined,
+      }),
+    onSuccess: () => {
+      toast.success('Стадію оновлено')
+      qc.invalidateQueries({ queryKey: ['stages', hackathonId] })
+      qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
+      setEditingId(null)
+    },
+    onError: () => toast.error('Помилка при оновленні стадії'),
+  })
+
+  const deleteMut = useMutation({
+    mutationFn: (stageId: string) => hackathonsApi.deleteStage(stageId),
+    onSuccess: () => {
+      toast.success('Стадію видалено')
+      qc.invalidateQueries({ queryKey: ['stages', hackathonId] })
+      qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
+    },
+    onError: () => toast.error('Помилка при видаленні'),
+  })
+
+  const notifyParent = (arr: Array<Stage & { id: string }>) => {
+    onChange?.(arr.map(s => ({ name: s.name, type: s.type, startDate: s.startDate, endDate: s.endDate, orderIndex: s.orderIndex })))
+  }
+
+  const handleSaveAdd = () => {
+    if (mode === 'create') {
+      const newStage = {
+        id: Date.now().toString(),
+        hackathonId: '',
+        name: form.name,
+        type: form.type,
+        startDate: new Date(form.startDate).toISOString(),
+        endDate: new Date(form.endDate).toISOString(),
+        orderIndex: Number(form.orderIndex),
+      } as Stage & { id: string }
+      const newArr = [...localStages, newStage]
+      setLocalStages(newArr)
+      notifyParent(newArr)
+      setAdding(false)
+      setForm({ ...emptyForm, orderIndex: String(newArr.length + 1) })
+    } else {
+      createMut.mutate()
+    }
+  }
+
+  const handleSaveEdit = (id: string) => {
+    if (mode === 'create') {
+      const newArr = localStages.map(x =>
+        x.id === id
+          ? { ...x, name: form.name, type: form.type, startDate: new Date(form.startDate).toISOString(), endDate: new Date(form.endDate).toISOString(), orderIndex: Number(form.orderIndex) }
+          : x,
+      )
+      setLocalStages(newArr)
+      notifyParent(newArr)
+      setEditingId(null)
+    } else {
+      updateMut.mutate({ id, data: { name: form.name, type: form.type, startDate: form.startDate, endDate: form.endDate, orderIndex: Number(form.orderIndex), description: form.description } as any })
+    }
+  }
+
+  const handleDelete = (id: string) => {
+    if (mode === 'create') {
+      const newArr = localStages.filter(x => x.id !== id)
+      setLocalStages(newArr)
+      notifyParent(newArr)
+    } else {
+      deleteMut.mutate(id)
+    }
+  }
+
+  const handleCancel = () => {
+    setAdding(false)
+    setEditingId(null)
+    setForm({ ...emptyForm, orderIndex: String(sorted.length + 1) })
+  }
+
+  // Build timeline — relative widths based on duration
+  const rangeStart = hackathonStart
+    ? new Date(hackathonStart).getTime()
+    : sorted[0]
+    ? new Date(sorted[0].startDate).getTime()
+    : Date.now()
+
+  const rangeEnd = hackathonEnd
+    ? new Date(hackathonEnd).getTime()
+    : sorted.length > 0
+    ? new Date(sorted[sorted.length - 1].endDate).getTime()
+    : Date.now() + 86400000
+
+  const totalMs = rangeEnd - rangeStart || 1
+  const now = Date.now()
+
 
   return (
     <div className="space-y-4">
@@ -265,7 +284,7 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
             )}>
               {editingId === stage.id ? (
                 <div className="space-y-3">
-                  <StageFormFields />
+                                  <StageFormFields form={form} setForm={setForm} />
                   <div className="flex gap-2">
                     <button type="button" onClick={() => handleSaveEdit(stage.id)}
                       disabled={!form.name || !form.startDate || !form.endDate || updateMut.isPending}
@@ -303,6 +322,11 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
                       <p className="text-xs text-muted-foreground">
                         {formatDate(stage.startDate)} — {formatDate(stage.endDate)}
                       </p>
+                      {(stage as any).description && (
+                        <p className="text-xs text-muted-foreground/70 mt-0.5 max-w-xs truncate">
+                          {(stage as any).description}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
@@ -319,6 +343,7 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
                             startDate: new Date(stage.startDate).toISOString().slice(0, 16),
                             endDate: new Date(stage.endDate).toISOString().slice(0, 16),
                             orderIndex: String(stage.orderIndex),
+                            description: (stage as any).description ?? '',
                           })
                         }}
                       >
@@ -372,7 +397,7 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
 
       {adding ? (
         <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4 mt-4">
-          <StageFormFields />
+                    <StageFormFields form={form} setForm={setForm} />
           <div className="flex gap-2">
             <button type="button" onClick={handleSaveAdd}
               disabled={!form.name || !form.startDate || !form.endDate || createMut.isPending}

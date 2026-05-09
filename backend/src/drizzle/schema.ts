@@ -187,6 +187,7 @@ export const stages = pgTable('stages', {
   orderIndex: integer('order_index').notNull(),
   startDate: timestamp('start_date').notNull(),
   endDate: timestamp('end_date').notNull(),
+  description: text('description'),
 });
 
 export const tracks = pgTable('tracks', {
@@ -337,6 +338,7 @@ export const projects = pgTable('projects', {
   description: text('description'),
   status: projectStatusEnum('status').default('DRAFT').notNull(),
   submittedAt: timestamp('submitted_at'),
+  submittedLateByMinutes: integer('submitted_late_by_minutes'),
   reviewedAt: timestamp('reviewed_at'),
   comment: text('comment'),
   deletedAt: timestamp('deleted_at'),
