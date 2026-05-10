@@ -340,9 +340,12 @@ async function seedProjects(teams: any) {
     submittedAt: new Date(now.getTime() - 6 * 3600000),
   }).returning();
 
-  const [typeRepo] = await db.insert(schema.projectResourceTypes).values({ name: 'repository' }).returning();
-  const [typeDemo] = await db.insert(schema.projectResourceTypes).values({ name: 'demo' }).returning();
-  const [typePres] = await db.insert(schema.projectResourceTypes).values({ name: 'presentation' }).returning();
+  const [typeRepo] = await db.insert(schema.projectResourceTypes).values({ name: 'repository', description: 'Репозиторій з кодом' }).onConflictDoNothing().returning();
+  const [typeDemo] = await db.insert(schema.projectResourceTypes).values({ name: 'demo', description: 'Посилання на демо' }).onConflictDoNothing().returning();
+  const [typePres] = await db.insert(schema.projectResourceTypes).values({ name: 'presentation', description: 'Презентація або слайди' }).onConflictDoNothing().returning();
+  await db.insert(schema.projectResourceTypes).values({ name: 'video', description: 'Відео демонстрація' }).onConflictDoNothing();
+  await db.insert(schema.projectResourceTypes).values({ name: 'documentation', description: 'Документація' }).onConflictDoNothing();
+  await db.insert(schema.projectResourceTypes).values({ name: 'other', description: 'Інше' }).onConflictDoNothing();
 
   await db.insert(projectResources).values([
     { projectId: p1.id, projectTypeId: typeRepo.id, url: 'https://github.com/byteforce/ecotrack' },

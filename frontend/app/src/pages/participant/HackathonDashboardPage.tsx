@@ -151,7 +151,7 @@ export function HackathonDashboardPage() {
 
       <div className="pt-2">
         {activeTab === 'team'     && <TeamTab hackathon={hackathon} myTeam={myTeam} stageInfo={stageInfo} />}
-        {activeTab === 'project'  && <ProjectTab hackathon={hackathon} myTeam={myTeam} stageInfo={stageInfo} />}
+        {activeTab === 'project'  && <ProjectTab myTeam={myTeam} stageInfo={stageInfo} />}
         {activeTab === 'mentors'  && <MentorsTab hackathon={hackathon} myTeam={myTeam} stageInfo={stageInfo} />}
         {activeTab === 'results'  && <ResultsTab hackathon={hackathon} myTeam={myTeam} stageInfo={stageInfo} />}
         {activeTab === 'settings' && <SettingsTab hackathon={hackathon} myTeam={myTeam} />}

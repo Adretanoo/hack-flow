@@ -10,9 +10,9 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { formatDate, formatDateTime } from '@/utils/format'
 import { toast } from 'sonner'
-import { ArrowLeft, ExternalLink, Trash2, AlertCircle } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Trash2, AlertCircle, AlertTriangle, Link as LinkIcon } from 'lucide-react'
 import { clsx } from 'clsx'
-import type { Team, TeamMember, TeamApproval, Project } from '@/types/api.types'
+import type { Team, TeamMember, TeamApproval } from '@/types/api.types'
 
 type Tab = 'members' | 'project' | 'approval' | 'invites'
 const TABS: { key: Tab; label: string }[] = [
@@ -39,6 +39,8 @@ export function TeamDetailPage() {
   const [reviewStatus, setReviewStatus] = useState('APPROVED')
   const [reviewComment, setReviewComment] = useState('')
   const [selectedTrackId, setSelectedTrackId] = useState('')
+  const [showReviewForm, setShowReviewForm] = useState(false)
+  const [reviewError, setReviewError] = useState('')
 
   const { data: teamData, isLoading } = useQuery({
     queryKey: ['team', id],
@@ -57,6 +59,16 @@ export function TeamDetailPage() {
     queryFn: () => projectsApi.listByTeam(id!),
     enabled: activeTab === 'project' && !!id,
   })
+
+  // Fetch full project details (with embedded resources)
+  const project = ((projectData?.data.data ?? []) as any[])[0] ?? null
+
+  const { data: projectDetailData } = useQuery({
+    queryKey: ['admin-project-detail', project?.id],
+    queryFn: () => projectsApi.getById(project!.id).then(r => r.data.data),
+    enabled: !!project?.id,
+  })
+  const fullProject: any = projectDetailData ?? project
 
   const removeMemberMut = useMutation({
     mutationFn: (userId: string) => teamsApi.removeMember(id!, userId),
@@ -83,6 +95,8 @@ export function TeamDetailPage() {
     onSuccess: () => {
       toast.success('Рецензію збережено')
       qc.invalidateQueries({ queryKey: ['team-project', id] })
+      qc.invalidateQueries({ queryKey: ['admin-project-detail', project?.id] })
+      setShowReviewForm(false)
     },
     onError: () => toast.error('Помилка при рецензуванні'),
   })
@@ -102,8 +116,6 @@ export function TeamDetailPage() {
   if (!team) return <div className="py-10 text-center text-muted-foreground">Команду не знайдено</div>
 
   const members = (membersData?.data.data ?? []) as TeamMember[]
-  const projects = (projectData?.data.data ?? []) as Project[]
-  const project = projects[0] ?? null
 
   const approvals = (team as unknown as { approvals?: TeamApproval[] }).approvals ?? []
 
@@ -222,54 +234,135 @@ export function TeamDetailPage() {
 
       {/* Project tab */}
       {activeTab === 'project' && (
-        <div>
-          {!project ? (
-            <EmptyState title="Проєкт не подано" description="Команда ще не подала проєкт на цей хакатон." />
+        <div className="space-y-4">
+          {!fullProject ? (
+            <EmptyState title="Проєкт не подано" description="Команда ще не створила проєкт на цей хакатон." />
           ) : (
-            <div className="space-y-4">
-              <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-lg font-semibold">{project.title}</h3>
-                  <StatusBadge status={project.status} />
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div><p className="text-muted-foreground">Подано</p><p>{project.submittedAt ? formatDateTime(project.submittedAt) : '—'}</p></div>
-                  <div><p className="text-muted-foreground">Переглянуто</p><p>{project.reviewedAt ? formatDateTime(project.reviewedAt) : '—'}</p></div>
-                </div>
-                {project.comment && <p className="rounded-lg bg-muted/30 px-3 py-2 text-sm">{project.comment}</p>}
-                {project.resources && project.resources.length > 0 && (
+            <>
+              {/* Header card */}
+              <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="mb-2 text-sm font-medium">Ресурси</p>
-                    <div className="space-y-1.5">
-                      {project.resources.map((r) => (
-                        <a key={r.id} href={r.url} target="_blank" rel="noreferrer"
-                          className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent transition-colors">
-                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="font-medium">{r.type}</span>
-                          {r.description && <span className="text-muted-foreground">· {r.description}</span>}
-                        </a>
-                      ))}
+                    <h3 className="text-lg font-bold">{fullProject.title || <span className="text-muted-foreground italic">Без назви</span>}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <StatusBadge status={fullProject.status} />
+                      {(fullProject.isLate || (fullProject.submittedLateByMinutes ?? 0) > 0) && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-xs font-semibold">
+                          <AlertTriangle className="h-3 w-3" /> Запізнення +{fullProject.submittedLateByMinutes} хв
+                        </span>
+                      )}
                     </div>
+                  </div>
+                </div>
+
+                {/* Timestamps row */}
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-lg bg-muted/30 px-3 py-2">
+                    <p className="text-xs text-muted-foreground mb-0.5">Подано</p>
+                    <p className="font-medium">{fullProject.submittedAt ? formatDateTime(fullProject.submittedAt) : '—'}</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/30 px-3 py-2">
+                    <p className="text-xs text-muted-foreground mb-0.5">Переглянуто</p>
+                    <p className="font-medium">{fullProject.reviewedAt ? formatDateTime(fullProject.reviewedAt) : '—'}</p>
+                  </div>
+                </div>
+
+                {/* Description */}
+                {fullProject.description && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Опис</p>
+                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{fullProject.description}</p>
+                  </div>
+                )}
+
+                {/* Review comment */}
+                {fullProject.comment && (
+                  <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+                    <span className="font-semibold">Коментар: </span>{fullProject.comment}
                   </div>
                 )}
               </div>
 
-              {project.status === 'SUBMITTED' && (
-                <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 space-y-3">
-                  <h4 className="font-semibold">Рецензія</h4>
-                  <select value={reviewStatus} onChange={(e) => setReviewStatus(e.target.value)} className={inputCls}>
-                    <option value="APPROVED">Схвалено</option>
-                    <option value="REJECTED">Відхилено</option>
-                  </select>
-                  <textarea rows={3} value={reviewComment} onChange={(e) => setReviewComment(e.target.value)}
-                    placeholder="Коментар (необов'язково)" className={inputCls + ' resize-none'} />
-                  <button onClick={() => reviewMut.mutate(project.id)} disabled={reviewMut.isPending}
-                    className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors">
-                    Надіслати рецензію
-                  </button>
+              {/* Resources */}
+              {fullProject.resources && fullProject.resources.length > 0 && (
+                <div className="rounded-xl border border-border bg-card p-5">
+                  <p className="text-sm font-semibold flex items-center gap-2 mb-3">
+                    <LinkIcon className="h-4 w-4 text-primary" /> Ресурси
+                  </p>
+                  <div className="space-y-2">
+                    {fullProject.resources.map((r: any) => (
+                      <div key={r.id} className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-muted/10">
+                        <div className="overflow-hidden">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{r.type?.name ?? r.projectTypeId}</p>
+                          {r.description && <p className="text-xs text-muted-foreground truncate">{r.description}</p>}
+                        </div>
+                        <a href={r.url} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1.5 text-sm text-primary hover:underline shrink-0 ml-4">
+                          {new URL(r.url).hostname} <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-            </div>
+
+              {/* Review form or already-reviewed banner */}
+              {(fullProject.status === 'SUBMITTED' || showReviewForm) ? (
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 space-y-3">
+                  <h4 className="font-semibold">Рішення по проєкту</h4>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-border hover:bg-accent">
+                      <input type="radio" name="rs" value="APPROVED" checked={reviewStatus === 'APPROVED'}
+                        onChange={() => setReviewStatus('APPROVED')} />
+                      <span className="text-sm font-medium">✅ Схвалити проєкт</span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-border hover:bg-accent">
+                      <input type="radio" name="rs" value="REJECTED" checked={reviewStatus === 'REJECTED'}
+                        onChange={() => setReviewStatus('REJECTED')} />
+                      <span className="text-sm font-medium">❌ Відхилити проєкт</span>
+                    </label>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Коментар {reviewStatus === 'REJECTED' && <span className="text-destructive">*</span>}
+                    </label>
+                    <textarea rows={3} value={reviewComment} onChange={e => { setReviewComment(e.target.value); setReviewError('') }}
+                      placeholder={reviewStatus === 'REJECTED' ? 'Вкажіть причину відхилення...' : 'Коментар (необовʼязково)'}
+                      className={clsx(inputCls, 'resize-none', reviewError && 'border-destructive')} />
+                    {reviewError && <p className="text-xs text-destructive mt-1">{reviewError}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    {showReviewForm && fullProject.status !== 'SUBMITTED' && (
+                      <button onClick={() => setShowReviewForm(false)}
+                        className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent">Скасувати</button>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (reviewStatus === 'REJECTED' && !reviewComment.trim()) {
+                          setReviewError('Вкажіть причину відхилення')
+                          return
+                        }
+                        reviewMut.mutate(fullProject.id)
+                      }}
+                      disabled={reviewMut.isPending}
+                      className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+                      {reviewMut.isPending ? 'Збереження...' : 'Зберегти рішення'}
+                    </button>
+                  </div>
+                </div>
+              ) : fullProject.status !== 'DRAFT' ? (
+                <div className="rounded-xl border border-border bg-muted/10 p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">ℹ️ Проєкт вже переглянуто</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Статус: {fullProject.status}</p>
+                  </div>
+                  <button onClick={() => setShowReviewForm(true)}
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent">
+                    Змінити рішення
+                  </button>
+                </div>
+              ) : null}
+            </>
           )}
         </div>
       )}

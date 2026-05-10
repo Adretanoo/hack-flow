@@ -15,6 +15,11 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
   const service = new ProjectsService(repository, auditLog);
   const ctrl = new ProjectsController(service);
 
+  // ── Resource types (public, no auth) ───────────────────────────────────
+  app.get('/resource-types', {
+    schema: { tags: ['Projects'], summary: 'List all project resource types (GitHub, Demo, etc.)' },
+  }, (req, reply) => ctrl.getResourceTypes(req, reply));
+
   app.get('/', {
     schema: {
       tags: ['Projects'],

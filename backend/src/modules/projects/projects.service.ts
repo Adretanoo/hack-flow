@@ -81,5 +81,9 @@ export class ProjectsService {
     await this.getById(projectId);
     return this.repo.getResources(projectId);
   }
+
+  async getResourceTypes() {
+    return this.repo.getResourceTypes();
+  }
 }
 

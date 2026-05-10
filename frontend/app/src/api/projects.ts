@@ -27,5 +27,5 @@ export const projectsApi = {
     api.delete<ApiResponse<void>>(`/projects/${id}/resources/${resourceId}`),
 
   getResourceTypes: () =>
-    api.get<ApiResponse<{ id: string; name: string }[]>>('/project-resource-types'),
+    api.get<ApiResponse<{ id: string; name: string }[]>>('/projects/resource-types'),
 }

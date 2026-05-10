@@ -69,5 +69,9 @@ export class ProjectsController {
     await this.service.removeResource(id, resourceId);
     return reply.status(204).send();
   }
+
+  async getResourceTypes(_request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    return reply.send({ success: true, data: await this.service.getResourceTypes() });
+  }
 }
 
