@@ -460,6 +460,19 @@ export const judgeTrack = pgTable('judge_track', {
   uniqueUserTrack: unique().on(t.userId, t.trackId),
 }));
 
+// ── Mentor Track ──────────────────────────────────────────────
+
+export const mentorTrack = pgTable('mentor_track', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  userId:      uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  trackId:     uuid('track_id').notNull().references(() => tracks.id, { onDelete: 'cascade' }),
+  hackathonId: uuid('hackathon_id').notNull().references(() => hackathons.id, { onDelete: 'cascade' }),
+  assignedAt:  timestamp('assigned_at').notNull().defaultNow(),
+  assignedBy:  uuid('assigned_by').references(() => users.id, { onDelete: 'set null' }),
+}, (t) => ({
+  uniqueMentorTrack: unique().on(t.userId, t.trackId),
+}));
+
 // ── Audit Log ─────────────────────────────────────────────────
 
 export const userActionLogs = pgTable('user_action_logs', {

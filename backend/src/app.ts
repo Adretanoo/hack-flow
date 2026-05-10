@@ -20,6 +20,7 @@ import { teamStageRoutes } from './modules/team-stage/team-stage.routes';
 import { healthRoutes } from './modules/health/health.routes';
 import { judgeTrackRoutes } from './modules/judge-track/judge-track.routes';
 import { hackathonTagsRoutes } from './modules/hackathon-tags/hackathon-tags.routes';
+import { mentorTrackRoutes } from './modules/mentor-track/mentor-track.routes';
 
 export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   const app = Fastify({
@@ -59,6 +60,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   await app.register(awardsRoutes, { prefix: env.API_PREFIX });
   await app.register(teamStageRoutes, { prefix: env.API_PREFIX });
   await app.register(judgeTrackRoutes, { prefix: env.API_PREFIX });
+  await app.register(mentorTrackRoutes, { prefix: env.API_PREFIX });
   await app.register(hackathonTagsRoutes, { prefix: env.API_PREFIX });
 
   // ── Frontend Static Serving ───────────────────────────────

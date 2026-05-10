@@ -16,10 +16,11 @@ export type AuditAction =
   | 'move_team_stage'
   | 'assign_judge_track'
   | 'unassign_judge_track'
-  | 'hackathon_status_transition'
   | 'hackathon_status_override'
   | 'leave_team'
-  | 'transfer_captain';
+  | 'transfer_captain'
+  | 'assign_mentor'
+  | 'unassign_mentor';
 
 export type AuditEntity =
   | 'user'
@@ -28,6 +29,7 @@ export type AuditEntity =
   | 'score'
   | 'mentor_slot'
   | 'judge_track'
+  | 'mentor_track'
   | 'hackathon';
 
 export class AuditLogRepository {

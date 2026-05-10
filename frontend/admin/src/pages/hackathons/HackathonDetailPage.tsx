@@ -8,20 +8,22 @@ import { DataTable } from '@/components/shared/DataTable'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { JudgeTrackManager } from '@/components/hackathons/JudgeTrackManager'
+import { MentorManager } from '@/components/hackathons/MentorManager'
 import { StagesSection } from './components/StagesSection'
 import { formatDate, getStatusLabel } from '@/utils/format'
 import { toast } from 'sonner'
-import { Pencil, ArrowLeft, Users, Trophy, Star, CheckCircle2, MapPin, Mail, ExternalLink, Image } from 'lucide-react'
+import { Pencil, ArrowLeft, Users, Trophy, Star, BookOpen, CheckCircle2, MapPin, Mail, ExternalLink, Image } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { Team } from '@/types/api.types'
 import type { Column } from '@/components/shared/DataTable'
 
-type Tab = 'overview' | 'teams' | 'judges' | 'stages'
+type Tab = 'overview' | 'teams' | 'judges' | 'mentors' | 'stages'
 
 const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
   { key: 'overview', label: 'Огляд', icon: Trophy },
   { key: 'teams',    label: 'Команди', icon: Users },
   { key: 'judges',   label: 'Судді', icon: Star },
+  { key: 'mentors',  label: 'Ментори', icon: BookOpen },
   { key: 'stages',   label: 'Стадії', icon: CheckCircle2 },
 ]
 
@@ -251,6 +253,8 @@ export function HackathonDetailPage() {
       )}
 
       {activeTab === 'judges' && id && <JudgeTrackManager hackathonId={id} />}
+
+      {activeTab === 'mentors' && id && <MentorManager hackathonId={id} />}
 
       {activeTab === 'stages' && (
         <div className="space-y-4">
