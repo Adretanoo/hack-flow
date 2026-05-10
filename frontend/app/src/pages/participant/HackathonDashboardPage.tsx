@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, Users, FolderKanban, GraduationCap, Trophy, Settings, ClipboardList } from 'lucide-react'
+import { ChevronLeft, Users, FolderKanban, GraduationCap, Trophy, Settings, ClipboardList, Calendar, ArrowRight } from 'lucide-react'
 import { hackathonsApi } from '@/api/hackathons'
 import { teamsApi } from '@/api/teams'
 import { useAuthStore } from '@/store/auth.store'
@@ -10,7 +10,7 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
-import { formatDate } from '@/utils/format'
+import { formatDateTime } from '@/utils/format'
 
 import { TeamTab } from '@/pages/participant/dashboard-tabs/TeamTab'
 import { ProjectTab } from '@/pages/participant/dashboard-tabs/ProjectTab'
@@ -82,25 +82,47 @@ export function HackathonDashboardPage() {
       {stageInfo.activeStage &&
         (stageInfo.activeStage as any).type === 'HACKING' &&
         (stageInfo.activeStage as any).description && (
-          <div className="rounded-xl border border-amber-300/50 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700/40 p-5">
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <ClipboardList className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
-              <h2 className="font-bold text-amber-800 dark:text-amber-300">
+          <div className="rounded-xl border border-amber-300/50 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700/40 overflow-hidden">
+            {/* Header */}
+            <div className="flex flex-wrap items-center gap-2 px-5 py-3 bg-amber-100/60 dark:bg-amber-900/20 border-b border-amber-200/60 dark:border-amber-700/30">
+              <ClipboardList className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <h2 className="font-bold text-sm text-amber-800 dark:text-amber-300">
                 Завдання етапу: {(stageInfo.activeStage as any).name}
               </h2>
-              <span className="ml-auto text-xs text-amber-600/70 dark:text-amber-400/60 font-mono whitespace-nowrap">
-                {formatDate((stageInfo.activeStage as any).startDate)} — {formatDate((stageInfo.activeStage as any).endDate)}
-              </span>
             </div>
-            <div className="prose prose-sm max-w-none
-              prose-headings:text-amber-900 dark:prose-headings:text-amber-200
-              prose-p:text-amber-800 dark:prose-p:text-amber-300
-              prose-li:text-amber-800 dark:prose-li:text-amber-300
-              prose-strong:text-amber-900 dark:prose-strong:text-amber-200
-              prose-a:text-amber-700 prose-code:bg-amber-100 dark:prose-code:bg-amber-900
-              prose-img:rounded-lg prose-img:mx-auto
-            ">
-              <ReactMarkdown rehypePlugins={[rehypeRaw]}>{(stageInfo.activeStage as any).description}</ReactMarkdown>
+
+            {/* Date range */}
+            <div className="flex items-center gap-3 px-5 py-3 border-b border-amber-200/60 dark:border-amber-700/30">
+              <Calendar className="h-4 w-4 text-amber-500 dark:text-amber-400 shrink-0" />
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <div className="flex flex-col items-center bg-white dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/40 rounded-lg px-3 py-1.5 text-center">
+                  <span className="text-amber-500 dark:text-amber-400 font-medium uppercase tracking-wide" style={{fontSize:'9px'}}>ПОЧАТОК</span>
+                  <span className="font-bold text-amber-900 dark:text-amber-200 tabular-nums">
+                    {formatDateTime((stageInfo.activeStage as any).startDate)}
+                  </span>
+                </div>
+                <ArrowRight className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                <div className="flex flex-col items-center bg-white dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/40 rounded-lg px-3 py-1.5 text-center">
+                  <span className="text-amber-500 dark:text-amber-400 font-medium uppercase tracking-wide" style={{fontSize:'9px'}}>КІНЕЦЬ</span>
+                  <span className="font-bold text-amber-900 dark:text-amber-200 tabular-nums">
+                    {formatDateTime((stageInfo.activeStage as any).endDate)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="px-5 py-4">
+              <div className="prose prose-sm max-w-none
+                prose-headings:text-amber-900 dark:prose-headings:text-amber-200
+                prose-p:text-amber-800 dark:prose-p:text-amber-300
+                prose-li:text-amber-800 dark:prose-li:text-amber-300
+                prose-strong:text-amber-900 dark:prose-strong:text-amber-200
+                prose-a:text-amber-700 prose-code:bg-amber-100 dark:prose-code:bg-amber-900
+                prose-img:rounded-lg prose-img:mx-auto
+              ">
+                <ReactMarkdown rehypePlugins={[rehypeRaw]}>{(stageInfo.activeStage as any).description}</ReactMarkdown>
+              </div>
             </div>
           </div>
         )}
