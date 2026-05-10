@@ -1,5 +1,5 @@
 import type { ProjectsRepository } from './projects.repository';
-import { NotFoundError, ValidationError } from '../../common/errors/http-errors';
+import { ConflictError, NotFoundError, ValidationError } from '../../common/errors/http-errors';
 import type { CreateProjectDto, UpdateProjectDto, AddResourceDto } from './projects.schema';
 import type { AuditLogRepository } from '../audit-log/audit-log.repository';
 
@@ -19,7 +19,15 @@ export class ProjectsService {
     return this.repo.findByTeam(teamId);
   }
 
+  /** A team may have at most ONE active project per stage (no duplicates). */
   async create(dto: CreateProjectDto) {
+    const existing = await this.repo.findByTeam(dto.teamId);
+    const activeForStage = existing.filter(p => p.stageId === dto.stageId);
+    if (activeForStage.length > 0) {
+      throw new ConflictError(
+        'Команда вже має проєкт для цього етапу. Редагуйте або видаліть існуючий перед створенням нового.',
+      );
+    }
     return this.repo.create(dto);
   }
 
@@ -31,8 +39,20 @@ export class ProjectsService {
     return this.repo.update(id, dto);
   }
 
+  /** Reopen a REJECTED project for editing and re-submission. */
+  async reopen(id: string) {
+    const p = await this.getById(id);
+    if (p.status !== 'REJECTED') {
+      throw new ValidationError('Повернути до чернетки можна лише відхилений проєкт.');
+    }
+    return this.repo.update(id, { status: 'DRAFT' });
+  }
+
   async submit(id: string, userId?: string) {
     const p = await this.getById(id);
+    if (p.status !== 'DRAFT') {
+      throw new ValidationError('Подати можна лише проєкт зі статусом DRAFT.');
+    }
     const resources = await this.repo.getResources(id);
     const hasGit = resources.some(r => /github|gitlab|bitbucket/i.test(r.url));
     if (!hasGit) {
@@ -43,7 +63,6 @@ export class ProjectsService {
     const now = new Date();
     let submittedLateByMinutes: number | undefined;
     if (p.stageId) {
-      // Fetch stage to check endDate
       const stage = await this.repo.findStageById(p.stageId);
       if (stage && stage.endDate && now > new Date(stage.endDate)) {
         const diffMs = now.getTime() - new Date(stage.endDate).getTime();

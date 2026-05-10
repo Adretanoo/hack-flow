@@ -78,7 +78,7 @@ export class JudgingRepository {
 
   // ── Leaderboard — hackathon-scoped queries ────────────────
 
-  /** All projects in a hackathon (via stage → hackathon join) */
+  /** All projects in a hackathon that are ready for judging (status = SUBMITTED or APPROVED/REJECTED after review) */
   async findProjectsByHackathon(hackathonId: string) {
     const hackathonStages = await this.db
       .select({ id: stages.id })
@@ -88,6 +88,9 @@ export class JudgingRepository {
     if (hackathonStages.length === 0) return [];
     const stageIds = hackathonStages.map((s) => s.id);
 
+    // Only show projects that have been officially submitted — never drafts.
+    // A team may have at most one non-deleted project per hackathon, but the
+    // status guard ensures judges cannot score works-in-progress.
     return this.db
       .select({
         id: projects.id,
@@ -96,7 +99,13 @@ export class JudgingRepository {
       })
       .from(projects)
       .innerJoin(teams, eq(projects.teamId, teams.id))
-      .where(and(inArray(projects.stageId, stageIds), isNull(projects.deletedAt)));
+      .where(
+        and(
+          inArray(projects.stageId, stageIds),
+          isNull(projects.deletedAt),
+          inArray(projects.status, ['SUBMITTED', 'APPROVED', 'REJECTED']),
+        ),
+      );
   }
 
   /** Single project by ID — used by the ENFORCE_JUDGE_TRACK guard. */

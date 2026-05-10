@@ -55,7 +55,10 @@ export function JudgeProjectsPage() {
           teamsApi.list({ hackathon_id: activeHackathonId, track_id: tid, limit: 100 }).then(r => r.data.data)
         )
       )
-      return results.flat()
+      // Deduplicate by team ID — a judge may cover multiple tracks that return the same team
+      const flat = results.flat()
+      const seen = new Set<string>()
+      return flat.filter((t: any) => { if (seen.has(t.id)) return false; seen.add(t.id); return true })
     },
     enabled: trackIds.length > 0,
   })
@@ -74,11 +77,13 @@ export function JudgeProjectsPage() {
   const myScores: any[] = myScoresData || []
   const myConflicts: any[] = myConflictsData || []
 
-  // Build project list enriched with score/conflict status
+  // Build project list enriched with score/conflict status.
+  // Show any project that has been officially submitted (not a draft).
+  const SUBMITTED_STATUSES = ['SUBMITTED', 'REVIEWED', 'APPROVED', 'REJECTED']
   const allProjects = teams
-    .filter((team: any) => team.projects?.length > 0)
+    .filter((team: any) => team.projects?.some((p: any) => SUBMITTED_STATUSES.includes(p.status)))
     .map((team: any) => {
-      const project = team.projects[0]
+      const project = team.projects.find((p: any) => SUBMITTED_STATUSES.includes(p.status))
       const scored = myScores.some((s: any) => s.projectId === project.id)
       const hasConflict = myConflicts.some((c: any) => c.teamId === team.id)
       const trackName = team.track?.name || myTracks.find((t: any) => t.trackId === team.trackId)?.track?.name || 'Без треку'

@@ -108,6 +108,15 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
     },
   }, (req, reply) => ctrl.review(req, reply));
 
+  app.patch('/:id/reopen', {
+    onRequest: [authenticate],
+    schema: {
+      tags: ['Projects'],
+      summary: 'Reopen a REJECTED project back to DRAFT for editing and re-submission',
+      params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.reopen(req, reply));
+
   app.post('/:id/resources', {
     onRequest: [authenticate],
     schema: {

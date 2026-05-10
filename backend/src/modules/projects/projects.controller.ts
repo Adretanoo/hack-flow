@@ -53,6 +53,11 @@ export class ProjectsController {
     return reply.send({ success: true, data: await this.service.review(id, body) });
   }
 
+  async reopen(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    return reply.send({ success: true, data: await this.service.reopen(id) });
+  }
+
   async getResources(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const { id } = UuidParamSchema.parse(request.params);
     return reply.send({ success: true, data: await this.service.getResources(id) });
