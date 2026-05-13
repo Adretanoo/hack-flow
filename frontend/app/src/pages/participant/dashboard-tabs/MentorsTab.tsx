@@ -76,14 +76,17 @@ export function MentorsTab({ hackathon, myTeam, stageInfo }: MentorsTabProps) {
   const mentors: any[] = mentorsData?.data?.data || []
   const myBookings: any[] = myBookingsData?.data?.data || []
 
-  // Group MY bookings by date
+  // Group MY bookings by date — exclude cancelled/rejected from calendar (they stack)
+  const CALENDAR_STATUSES = new Set(['pending', 'accepted', 'completed'])
   const myBookingsByDate = useMemo(() => {
     const map = new Map<string, any[]>()
     weekDates.forEach(d => map.set(d.toDateString(), []))
-    myBookings.forEach(b => {
-      const k = new Date(b.startDatetime).toDateString()
-      if (map.has(k)) map.get(k)!.push(b)
-    })
+    myBookings
+      .filter(b => CALENDAR_STATUSES.has(b.status))
+      .forEach(b => {
+        const k = new Date(b.startDatetime).toDateString()
+        if (map.has(k)) map.get(k)!.push(b)
+      })
     return map
   }, [myBookings, weekDates])
 

@@ -40,7 +40,7 @@ export function MentorAvailabilityPage() {
   const [hackathonId, setHackathonId] = useState(() => localStorage.getItem(LS_KEY) || '')
   const [weekOffset, setWeekOffset] = useState(0)
   const [showForm, setShowForm] = useState(false)
-  const [selectedAvail, setSelectedAvail] = useState<any>(null)
+  const [selectedAvailId, setSelectedAvailId] = useState<string | null>(null)
   const [formTrackId, setFormTrackId] = useState('')
   const [formDate, setFormDate] = useState('')
   const [formStart, setFormStart] = useState('10:00')
@@ -75,6 +75,9 @@ export function MentorAvailabilityPage() {
     avails.forEach(av => { const k = new Date(av.startDatetime).toDateString(); if (map.has(k)) map.get(k)!.push(av) })
     return map
   }, [avails, weekDates])
+
+  // Always derive fresh selectedAvail from live query data
+  const selectedAvail = selectedAvailId ? avails.find(a => a.id === selectedAvailId) ?? null : null
 
   const preview = useMemo(() => {
     if (!formDate || !formStart || !formEnd) return []
@@ -192,7 +195,7 @@ export function MentorAvailabilityPage() {
                       </div>
                     ) : (
                       <div className="space-y-1.5">
-                        {dayAvails.map(av => <AvailabilityCard key={av.id} avail={av} onSelect={setSelectedAvail} />)}
+                        {dayAvails.map(av => <AvailabilityCard key={av.id} avail={av} onSelect={a => setSelectedAvailId(a.id)} />)}
                       </div>
                     )}
                   </div>
@@ -284,7 +287,7 @@ export function MentorAvailabilityPage() {
         )}
       </div>
       {selectedAvail && (
-        <AvailDetailPanel avail={selectedAvail} onClose={() => setSelectedAvail(null)} />
+        <AvailDetailPanel avail={selectedAvail} onClose={() => setSelectedAvailId(null)} />
       )}
     </div>
   )
