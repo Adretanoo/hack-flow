@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Lock, CalendarDays, Video, X } from 'lucide-react'
 import { mentorshipApi } from '@/api/mentorship'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { useNotificationsStore } from '@/store/notifications.store'
 import type { Hackathon, Team } from '@/types/api.types'
 
 const UK_DAYS = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб']
@@ -32,10 +33,12 @@ interface MentorsTabProps { hackathon: Hackathon; myTeam?: Team; stageInfo: any 
 
 export function MentorsTab({ hackathon, myTeam, stageInfo }: MentorsTabProps) {
   const qc = useQueryClient()
+  const { addMentorCancellation } = useNotificationsStore()
   const TODAY = useMemo(() => new Date(), [])
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedAvail, setSelectedAvail] = useState<any>(null)
   const [cancelConfirm, setCancelConfirm] = useState<{ open: boolean; id: string; mentorName: string }>({ open: false, id: '', mentorName: '' })
+  const prevBookingsRef = useRef<any[]>([])
 
   const weekDates = useMemo(() => {
     const day = TODAY.getDay()
@@ -49,18 +52,49 @@ export function MentorsTab({ hackathon, myTeam, stageInfo }: MentorsTabProps) {
     queryKey: ['mentors', hackathon.id],
     queryFn: () => mentorshipApi.getAvailableMentors({ hackathonId: hackathon.id }),
     enabled: stageInfo.canBookMentor,
+    refetchInterval: 5_000,
+    staleTime: 3_000,
   })
 
   const { data: myBookingsData, isLoading: bookingsLoading } = useQuery({
     queryKey: ['my-bookings', myTeam?.id],
     queryFn: () => mentorshipApi.getMyRequests(myTeam!.id),
     enabled: !!myTeam?.id,
+    refetchInterval: 5_000,
+    staleTime: 3_000,
   })
 
   const cancelMut = useMutation({
     mutationFn: (id: string) => mentorshipApi.cancelRequest(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookings'] }),
   })
+
+  // Detect when a booking gets cancelled/rejected by mentor — notify the participant
+  const myBookings: any[] = myBookingsData?.data?.data || []
+  useEffect(() => {
+    const prev = prevBookingsRef.current
+    if (prev.length > 0) {
+      for (const curr of myBookings) {
+        const old = prev.find(b => b.id === curr.id)
+        if (!old || old.status === curr.status) continue
+        if (curr.status === 'cancelled' || curr.status === 'rejected') {
+          const mentorName = curr.availability?.mentor?.fullName ||
+            curr.mentorAvailability?.user?.fullName || 'Ментор'
+          const dt = new Date(curr.startDatetime)
+          addMentorCancellation({
+            id: `booking-${curr.status}-${curr.id}`,
+            status: 'SLOT_CANCELLED',
+            title: curr.status === 'rejected' ? '❌ Запит відхилено' : '🗓️ Сесію скасовано',
+            body: `${mentorName} — ${dt.toLocaleDateString('uk-UA')} о ${dt.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })} (${curr.durationMinute} хв)`,
+            teamName: myTeam?.name || '',
+            hackathonTitle: hackathon.title,
+            timestamp: new Date().toISOString(),
+          })
+        }
+      }
+    }
+    prevBookingsRef.current = myBookings
+  }, [myBookings])
 
   if (!stageInfo.canBookMentor) {
     return (
@@ -73,8 +107,9 @@ export function MentorsTab({ hackathon, myTeam, stageInfo }: MentorsTabProps) {
   }
   if (!myTeam) return <div className="py-24 text-center text-muted-foreground">Спершу приєднайтесь до команди</div>
 
+
   const mentors: any[] = mentorsData?.data?.data || []
-  const myBookings: any[] = myBookingsData?.data?.data || []
+
 
   // Group MY bookings by date — exclude cancelled/rejected from calendar (they stack)
   const CALENDAR_STATUSES = new Set(['pending', 'accepted', 'completed'])
@@ -128,16 +163,31 @@ export function MentorsTab({ hackathon, myTeam, stageInfo }: MentorsTabProps) {
               const dayBookings = myBookingsByDate.get(date.toDateString()) || []
               const dayAvails = availByDate.get(date.toDateString()) || []
 
-              // Build free slots from mentor availabilities (excluding booked by others or self)
+              // Build free slots — exclude pending, accepted AND blocked
               const freeSlots: { avail: any; time: string; dt: Date }[] = []
               for (const av of dayAvails) {
                 const start = new Date(av.startDatetime), end = new Date(av.endDatetime), dur = av.slotDuration || 30
-                const booked = (av.slots || []).filter((s: any) => s.status === 'pending' || s.status === 'accepted').map((s: any) => new Date(s.startDatetime).getTime())
+                const notFree = (av.slots || [])
+                  .filter((s: any) => s.status === 'pending' || s.status === 'accepted' || s.status === 'blocked')
+                  .map((s: any) => new Date(s.startDatetime).getTime())
                 let cur = new Date(start)
                 while (cur < end) {
-                  if (!booked.some((t: number) => Math.abs(t - cur.getTime()) < 60000))
+                  if (!notFree.some((t: number) => Math.abs(t - cur.getTime()) < 60000))
                     freeSlots.push({ avail: av, time: fmtTime(cur), dt: new Date(cur) })
                   cur = new Date(cur.getTime() + dur * 60000)
+                }
+              }
+
+              // Build blocked slots — shown as grey 'Заблоковано' cards
+              const blockedSlots: { time: string; mentorName: string }[] = []
+              for (const av of dayAvails) {
+                const blocked = (av.slots || []).filter((s: any) => s.status === 'blocked')
+                for (const s of blocked) {
+                  const dt = new Date(s.startDatetime)
+                  blockedSlots.push({
+                    time: fmtTime(dt),
+                    mentorName: av.mentor?.fullName?.split(' ')[0] || 'Ментор',
+                  })
                 }
               }
 
@@ -180,8 +230,8 @@ export function MentorsTab({ hackathon, myTeam, stageInfo }: MentorsTabProps) {
                     )
                   })}
 
-                  {/* Free available slots */}
-                  {!isPast && freeSlots.length > 0 && (
+                  {/* Free available slots + blocked slots */}
+                  {!isPast && (freeSlots.length > 0 || blockedSlots.length > 0) && (
                     <div className="space-y-1">
                       {freeSlots.slice(0, 3).map((s, i) => (
                         <button key={i} onClick={() => setSelectedAvail(s.avail)}
@@ -194,11 +244,17 @@ export function MentorsTab({ hackathon, myTeam, stageInfo }: MentorsTabProps) {
                           +{freeSlots.length - 3} слотів
                         </button>
                       )}
+                      {/* Blocked slots */}
+                      {blockedSlots.slice(0, 2).map((s, i) => (
+                        <div key={`bl-${i}`} className="w-full rounded-lg bg-muted/50 border border-border/60 text-[10px] font-semibold px-2 py-1.5 text-muted-foreground/60 flex items-center gap-1 cursor-not-allowed">
+                          <span>🔒</span><span>{s.time} · Заблоковано</span>
+                        </div>
+                      ))}
                     </div>
                   )}
 
                   {/* Empty state */}
-                  {dayBookings.length === 0 && freeSlots.length === 0 && (
+                  {dayBookings.length === 0 && freeSlots.length === 0 && blockedSlots.length === 0 && (
                     <div className={`flex-1 rounded-xl border-2 border-dashed min-h-[60px] flex items-center justify-center ${isPast ? 'border-border/20 opacity-30' : 'border-border/40'}`}>
                       <span className="text-[9px] text-muted-foreground/40">Немає</span>
                     </div>

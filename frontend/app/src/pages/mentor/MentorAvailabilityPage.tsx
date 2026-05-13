@@ -57,6 +57,8 @@ export function MentorAvailabilityPage() {
   const { data: availsData, isLoading } = useQuery({
     queryKey: ['my-availabilities', hackathonId],
     queryFn: () => mentorshipApi.getMyAvailabilities(hackathonId || undefined).then(r => r.data.data),
+    refetchInterval: 10_000,  // poll every 10s — real-time feel without WebSocket
+    staleTime: 5_000,
   })
   const { data: tracksData } = useQuery({ queryKey: ['tracks', effId], queryFn: () => tracksApi.list({ hackathon_id: effId, limit: 100 }).then((r: any) => r.data.data), enabled: !!effId })
   const { data: myTracksData } = useQuery({ queryKey: ['my-tracks', effId], queryFn: () => mentorshipApi.getMyTracks(effId).then(r => r.data.data), enabled: !!effId })
@@ -229,13 +231,16 @@ export function MentorAvailabilityPage() {
               <button onClick={() => setShowForm(false)} className="p-1 rounded hover:bg-accent"><X className="h-4 w-4" /></button>
             </div>
             <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">Трек</label>
-                <select value={formTrackId} onChange={e => setFormTrackId(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none">
-                  <option value="">🌐 Всі треки</option>
-                  {allowedTracks.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-              </div>
+              {/* Show track selector only when mentor has multiple specific tracks */}
+              {!hasGlobal && allowedTracks.length > 1 && (
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">Трек</label>
+                  <select value={formTrackId} onChange={e => setFormTrackId(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none">
+                    <option value="">🌐 Всі треки</option>
+                    {allowedTracks.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">Дата</label>
