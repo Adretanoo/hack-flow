@@ -9,6 +9,7 @@ import { hackathonsApi } from '@/api/hackathons'
 import { judgingApi } from '@/api/judging'
 import { teamsApi } from '@/api/teams'
 import { formatRelativeTime } from '@/utils/format'
+import { useAuthStore } from '@/store/auth.store'
 
 type Filter = 'all' | 'unscored' | 'scored' | 'conflict'
 
@@ -242,6 +243,8 @@ export function JudgeProjectsPage() {
 }
 
 function ProjectCard({ project }: { project: any }) {
+  const { user } = useAuthStore()
+  const isAdmin = user?.role === 'admin'
   const submittedAgo = project.submittedAt ? formatRelativeTime(project.submittedAt) : null
 
   return (
@@ -287,7 +290,7 @@ function ProjectCard({ project }: { project: any }) {
               to={`/app/judge/score/${project.id}`}
               className="shrink-0 flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              {project.scored ? 'Змінити' : 'Оцінити'}
+              {isAdmin ? 'Переглянути' : project.scored ? 'Змінити' : 'Оцінити'}
               <ChevronRight className="h-4 w-4" />
             </Link>
           )}

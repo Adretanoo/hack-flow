@@ -31,7 +31,24 @@ export class JudgingRepository {
 
   // ── Scores ───────────────────────────────────────────────
   async findScoresByProject(projectId: string) {
-    return this.db.select().from(scores).where(eq(scores.projectId, projectId));
+    return this.db
+      .select({
+        id: scores.id,
+        judgeId: scores.judgeId,
+        projectId: scores.projectId,
+        criteriaId: scores.criteriaId,
+        assessment: scores.assessment,
+        comment: scores.comment,
+        updatedAt: scores.updatedAt,
+        judge: {
+          id: users.id,
+          fullName: users.fullName,
+          username: users.username,
+        },
+      })
+      .from(scores)
+      .innerJoin(users, eq(scores.judgeId, users.id))
+      .where(eq(scores.projectId, projectId));
   }
 
   async findScoresByJudge(judgeId: string) {

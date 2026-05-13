@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ExternalLink, Code2, MonitorPlay, FileText, CheckCircle, RotateCcw, Users, BookOpen, Save } from 'lucide-react'
@@ -14,6 +14,7 @@ export function JudgeScorePage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { user } = useAuthStore()
+  const isAdmin = user?.role === 'admin'
   const [tab, setTab] = useState<'project' | 'team'>('project')
   const [assessments, setAssessments] = useState<Record<string, number>>({})
   const [comment, setComment] = useState('')
@@ -47,32 +48,40 @@ export function JudgeScorePage() {
     queryFn: () => judgingApi.getMyScores().then(r => r.data.data),
   })
 
+  const { data: allScoresData } = useQuery({
+    queryKey: ['project-all-scores', projectId],
+    queryFn: () => judgingApi.getTeamScores(projectId!).then(r => r.data.data),
+    enabled: isAdmin && !!projectId,
+  })
+
   const criteria: any[] = criteriaData || []
   const members: any[] = membersData || []
   const myScores: any[] = myScoresData || []
+  const allScores: any[] = allScoresData || []
   const existing = myScores.filter((s: any) => s.projectId === projectId)
   const hasExisting = existing.length > 0
 
   useEffect(() => {
-    if (hasExisting) {
+    if (hasExisting && !isAdmin) {
       const init: Record<string, number> = {}
       existing.forEach((s: any) => { init[s.criteriaId] = Number(s.assessment) })
       setAssessments(init)
       setComment(existing[0]?.comment || '')
-    } else {
+    } else if (!isAdmin) {
       const raw = localStorage.getItem(draftKey)
       if (raw) {
         try { const p = JSON.parse(raw); if (p.assessments) setDraftBanner(p.savedAt || '') } catch (_) {}
       }
     }
-  }, [hasExisting]) // eslint-disable-line
+  }, [hasExisting, isAdmin]) // eslint-disable-line
 
   const saveDraft = useCallback((a: Record<string, number>, c: string) => {
+    if (isAdmin) return
     clearTimeout(timer.current)
     timer.current = setTimeout(() => {
       if (!hasExisting) localStorage.setItem(draftKey, JSON.stringify({ assessments: a, comment: c, savedAt: new Date().toISOString() }))
     }, 1000)
-  }, [draftKey, hasExisting])
+  }, [draftKey, hasExisting, isAdmin])
 
   const handleSlider = (id: string, v: number) => setAssessments(prev => { const next = { ...prev, [id]: v }; saveDraft(next, comment); return next })
   const handleComment = (v: string) => { setComment(v); saveDraft(assessments, v) }
@@ -84,20 +93,38 @@ export function JudgeScorePage() {
   })
 
   useEffect(() => {
+    if (isAdmin) return
     const h = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !submitMut.isPending) { e.preventDefault(); submitMut.mutate() } }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [submitMut])
+  }, [submitMut, isAdmin])
 
   let total = 0
   criteria.forEach((c: any) => { total += (assessments[c.id] ?? 0) * Number(c.weight) })
+
+  // Group scores by judge for admin view
+  const scoresByJudge = useMemo(() => {
+    const map = new Map<string, { judge: any; total: number; assessments: any[] }>()
+    allScores.forEach((s: any) => {
+      if (!map.has(s.judgeId)) {
+        map.set(s.judgeId, { judge: s.judge, total: 0, assessments: [] })
+      }
+      const entry = map.get(s.judgeId)!
+      const crit = criteria.find((c: any) => c.id === s.criteriaId)
+      if (crit) {
+        entry.total += Number(s.assessment) * Number(crit.weight)
+      }
+      entry.assessments.push(s)
+    })
+    return Array.from(map.values())
+  }, [allScores, criteria])
 
   if (pLoading || cLoading) return <div className="py-24"><LoadingSpinner /></div>
   if (!projectData) return null
   const proj = projectData as any
 
   return (
-    <div className="animate-fade-in max-w-6xl mx-auto space-y-4">
+    <div className="animate-fade-in max-w-6xl mx-auto space-y-4 pb-24">
       <Link to="/app/judge/projects" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
         <ChevronLeft className="mr-1 h-4 w-4" /> Повернутись до списку
       </Link>
@@ -177,100 +204,156 @@ export function JudgeScorePage() {
               </ul>
             </div>
           )}
+
+          {isAdmin && (
+            <div className="space-y-6">
+               <h3 className="text-lg font-bold">Оцінки суддів ({scoresByJudge.length})</h3>
+               <div className="grid gap-6 sm:grid-cols-1">
+                 {scoresByJudge.map((sj, idx) => (
+                   <div key={idx} className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+                     <div className="px-5 py-3 border-b border-border bg-muted/30 flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                           <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                             {sj.judge.fullName[0]}
+                           </div>
+                           <div>
+                             <p className="text-sm font-bold">{sj.judge.fullName}</p>
+                             <p className="text-[10px] text-muted-foreground">@{sj.judge.username}</p>
+                           </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xl font-black text-primary">{sj.total.toFixed(2)}</p>
+                          <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Загальний бал</p>
+                        </div>
+                     </div>
+                     <div className="p-5 space-y-4">
+                        {/* Graph */}
+                        <div className="space-y-2">
+                           {criteria.map(c => {
+                             const s = sj.assessments.find(a => a.criteriaId === c.id)
+                             const val = Number(s?.assessment || 0)
+                             const max = Number(c.maxScore) || 10
+                             return (
+                               <div key={c.id} className="space-y-1">
+                                 <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase">
+                                   <span>{c.name}</span>
+                                   <span>{val}/{max}</span>
+                                 </div>
+                                 <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                   <div className="h-full bg-primary transition-all" style={{ width: `${(val/max)*100}%` }} />
+                                 </div>
+                               </div>
+                             )
+                           })}
+                        </div>
+                        {sj.assessments[0]?.comment && (
+                          <div className="bg-muted/50 rounded-lg p-3 border border-border/50">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Коментар судді</p>
+                            <p className="text-sm italic text-muted-foreground">"{sj.assessments[0].comment}"</p>
+                          </div>
+                        )}
+                     </div>
+                   </div>
+                 ))}
+               </div>
+            </div>
+          )}
         </div>
 
         {/* RIGHT */}
-        <div className="lg:w-2/5">
-          <div className="sticky top-6 space-y-4">
-            {hasExisting && !done && (
-              <div className="rounded-lg bg-blue-50 border border-blue-200 text-blue-800 p-4 text-sm">
-                <p className="font-semibold">Ви вже оцінили цей проєкт</p>
-                {existing[0]?.updatedAt && <p className="text-xs mt-0.5 opacity-80">{formatRelativeTime(existing[0].updatedAt)} тому. Змінити можна до закінчення суддівства.</p>}
-              </div>
-            )}
-
-            {draftBanner !== null && !hasExisting && (
-              <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 p-4 text-sm">
-                <p className="font-semibold">Знайдено незбережену чернетку</p>
-                {draftBanner && <p className="text-xs mt-0.5 opacity-80">Збережено {formatRelativeTime(draftBanner)} тому</p>}
-                <div className="flex gap-2 mt-3">
-                  <button onClick={() => { const r = localStorage.getItem(draftKey); if (r) { const p = JSON.parse(r); if (p.assessments) setAssessments(p.assessments); if (p.comment) setComment(p.comment) }; setDraftBanner(null) }} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-700">
-                    <RotateCcw className="h-3.5 w-3.5" />Відновити
-                  </button>
-                  <button onClick={() => { localStorage.removeItem(draftKey); setDraftBanner(null) }} className="text-xs px-3 py-1.5 rounded-md border border-amber-300 text-amber-700 hover:bg-amber-100">
-                    Ігнорувати
-                  </button>
+        {!isAdmin && (
+          <div className="lg:w-2/5">
+            <div className="sticky top-6 space-y-4">
+              {hasExisting && !done && (
+                <div className="rounded-lg bg-blue-50 border border-blue-200 text-blue-800 p-4 text-sm">
+                  <p className="font-semibold">Ви вже оцінили цей проєкт</p>
+                  {existing[0]?.updatedAt && <p className="text-xs mt-0.5 opacity-80">{formatRelativeTime(existing[0].updatedAt)} тому. Змінити можна до закінчення суддівства.</p>}
                 </div>
-              </div>
-            )}
+              )}
 
-            <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-border bg-muted/20 flex items-center gap-2">
-                <Save className="h-5 w-5 text-primary" /><h3 className="font-bold text-lg">Моя оцінка</h3>
-              </div>
-
-              <div className="p-6 space-y-6 max-h-[52vh] overflow-y-auto">
-                {criteria.map((c: any) => {
-                  const max = Number(c.maxScore) || 10
-                  const val = assessments[c.id] ?? 0
-                  return (
-                    <div key={c.id} className="space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div><h4 className="text-sm font-semibold">{c.name}</h4>{c.description && <p className="text-xs text-muted-foreground mt-0.5">{c.description}</p>}</div>
-                        <span className="shrink-0 text-xs bg-accent px-2 py-0.5 rounded font-medium">вага: {Math.round(Number(c.weight) * 100)}%</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input type="range" min={0} max={max} step={1} value={val} onChange={e => handleSlider(c.id, Number(e.target.value))} className="flex-1 accent-primary cursor-pointer" />
-                        <span className="w-14 text-right font-mono font-bold text-primary text-sm">{val}<span className="text-xs text-muted-foreground font-normal">/{max}</span></span>
-                      </div>
-                      <div className="h-1 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary/60 rounded-full transition-all" style={{ width: `${(val / max) * 100}%` }} />
-                      </div>
-                    </div>
-                  )
-                })}
-
-                <div className="space-y-2 pt-2 border-t border-border">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-semibold">Коментар (необов'язково)</label>
-                    <span className={`text-xs ${comment.length > 450 ? 'text-destructive' : 'text-muted-foreground'}`}>{comment.length}/500</span>
-                  </div>
-                  <textarea value={comment} onChange={e => handleComment(e.target.value.slice(0, 500))} placeholder="Що сподобалось, що варто покращити..." rows={3} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none focus:border-primary focus:outline-none" />
-                </div>
-              </div>
-
-              {/* Score preview */}
-              {criteria.length > 0 && (
-                <div className="px-6 py-4 border-t border-border bg-muted/10 space-y-1.5">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Підсумкова оцінка</p>
-                  {criteria.map((c: any) => {
-                    const val = assessments[c.id] ?? 0
-                    const w = Number(c.weight)
-                    return (
-                      <div key={c.id} className="flex justify-between text-xs text-muted-foreground">
-                        <span className="truncate mr-2">{c.name}</span>
-                        <span className="font-mono shrink-0">{val} × {Math.round(w * 100)}% = <span className="font-bold text-foreground">{(val * w).toFixed(2)}</span></span>
-                      </div>
-                    )
-                  })}
-                  <div className="border-t border-border pt-2 flex justify-between font-bold text-sm">
-                    <span>Загалом:</span>
-                    <span className="text-lg text-primary">{total.toFixed(2)}<span className="text-sm font-normal text-muted-foreground">/10</span></span>
+              {draftBanner !== null && !hasExisting && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 p-4 text-sm">
+                  <p className="font-semibold">Знайдено незбережену чернетку</p>
+                  {draftBanner && <p className="text-xs mt-0.5 opacity-80">Збережено {formatRelativeTime(draftBanner)} тому</p>}
+                  <div className="flex gap-2 mt-3">
+                    <button onClick={() => { const r = localStorage.getItem(draftKey); if (r) { const p = JSON.parse(r); if (p.assessments) setAssessments(p.assessments); if (p.comment) setComment(p.comment) }; setDraftBanner(null) }} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-700">
+                      <RotateCcw className="h-3.5 w-3.5" />Відновити
+                    </button>
+                    <button onClick={() => { localStorage.removeItem(draftKey); setDraftBanner(null) }} className="text-xs px-3 py-1.5 rounded-md border border-amber-300 text-amber-700 hover:bg-amber-100">
+                      Ігнорувати
+                    </button>
                   </div>
                 </div>
               )}
 
-              <div className="px-6 pb-6 pt-4 space-y-3">
-                <button onClick={() => submitMut.mutate()} disabled={submitMut.isPending || criteria.length === 0 || done} className="w-full rounded-md bg-primary px-4 py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">
-                  {submitMut.isPending ? 'Збереження...' : hasExisting ? 'Оновити оцінку' : 'Зберегти оцінку'}
-                </button>
-                <p className="text-center text-xs text-muted-foreground">
-                  <kbd className="px-1.5 py-0.5 bg-muted border border-border rounded text-xs">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-muted border border-border rounded text-xs">Enter</kbd>
-                </p>
+              <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-border bg-muted/20 flex items-center gap-2">
+                  <Save className="h-5 w-5 text-primary" /><h3 className="font-bold text-lg">Моя оцінка</h3>
+                </div>
+
+                <div className="p-6 space-y-6 max-h-[52vh] overflow-y-auto">
+                  {criteria.map((c: any) => {
+                    const max = Number(c.maxScore) || 10
+                    const val = assessments[c.id] ?? 0
+                    return (
+                      <div key={c.id} className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div><h4 className="text-sm font-semibold">{c.name}</h4>{c.description && <p className="text-xs text-muted-foreground mt-0.5">{c.description}</p>}</div>
+                          <span className="shrink-0 text-xs bg-accent px-2 py-0.5 rounded font-medium">вага: {Math.round(Number(c.weight) * 100)}%</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <input type="range" min={0} max={max} step={1} value={val} onChange={e => handleSlider(c.id, Number(e.target.value))} className="flex-1 accent-primary cursor-pointer" />
+                          <span className="w-14 text-right font-mono font-bold text-primary text-sm">{val}<span className="text-xs text-muted-foreground font-normal">/{max}</span></span>
+                        </div>
+                        <div className="h-1 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-primary/60 rounded-full transition-all" style={{ width: `${(val / max) * 100}%` }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-semibold">Коментар (необов'язково)</label>
+                      <span className={`text-xs ${comment.length > 450 ? 'text-destructive' : 'text-muted-foreground'}`}>{comment.length}/500</span>
+                    </div>
+                    <textarea value={comment} onChange={e => handleComment(e.target.value.slice(0, 500))} placeholder="Що сподобалось, що варто покращити..." rows={3} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none focus:border-primary focus:outline-none" />
+                  </div>
+                </div>
+
+                {/* Score preview */}
+                {criteria.length > 0 && (
+                  <div className="px-6 py-4 border-t border-border bg-muted/10 space-y-1.5">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Підсумкова оцінка</p>
+                    {criteria.map((c: any) => {
+                      const val = assessments[c.id] ?? 0
+                      const w = Number(c.weight)
+                      return (
+                        <div key={c.id} className="flex justify-between text-xs text-muted-foreground">
+                          <span className="truncate mr-2">{c.name}</span>
+                          <span className="font-mono shrink-0">{val} × {Math.round(w * 100)}% = <span className="font-bold text-foreground">{(val * w).toFixed(2)}</span></span>
+                        </div>
+                      )
+                    })}
+                    <div className="border-t border-border pt-2 flex justify-between font-bold text-sm">
+                      <span>Загалом:</span>
+                      <span className="text-lg text-primary">{total.toFixed(2)}<span className="text-sm font-normal text-muted-foreground">/10</span></span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="px-6 pb-6 pt-4 space-y-3">
+                  <button onClick={() => submitMut.mutate()} disabled={submitMut.isPending || criteria.length === 0 || done} className="w-full rounded-md bg-primary px-4 py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                    {submitMut.isPending ? 'Збереження...' : hasExisting ? 'Оновити оцінку' : 'Зберегти оцінку'}
+                  </button>
+                  <p className="text-center text-xs text-muted-foreground">
+                    <kbd className="px-1.5 py-0.5 bg-muted border border-border rounded text-xs">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-muted border border-border rounded text-xs">Enter</kbd>
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )

@@ -170,10 +170,15 @@ export function MentorsTab({ hackathon, myTeam, stageInfo }: MentorsTabProps) {
                 const notFree = (av.slots || [])
                   .filter((s: any) => s.status === 'pending' || s.status === 'accepted' || s.status === 'blocked')
                   .map((s: any) => new Date(s.startDatetime).getTime())
+                const now = new Date()
                 let cur = new Date(start)
                 while (cur < end) {
-                  if (!notFree.some((t: number) => Math.abs(t - cur.getTime()) < 60000))
-                    freeSlots.push({ avail: av, time: fmtTime(cur), dt: new Date(cur) })
+                  if (!notFree.some((t: number) => Math.abs(t - cur.getTime()) < 60000)) {
+                    const dt = new Date(cur)
+                    if (dt > now) {
+                      freeSlots.push({ avail: av, time: fmtTime(dt), dt })
+                    }
+                  }
                   cur = new Date(cur.getTime() + dur * 60000)
                 }
               }
@@ -202,11 +207,18 @@ export function MentorsTab({ hackathon, myTeam, stageInfo }: MentorsTabProps) {
 
                   {/* My bookings for this day */}
                   {dayBookings.map(b => {
-                    const st = STATUS_STYLE[b.status] || STATUS_STYLE.cancelled
                     const dt = new Date(b.startDatetime)
+                    const endDt = new Date(dt.getTime() + (b.durationMinute || 30) * 60000)
+                    const isPassed = endDt < new Date()
+                    
+                    let st = STATUS_STYLE[b.status] || STATUS_STYLE.cancelled
+                    if (isPassed && b.status === 'accepted') {
+                      st = { ...st, label: '🕒 Час минув', card: 'bg-muted/40 border-border opacity-50 grayscale', badge: 'bg-muted text-muted-foreground' }
+                    }
+
                     const mentorName = b.mentorAvailability?.user?.fullName || b.mentorAvailability?.mentor?.fullName || 'Ментор'
                     return (
-                      <div key={b.id} className={`rounded-xl border-2 p-2.5 ${st.card}`}>
+                      <div key={b.id} className={`rounded-xl border-2 p-2.5 transition-all ${st.card}`}>
                         <div className="flex items-start justify-between gap-1">
                           <div className="min-w-0">
                             <p className="font-bold text-xs">{fmtTime(dt)}</p>
@@ -215,12 +227,12 @@ export function MentorsTab({ hackathon, myTeam, stageInfo }: MentorsTabProps) {
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${st.badge}`}>{st.label}</span>
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1">{b.durationMinute} хв</p>
-                        {b.status === 'accepted' && b.meetingLink && (
+                        {b.status === 'accepted' && b.meetingLink && !isPassed && (
                           <a href={b.meetingLink} target="_blank" rel="noreferrer" className="mt-1.5 flex items-center gap-1 text-[10px] text-blue-600 hover:underline font-semibold">
                             <Video className="h-2.5 w-2.5 shrink-0" /><span className="truncate">Приєднатись</span>
                           </a>
                         )}
-                        {(b.status === 'accepted' || b.status === 'pending') && (
+                        {(b.status === 'accepted' || b.status === 'pending') && !isPassed && (
                           <button onClick={() => setCancelConfirm({ open: true, id: b.id, mentorName })}
                             className="mt-1.5 w-full text-[10px] text-muted-foreground hover:text-destructive transition-colors text-left">
                             ✗ Скасувати

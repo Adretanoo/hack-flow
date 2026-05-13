@@ -112,6 +112,16 @@ export function MentorAvailabilityPage() {
     const e: Record<string, string> = {}
     if (!formDate) e.date = 'Оберіть дату'
     else if (formDate < TODAY_STR) e.date = 'Оберіть майбутню дату'
+    
+    // Check if time is in the past for today
+    if (formDate === TODAY_STR) {
+      const now = new Date()
+      const startTime = new Date(`${formDate}T${formStart}:00`)
+      if (startTime < now) {
+        e.range = 'Час початку вже минув. Оберіть час у майбутньому.'
+      }
+    }
+
     if (formEnd <= formStart) e.end = 'Кінець має бути пізніше початку'
     if (preview.length === 0 && !e.end) e.range = 'Збільшіть діапазон або зменшіть тривалість'
     setErrs(e); return Object.keys(e).length === 0
