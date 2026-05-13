@@ -103,7 +103,7 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
 
   const isHackingActive = (stageInfo.activeStage as any)?.type === 'HACKING' && stageInfo.canSubmit
   const hackingEndDate = (stageInfo.activeStage as any)?.endDate
-  const isEditing = editMode && status === 'DRAFT'
+  const isEditing = editMode && (status === 'DRAFT' || status === 'REJECTED')
   const canSubmit = status === 'DRAFT' && stageInfo.canSubmit && titleVal.trim().length > 0
 
   useEffect(() => {
@@ -127,6 +127,12 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
     mutationFn: (d: { title: string; description: string }) => projectsApi.update(project!.id, d),
     onSuccess: () => { toast.success('Збережено'); setEditMode(false); invalidate() },
     onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Помилка збереження'),
+  })
+
+  const reopenMut = useMutation({
+    mutationFn: () => projectsApi.reopen(project!.id),
+    onSuccess: () => { toast.success('Проєкт повернуто до чернетки'); setEditMode(true); invalidate() },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Помилка'),
   })
 
   const submitMut = useMutation({
@@ -273,9 +279,9 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
               </button>
             )}
             {status === 'REJECTED' && (
-              <button onClick={() => setEditMode(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-red-400 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100">
-                <RotateCcw className="h-3.5 w-3.5" /> Редагувати і переподати
+              <button onClick={() => reopenMut.mutate()} disabled={reopenMut.isPending}
+                className="flex items-center gap-1.5 rounded-lg border border-red-400 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-60">
+                <RotateCcw className="h-3.5 w-3.5" /> {reopenMut.isPending ? 'Відкриваємо...' : 'Редагувати і переподати'}
               </button>
             )}
           </div>
@@ -321,7 +327,7 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
         <div className="rounded-xl border border-border bg-card shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold flex items-center gap-2"><LinkIcon className="h-4 w-4 text-primary" /> Ресурси проєкту</h3>
-            {status === 'DRAFT' && !showResForm && (
+            {(status === 'DRAFT' || status === 'REJECTED') && !showResForm && (
               <button onClick={() => setShowResForm(true)}
                 className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-secondary/80">
               <Plus className="h-3.5 w-3.5" /> Додати ресурс
@@ -350,7 +356,7 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
                     </a>
                   </div>
                 </div>
-                {status === 'DRAFT' && (
+                {(status === 'DRAFT' || status === 'REJECTED') && (
                   deleteConfirm === res.id ? (
                     <div className="flex items-center gap-1 shrink-0 ml-2">
                       <span className="text-xs text-muted-foreground">Видалити?</span>

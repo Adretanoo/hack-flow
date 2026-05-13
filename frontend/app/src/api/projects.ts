@@ -13,6 +13,9 @@ export const projectsApi = {
 
   submit: (id: string) =>
     api.post<ApiResponse<Project>>(`/projects/${id}/submit`),
+
+  reopen: (id: string) =>
+    api.patch<ApiResponse<Project>>(`/projects/${id}/reopen`),
     
   update: (id: string, data: { title?: string; description?: string }) =>
     api.patch<ApiResponse<Project>>(`/projects/${id}`, data),
