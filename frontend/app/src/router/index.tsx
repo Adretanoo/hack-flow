@@ -19,13 +19,15 @@ import { JudgeScoresOverviewPage } from '@/pages/judge/JudgeScoresOverviewPage'
 import { JudgeConflictsPage } from '@/pages/judge/JudgeConflictsPage'
 import { MentorAvailabilityPage } from '@/pages/mentor/MentorAvailabilityPage'
 import { MentorSlotsPage } from '@/pages/mentor/MentorSlotsPage'
+import { AdminDashboardPage } from '@/pages/shared/AdminDashboardPage'
 
 import { useAuthStore } from '@/store/auth.store'
 
 function AppRedirect() {
   const { user } = useAuthStore()
   if (!user) return <Navigate to="/login" />
-  if (user.role === 'judge') return <Navigate to="/app/judge/projects" />
+  if (user.role === 'admin')  return <Navigate to="/app/admin" />
+  if (user.role === 'judge')  return <Navigate to="/app/judge/projects" />
   if (user.role === 'mentor') return <Navigate to="/app/mentor/slots" />
   return <Navigate to="/app/hackathons" />
 }
@@ -66,6 +68,7 @@ export const router = createBrowserRouter([
       { path: 'judge/conflicts', element: <RoleGuard roles={['judge', 'admin']}><JudgeConflictsPage /></RoleGuard> },
       { path: 'mentor/availability', element: <RoleGuard roles={['mentor', 'admin']}><MentorAvailabilityPage /></RoleGuard> },
       { path: 'mentor/slots', element: <RoleGuard roles={['mentor', 'admin']}><MentorSlotsPage /></RoleGuard> },
+      { path: 'admin', element: <RoleGuard roles={['admin']}><AdminDashboardPage /></RoleGuard> },
     ],
   },
 ])

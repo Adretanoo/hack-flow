@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Trophy, UserSearch, User, FileText, Star, AlertTriangle, Calendar, Clock } from 'lucide-react'
+import { Trophy, UserSearch, User, FileText, Star, AlertTriangle, Calendar, Clock, Shield } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
 import { useQuery } from '@tanstack/react-query'
 import { judgingApi } from '@/api/judging'
@@ -9,8 +9,9 @@ import { teamsApi } from '@/api/teams'
 export function Sidebar() {
   const { pathname } = useLocation()
   const { user } = useAuthStore()
-  const isJudge  = user?.role === 'judge'  || user?.role === 'admin'
-  const isMentor = user?.role === 'mentor' || user?.role === 'admin'
+  const isAdmin  = user?.role === 'admin'
+  const isJudge  = user?.role === 'judge'
+  const isMentor = user?.role === 'mentor'
 
   // ── Judge badge data ───────────────────────────────────────────
   const judgeHackathonId = typeof window !== 'undefined' ? localStorage.getItem('judge_hackathon') || '' : ''
@@ -60,6 +61,11 @@ export function Sidebar() {
     : 0
 
   // ── Nav items ──────────────────────────────────────────────────
+  const adminNav = [
+    { name: 'Панель адміна', href: '/app/admin',    icon: Shield,  badge: 0, badgeColor: '' },
+    { name: 'Профіль',       href: '/app/profile',  icon: User,    badge: 0, badgeColor: '' },
+  ]
+
   const judgeNav = [
     { name: 'Проєкти',    href: '/app/judge/projects',   icon: FileText,      badge: unscoredCount,       badgeColor: 'bg-red-500' },
     { name: 'Мої оцінки', href: '/app/judge/scores',     icon: Star,          badge: 0,                   badgeColor: '' },
@@ -79,7 +85,7 @@ export function Sidebar() {
     { name: 'Профіль',       href: '/app/profile',     icon: User,       badge: 0, badgeColor: '' },
   ]
 
-  const navItems = isJudge ? judgeNav : isMentor ? mentorNav : participantNav
+  const navItems = isAdmin ? adminNav : isJudge ? judgeNav : isMentor ? mentorNav : participantNav
 
   return (
     <div className="flex h-full w-64 flex-col border-r border-border bg-card">

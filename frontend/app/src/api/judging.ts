@@ -40,4 +40,13 @@ export const judgingApi = {
 
   getTeamsForJudge: (hackathonId: string) =>
     api.get<ApiResponse<any[]>>('/judging/teams', { params: { hackathonId } }),
+
+  getAllConflicts: (hackathonId?: string) =>
+    api.get<ApiResponse<any[]>>('/judging/conflicts/all', { params: hackathonId ? { hackathonId } : undefined }),
+
+  createCriteria: (data: { trackId: string; name: string; maxScore: number; weight: number; description?: string }) =>
+    api.post<ApiResponse<any>>('/judging/criteria', data),
+
+  deleteCriteria: (id: string) =>
+    api.delete<ApiResponse<any>>(`/judging/criteria/${id}`),
 }

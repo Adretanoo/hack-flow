@@ -53,6 +53,10 @@ export class MentorshipController {
     return reply.send({ success: true, data: await this.service.getRequestsByTeam(teamId) });
   }
 
+  async getAdminRequests(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    return reply.send({ success: true, data: await this.service.getAllRequests() });
+  }
+
   async createRequest(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const body = CreateMentorshipRequestSchema.parse(request.body);
     return reply.status(201).send({ success: true, data: await this.service.createRequest(body) });

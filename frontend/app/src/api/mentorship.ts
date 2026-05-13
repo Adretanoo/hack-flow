@@ -43,4 +43,7 @@ export const mentorshipApi = {
 
   getMyTracks: (hackathonId: string) =>
     api.get<ApiResponse<{ track: any }[]>>('/mentorship/my-tracks', { params: { hackathonId } }),
+
+  getAllRequests: () =>
+    api.get<ApiResponse<any[]>>('/mentorship/requests/all'),
 }

@@ -115,6 +115,19 @@ export class MentorshipRepository {
     });
   }
 
+  /** Admin: get ALL mentorship requests across all hackathons with full relations */
+  async findAllRequests() {
+    return this.db.query.mentorRequests.findMany({
+      with: {
+        availability: {
+          with: { mentor: true, track: true, hackathon: true },
+        },
+        team: true,
+      },
+      orderBy: [desc(mentorRequests.createdAt)],
+    });
+  }
+
   async findRequestById(id: string) {
     const [row] = await this.db
       .select()
