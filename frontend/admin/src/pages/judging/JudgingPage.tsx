@@ -78,6 +78,14 @@ export function JudgingPage() {
     },
   })
 
+  const updateCriteriaMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any; trackId: string }) => judgingApi.updateCriteria(id, data),
+    onSuccess: (_, vars) => {
+      toast.success('Критерій оновлено')
+      qc.invalidateQueries({ queryKey: ['criteria', vars.trackId] })
+    },
+  })
+
   const hackathons = hackData?.data.data ?? []
 
   if (!hackathonId) {
@@ -165,7 +173,8 @@ export function JudgingPage() {
                 setNewCriteria={setNewCriteria}
                 onCreate={(data) => createCriteriaMut.mutate(data)}
                 onDelete={(id) => deleteCriteriaMut.mutate({ id, trackId: track.id })}
-                isLoading={createCriteriaMut.isPending || deleteCriteriaMut.isPending}
+                onUpdate={(id, data) => updateCriteriaMut.mutate({ id, data, trackId: track.id })}
+                isLoading={createCriteriaMut.isPending || deleteCriteriaMut.isPending || updateCriteriaMut.isPending}
               />
             ))
           )}
@@ -253,21 +262,36 @@ export function JudgingPage() {
 }
 
 function TrackCriteriaSection({ 
-  track, newCriteria, setNewCriteria, onCreate, onDelete, isLoading 
+  track, newCriteria, setNewCriteria, onCreate, onDelete, onUpdate, isLoading 
 }: { 
-  track: Track; newCriteria: any; setNewCriteria: any; onCreate: (v: any) => void; onDelete: (id: string) => void; isLoading: boolean 
+  track: Track; newCriteria: any; setNewCriteria: any; onCreate: (v: any) => void; onDelete: (id: string) => void; onUpdate: (id: string, data: any) => void; isLoading: boolean 
 }) {
   const { data } = useQuery({
     queryKey: ['criteria', track.id],
     queryFn: () => judgingApi.listCriteria(track.id),
   })
 
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', maxScore: 10, weight: 0.1 })
+
   const criteriaList = (data?.data.data ?? []) as Criteria[]
   const totalWeight = useMemo(() => criteriaList.reduce((sum, c) => sum + Number(c.weight), 0), [criteriaList])
   const isOverweight = totalWeight > 1.0
 
+  const handleStartEdit = (c: Criteria) => {
+    setEditingId(c.id)
+    setEditForm({ name: c.name, maxScore: c.maxScore, weight: Number(c.weight) })
+  }
+
+  const handleSaveEdit = () => {
+    if (editingId) {
+      onUpdate(editingId, editForm)
+      setEditingId(null)
+    }
+  }
+
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
       <div className="bg-muted/30 px-5 py-4 flex items-center justify-between border-b border-border">
         <h3 className="font-semibold">{track.name}</h3>
         <span className={clsx("text-sm font-medium", isOverweight ? "text-destructive" : "text-muted-foreground")}>
@@ -283,47 +307,78 @@ function TrackCriteriaSection({
           </div>
         )}
 
-        <div className="space-y-2">
+        <div className="space-y-3">
           {criteriaList.map((c) => (
-            <div key={c.id} className="flex items-center justify-between rounded-lg border border-border p-3 text-sm hover:bg-muted/20 transition-colors">
-              <div>
-                <p className="font-medium">{c.name}</p>
-                <p className="text-xs text-muted-foreground">Макс. бал: {c.maxScore} • Вага: {c.weight}</p>
-              </div>
-              <button onClick={() => onDelete(c.id)} disabled={isLoading} className="text-xs text-destructive hover:underline disabled:opacity-50">
-                Видалити
-              </button>
+            <div key={c.id} className="rounded-lg border border-border p-4 text-sm hover:bg-muted/5 transition-colors">
+              {editingId === c.id ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="col-span-2">
+                      <input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                        className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm" placeholder="Назва" />
+                    </div>
+                    <div>
+                      <input type="number" step="0.1" value={editForm.weight} onChange={e => setEditForm({ ...editForm, weight: parseFloat(e.target.value) })}
+                        className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm" placeholder="Вага" />
+                    </div>
+                    <div>
+                      <input type="number" value={editForm.maxScore} onChange={e => setEditForm({ ...editForm, maxScore: parseInt(e.target.value) })}
+                        className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm" placeholder="Макс. бал" />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setEditingId(null)} className="text-xs text-muted-foreground hover:underline">Скасувати</button>
+                    <button onClick={handleSaveEdit} disabled={isLoading || !editForm.name} className="text-xs font-bold text-primary hover:underline disabled:opacity-50">Зберегти</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-foreground">{c.name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Макс. бал: <span className="font-medium text-foreground">{c.maxScore}</span> • Вага: <span className="font-medium text-foreground">{c.weight}</span></p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => handleStartEdit(c)} disabled={isLoading} className="text-xs text-primary hover:underline disabled:opacity-50 font-medium">
+                      Редагувати
+                    </button>
+                    <button onClick={() => onDelete(c.id)} disabled={isLoading} className="text-xs text-destructive hover:underline disabled:opacity-50 font-medium">
+                      Видалити
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
-          {criteriaList.length === 0 && <p className="text-sm text-muted-foreground italic">Критеріїв ще немає.</p>}
+          {criteriaList.length === 0 && <p className="text-sm text-muted-foreground italic text-center py-4">Критеріїв ще немає.</p>}
         </div>
 
-        <div className="flex flex-wrap items-end gap-3 pt-4 border-t border-border mt-4">
+        <div className="flex flex-wrap items-end gap-3 pt-6 border-t border-border mt-4">
           <div className="flex-1 min-w-[200px]">
-            <label className="text-xs text-muted-foreground mb-1 block">Назва критерію</label>
+            <label className="text-xs font-bold text-muted-foreground mb-1.5 block">Новий критерій</label>
             <input type="text" value={newCriteria.trackId === track.id ? newCriteria.name : ''}
               onChange={(e) => setNewCriteria({ ...newCriteria, trackId: track.id, name: e.target.value })}
-              className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm" />
+              placeholder="Назва (напр. Дизайн)"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
           </div>
           <div className="w-24">
-            <label className="text-xs text-muted-foreground mb-1 block">Вага (0-1)</label>
+            <label className="text-xs font-bold text-muted-foreground mb-1.5 block">Вага (0-1)</label>
             <input type="number" step="0.1" min="0.1" max="1.0"
               value={newCriteria.trackId === track.id ? newCriteria.weight : ''}
               onChange={(e) => setNewCriteria({ ...newCriteria, trackId: track.id, weight: parseFloat(e.target.value) })}
-              className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm" />
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
           </div>
           <div className="w-24">
-            <label className="text-xs text-muted-foreground mb-1 block">Макс. бал</label>
+            <label className="text-xs font-bold text-muted-foreground mb-1.5 block">Макс. бал</label>
             <input type="number" min="1"
               value={newCriteria.trackId === track.id ? newCriteria.maxScore : ''}
               onChange={(e) => setNewCriteria({ ...newCriteria, trackId: track.id, maxScore: parseInt(e.target.value) })}
-              className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm" />
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
           </div>
           <button 
             disabled={isLoading || newCriteria.trackId !== track.id || !newCriteria.name}
             onClick={() => onCreate(newCriteria)}
-            className="rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50 h-8">
-            <Plus className="h-4 w-4" />
+            className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50 h-[38px] transition-colors font-bold flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Додати
           </button>
         </div>
       </div>

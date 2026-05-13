@@ -14,6 +14,9 @@ export const judgingApi = {
   deleteCriteria: (id: string) =>
     api.delete(`/judging/criteria/${id}`),
 
+  updateCriteria: (id: string, data: { name?: string; maxScore?: number; weight?: number; description?: string }) =>
+    api.patch<ApiResponse<Criteria>>(`/judging/criteria/${id}`, data),
+
   getProjectScores: (projectId: string) =>
     api.get<ApiResponse<Score[]>>(`/judging/scores/project/${projectId}`),
 

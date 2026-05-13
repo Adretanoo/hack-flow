@@ -36,6 +36,10 @@ export class JudgingService {
     await this.repo.deleteCriteria(id);
   }
 
+  async updateCriteria(id: string, dto: any) {
+    return this.repo.updateCriteria(id, dto);
+  }
+
   // ── Scores ───────────────────────────────────────────────
   async getScoresForProject(projectId: string) {
     return this.repo.findScoresByProject(projectId);

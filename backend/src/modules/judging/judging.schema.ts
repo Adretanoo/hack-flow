@@ -39,6 +39,14 @@ export const AllConflictsQuerySchema = z.object({
 
 export const UuidParamSchema = z.object({ id: z.string().uuid() });
 
+export const UpdateCriteriaSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  weight: z.number().positive().max(100).optional(),
+  maxScore: z.number().positive().max(100).optional(),
+  description: z.string().optional(),
+});
+
 export type CreateCriteriaDto = z.infer<typeof CreateCriteriaSchema>;
+export type UpdateCriteriaDto = z.infer<typeof UpdateCriteriaSchema>;
 export type SubmitScoreDto = z.infer<typeof SubmitScoreSchema>;
 export type ReportConflictDto = z.infer<typeof ReportConflictSchema>;

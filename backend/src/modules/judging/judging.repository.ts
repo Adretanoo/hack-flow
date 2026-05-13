@@ -29,6 +29,19 @@ export class JudgingRepository {
     await this.db.delete(criteria).where(eq(criteria.id, id));
   }
 
+  async updateCriteria(id: string, data: Partial<CreateCriteriaDto>) {
+    const values: any = { ...data };
+    if (data.weight !== undefined) values.weight = String(data.weight);
+    if (data.maxScore !== undefined) values.maxScore = String(data.maxScore);
+
+    const [row] = await this.db
+      .update(criteria)
+      .set(values)
+      .where(eq(criteria.id, id))
+      .returning();
+    return row;
+  }
+
   // ── Scores ───────────────────────────────────────────────
   async findScoresByProject(projectId: string) {
     return this.db

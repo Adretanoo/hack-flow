@@ -2,6 +2,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { JudgingService } from './judging.service';
 import {
   CreateCriteriaSchema,
+  UpdateCriteriaSchema,
   SubmitScoreSchema,
   ReportConflictSchema,
   UuidParamSchema,
@@ -27,6 +28,12 @@ export class JudgingController {
     const { id } = UuidParamSchema.parse(request.params);
     await this.service.deleteCriteria(id);
     return reply.status(204).send();
+  }
+
+  async updateCriteria(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    const body = UpdateCriteriaSchema.parse(request.body);
+    return reply.send({ success: true, data: await this.service.updateCriteria(id, body) });
   }
 
   async getProjectScores(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {

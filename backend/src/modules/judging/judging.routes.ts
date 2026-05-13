@@ -63,6 +63,25 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
     },
   }, (req, reply) => ctrl.deleteCriteria(req, reply));
 
+  app.patch('/criteria/:id', {
+    onRequest: [authenticate, authorize('admin')],
+    schema: {
+      tags: ['Judging'],
+      summary: 'Update scoring criteria — admin only',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', minLength: 2, maxLength: 100 },
+          description: { type: 'string' },
+          maxScore: { type: 'number', minimum: 1 },
+          weight: { type: 'number', minimum: 0 },
+        },
+      },
+    },
+  }, (req, reply) => ctrl.updateCriteria(req, reply));
+
   app.get('/scores/project/:id', {
     onRequest: [authenticate, authorize('admin', 'judge')],
     schema: {
