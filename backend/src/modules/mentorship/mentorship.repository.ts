@@ -96,10 +96,10 @@ export class MentorshipRepository {
 
   // ── Requests ─────────────────────────────────────────────
   async findRequestsByAvailability(mentorAvailabilityId: string) {
-    return this.db
-      .select()
-      .from(mentorRequests)
-      .where(eq(mentorRequests.mentorAvailabilityId, mentorAvailabilityId));
+    return this.db.query.mentorRequests.findMany({
+      where: eq(mentorRequests.mentorAvailabilityId, mentorAvailabilityId),
+      with: { team: true },
+    });
   }
 
   /** Find all requests made by a team (for participant's booking view). */

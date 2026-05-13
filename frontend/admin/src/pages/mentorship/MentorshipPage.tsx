@@ -103,29 +103,38 @@ export function MentorshipPage() {
             <div className="col-span-full"><EmptyState title="Немає доступностей" description="Ментори ще не додали свої слоти." /></div>
           ) : (
             availabilities.map((avail) => (
-              <div key={avail.id} className="rounded-xl border border-border bg-card p-5 space-y-4">
+              <div key={avail.id} className="rounded-xl border border-border bg-card p-5 space-y-4 hover:border-primary/30 transition-colors shadow-sm">
                 <div className="flex items-center gap-3">
                   {avail.mentor?.avatarUrl ? (
-                    <img src={avail.mentor.avatarUrl} className="h-10 w-10 rounded-full object-cover" alt="" />
+                    <img src={avail.mentor.avatarUrl} className="h-10 w-10 rounded-full object-cover border border-border" alt="" />
                   ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold border border-primary/20">
                       {avail.mentor?.fullName?.[0]}
                     </div>
                   )}
                   <div>
-                    <h3 className="font-semibold leading-tight">{avail.mentor?.fullName}</h3>
-                    <p className="text-xs text-muted-foreground">{avail.mentor?.email}</p>
+                    <h3 className="font-bold leading-tight">{avail.mentor?.fullName}</h3>
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{avail.mentor?.email}</p>
                   </div>
                 </div>
                 
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2"><Clock className="h-4 w-4 shrink-0" /> {formatDateTime(avail.startDatetime)}</div>
-                  {avail.track && <div className="flex items-center gap-2"><User className="h-4 w-4 shrink-0" /> Трек: {avail.track.name}</div>}
-                  <div className="flex items-center gap-2"><Calendar className="h-4 w-4 shrink-0" /> Заброньовано слотів: {avail._count?.slots ?? 0}</div>
+                <div className="space-y-2.5 text-sm">
+                  <div className="flex items-center gap-2.5 text-muted-foreground">
+                    <Clock className="h-4 w-4 shrink-0 text-primary" /> 
+                    <span>{formatDateTime(avail.startDatetime)}</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-muted-foreground">
+                    <User className="h-4 w-4 shrink-0 text-primary" /> 
+                    <span>Трек: <span className="font-medium text-foreground">{avail.track?.name ?? 'Всі треки'}</span></span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-muted-foreground">
+                    <Calendar className="h-4 w-4 shrink-0 text-primary" /> 
+                    <span>Заброньовано: <span className="font-bold text-foreground">{(avail as any).slots?.length ?? 0}</span> слотів</span>
+                  </div>
                 </div>
 
                 <button onClick={() => setSelectedAvailabilityId(avail.id)}
-                  className="w-full rounded-lg bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors">
+                  className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-all shadow-sm active:scale-[0.98]">
                   Переглянути слоти
                 </button>
               </div>
@@ -135,11 +144,19 @@ export function MentorshipPage() {
       ) : (
         <DataTable
           columns={[
-            { key: 'mentor', header: 'Ментор', render: (a) => <span className="font-medium">{a.mentor?.fullName}</span> },
-            { key: 'track', header: 'Трек', render: (a) => <span className="text-muted-foreground">{a.track?.name ?? '—'}</span> },
-            { key: 'start', header: 'Початок', render: (a) => <span>{formatDateTime(a.startDatetime)}</span> },
-            { key: 'end', header: 'Кінець', render: (a) => <span>{formatDateTime(a.endDatetime)}</span> },
-            { key: 'slots', header: 'Слоти', render: (a) => <span>{a._count?.slots ?? 0}</span> },
+            { key: 'mentor', header: 'Ментор', render: (a) => <span className="font-bold">{a.mentor?.fullName}</span> },
+            { key: 'track', header: 'Трек', render: (a) => (
+              <span className={clsx("px-2 py-1 rounded text-xs font-bold", a.track ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
+                {a.track?.name ?? 'Всі треки'}
+              </span>
+            ) },
+            { key: 'start', header: 'Початок', render: (a) => <span className="text-sm font-medium">{formatDateTime(a.startDatetime)}</span> },
+            { key: 'end', header: 'Кінець', render: (a) => <span className="text-sm text-muted-foreground">{formatDateTime(a.endDatetime)}</span> },
+            { key: 'slots', header: 'Слоти', className: 'text-center', render: (a) => (
+              <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-muted text-[10px] font-bold">
+                {(a as any).slots?.length ?? 0}
+              </span>
+            ) },
           ]}
           data={availabilities}
           emptyTitle="Немає доступностей"

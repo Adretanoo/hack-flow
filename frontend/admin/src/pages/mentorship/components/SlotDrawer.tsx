@@ -22,7 +22,9 @@ export function SlotDrawer({ availabilityId, onClose }: SlotDrawerProps) {
 
   const statusMut = useMutation({
     mutationFn: ({ slotId, status }: { slotId: string; status: 'completed' | 'cancelled' }) =>
-      mentorshipApi.updateSlotStatus(slotId, status),
+      status === 'completed' 
+        ? mentorshipApi.completeSlot(slotId) 
+        : mentorshipApi.cancelSlot(slotId),
     onSuccess: () => {
       toast.success('Статус оновлено')
       qc.invalidateQueries({ queryKey: ['slots', availabilityId] })
