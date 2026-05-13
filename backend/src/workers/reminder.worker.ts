@@ -11,7 +11,7 @@ import { popDueReminders } from '../services/reminder.service';
 import { sendMentorReminderEmail } from '../services/email.service';
 import { getDatabaseConnection } from '../config/database';
 import {
-  mentorSlots,
+  mentorRequests,
   mentorAvailabilities,
   teamMembers,
   users,
@@ -36,15 +36,15 @@ async function tick(): Promise<void> {
 
   for (const job of jobs) {
     try {
-      // 1. Verify slot is still booked (may have been cancelled after scheduling)
-      const [slot] = await db
+      // 1. Verify request is still accepted (may have been cancelled after scheduling)
+      const [request] = await db
         .select()
-        .from(mentorSlots)
-        .where(eq(mentorSlots.id, job.slotId))
+        .from(mentorRequests)
+        .where(eq(mentorRequests.id, job.slotId))
         .limit(1);
 
-      if (!slot || slot.status !== 'booked') {
-        console.info(`[reminder-worker] Skipping slot ${job.slotId} — status: ${slot?.status ?? 'not found'}`);
+      if (!request || request.status !== 'accepted') {
+        console.info(`[reminder-worker] Skipping request ${job.slotId} — status: ${request?.status ?? 'not found'}`);
         continue;
       }
 
@@ -52,7 +52,7 @@ async function tick(): Promise<void> {
       const [availability] = await db
         .select({ mentorId: mentorAvailabilities.mentorId })
         .from(mentorAvailabilities)
-        .where(eq(mentorAvailabilities.id, slot.mentorAvailabilityId))
+        .where(eq(mentorAvailabilities.id, request.mentorAvailabilityId))
         .limit(1);
 
       const mentorId = availability?.mentorId ?? job.mentorId;

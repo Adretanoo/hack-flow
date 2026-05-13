@@ -1,7 +1,7 @@
 import type { Database } from '../../config/database';
-import { mentorAvailabilities, mentorSlots } from '../../drizzle/schema';
-import { eq, and, gte, lte } from 'drizzle-orm';
-import type { CreateAvailabilityDto, BookSlotDto } from './mentorship.schema';
+import { mentorAvailabilities, mentorRequests } from '../../drizzle/schema';
+import { eq, and, gte, lte, lt, gt, ne, inArray } from 'drizzle-orm';
+import type { CreateAvailabilityDto, CreateMentorshipRequestDto } from './mentorship.schema';
 
 export class MentorshipRepository {
   constructor(private readonly db: Database) {}
@@ -31,13 +31,16 @@ export class MentorshipRepository {
 
   /** Find all availabilities across all mentors, with optional hackathonId filter. */
   async findAllAvailabilities(hackathonId?: string) {
-    if (hackathonId) {
-      return this.db
-        .select()
-        .from(mentorAvailabilities)
-        .where(eq(mentorAvailabilities.hackathonId, hackathonId));
-    }
-    return this.db.select().from(mentorAvailabilities);
+    return this.db.query.mentorAvailabilities.findMany({
+      where: hackathonId ? eq(mentorAvailabilities.hackathonId, hackathonId) : undefined,
+      with: {
+        mentor: true,
+        track: true,
+        slots: {
+          with: { team: true }
+        }
+      }
+    });
   }
 
   async findAvailabilityById(id: string) {
@@ -47,6 +50,19 @@ export class MentorshipRepository {
       .where(eq(mentorAvailabilities.id, id))
       .limit(1);
     return row ?? null;
+  }
+
+  async findOverlappingAvailabilities(mentorId: string, start: Date, end: Date) {
+    return this.db
+      .select()
+      .from(mentorAvailabilities)
+      .where(
+        and(
+          eq(mentorAvailabilities.mentorId, mentorId),
+          lt(mentorAvailabilities.startDatetime, end),
+          gt(mentorAvailabilities.endDatetime, start),
+        ),
+      );
   }
 
   async createAvailability(mentorId: string, data: CreateAvailabilityDto) {
@@ -68,56 +84,78 @@ export class MentorshipRepository {
     await this.db.delete(mentorAvailabilities).where(eq(mentorAvailabilities.id, id));
   }
 
-  // ── Slots ────────────────────────────────────────────────
-  async findSlotsByAvailability(mentorAvailabilityId: string) {
-    return this.db
-      .select()
-      .from(mentorSlots)
-      .where(eq(mentorSlots.mentorAvailabilityId, mentorAvailabilityId));
+  async findActiveRequestsByAvailabilityWithTeam(availabilityId: string) {
+    return this.db.query.mentorRequests.findMany({
+      where: and(
+        eq(mentorRequests.mentorAvailabilityId, availabilityId),
+        inArray(mentorRequests.status, ['pending', 'accepted']),
+      ),
+      with: { team: true },
+    });
   }
 
-  async findSlotById(id: string) {
+  // ── Requests ─────────────────────────────────────────────
+  async findRequestsByAvailability(mentorAvailabilityId: string) {
+    return this.db
+      .select()
+      .from(mentorRequests)
+      .where(eq(mentorRequests.mentorAvailabilityId, mentorAvailabilityId));
+  }
+
+  async findRequestById(id: string) {
     const [row] = await this.db
       .select()
-      .from(mentorSlots)
-      .where(eq(mentorSlots.id, id))
+      .from(mentorRequests)
+      .where(eq(mentorRequests.id, id))
       .limit(1);
     return row ?? null;
   }
 
-  async findOverlappingSlots(mentorAvailabilityId: string, start: Date, end: Date) {
+  async findOverlappingRequests(mentorAvailabilityId: string, start: Date, end: Date) {
+    // Only consider pending or accepted requests as overlapping
     return this.db
       .select()
-      .from(mentorSlots)
+      .from(mentorRequests)
       .where(
         and(
-          eq(mentorSlots.mentorAvailabilityId, mentorAvailabilityId),
-          lte(mentorSlots.startDatetime, end),
-          gte(mentorSlots.startDatetime, start),
+          eq(mentorRequests.mentorAvailabilityId, mentorAvailabilityId),
+          lt(mentorRequests.startDatetime, end),
+          gt(mentorRequests.startDatetime, start),
+          ne(mentorRequests.status, 'rejected'),
+          ne(mentorRequests.status, 'cancelled')
         ),
       );
   }
 
-  async createSlot(data: BookSlotDto) {
+  async createRequest(data: CreateMentorshipRequestDto) {
     const [row] = await this.db
-      .insert(mentorSlots)
+      .insert(mentorRequests)
       .values({
         mentorAvailabilityId: data.mentorAvailabilityId,
-        teamId: data.teamId,
+        teamId: data.teamId ?? null,
         startDatetime: new Date(data.startDatetime),
         durationMinute: data.durationMinute,
-        meetingLink: data.meetingLink,
+        message: data.message,
+        status: data.teamId ? 'pending' : 'blocked',
       })
       .returning();
     return row;
   }
 
-  async updateSlotStatus(id: string, status: 'booked' | 'completed' | 'cancelled') {
+  async updateRequestStatus(id: string, status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled' | 'blocked', meetingLink?: string) {
+    const updateData: any = { status, updatedAt: new Date() };
+    if (meetingLink !== undefined) {
+      updateData.meetingLink = meetingLink;
+    }
     const [row] = await this.db
-      .update(mentorSlots)
-      .set({ status })
-      .where(eq(mentorSlots.id, id))
+      .update(mentorRequests)
+      .set(updateData)
+      .where(eq(mentorRequests.id, id))
       .returning();
     return row ?? null;
+  }
+  
+  async deleteRequest(id: string) {
+    await this.db.delete(mentorRequests).where(eq(mentorRequests.id, id));
   }
 }

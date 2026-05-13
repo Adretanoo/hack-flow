@@ -2,10 +2,11 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { MentorshipService } from './mentorship.service';
 import {
   CreateAvailabilitySchema,
-  BookSlotSchema,
-  UpdateSlotStatusSchema,
-  UuidParamSchema,
   AvailabilityQuerySchema,
+  CreateMentorshipRequestSchema,
+  AcceptMentorshipRequestSchema,
+  BlockMentorshipSlotSchema,
+  UuidParamSchema,
 } from './mentorship.schema';
 import type { JwtPayload } from '../../common/middleware/auth.middleware';
 
@@ -37,23 +38,49 @@ export class MentorshipController {
 
   async deleteAvailability(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const { id } = UuidParamSchema.parse(request.params);
-    await this.service.deleteAvailability(id);
-    return reply.status(204).send();
+    const result = await this.service.deleteAvailability(id);
+    return reply.send({ success: true, data: result });
   }
 
-  async getSlots(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+  async getRequests(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const { id } = UuidParamSchema.parse(request.params);
-    return reply.send({ success: true, data: await this.service.getSlotsByAvailability(id) });
+    return reply.send({ success: true, data: await this.service.getRequestsByAvailability(id) });
   }
 
-  async bookSlot(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
-    const body = BookSlotSchema.parse(request.body);
-    return reply.status(201).send({ success: true, data: await this.service.bookSlot(body) });
+  async createRequest(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const body = CreateMentorshipRequestSchema.parse(request.body);
+    return reply.status(201).send({ success: true, data: await this.service.createRequest(body) });
   }
 
-  async updateSlotStatus(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+  async acceptRequest(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const { id } = UuidParamSchema.parse(request.params);
-    const body = UpdateSlotStatusSchema.parse(request.body);
-    return reply.send({ success: true, data: await this.service.updateSlotStatus(id, body) });
+    const body = AcceptMentorshipRequestSchema.parse(request.body);
+    return reply.send({ success: true, data: await this.service.acceptRequest(id, body.meetingLink, (request.user as JwtPayload).sub) });
+  }
+
+  async rejectRequest(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    return reply.send({ success: true, data: await this.service.rejectRequest(id, (request.user as JwtPayload).sub) });
+  }
+
+  async cancelRequest(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    return reply.send({ success: true, data: await this.service.cancelRequest(id, (request.user as JwtPayload).sub) });
+  }
+
+  async completeRequest(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    return reply.send({ success: true, data: await this.service.completeRequest(id, (request.user as JwtPayload).sub) });
+  }
+
+  async blockSlot(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    const body = BlockMentorshipSlotSchema.parse(request.body);
+    return reply.send({ success: true, data: await this.service.blockSlot(id, body.startDatetime, body.durationMinute, (request.user as JwtPayload).sub) });
+  }
+
+  async unblockSlot(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    return reply.send({ success: true, data: await this.service.unblockSlot(id, (request.user as JwtPayload).sub) });
   }
 }

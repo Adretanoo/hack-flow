@@ -1,11 +1,35 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import type { Hackathon, StageType } from '@/types/api.types'
 
+/** Live clock that ticks every minute — forces stage recalculation without page refresh */
+function useNow(intervalMs = 60_000): Date {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), intervalMs)
+    return () => clearInterval(id)
+  }, [intervalMs])
+  return now
+}
+
+const KNOWN_TYPES = new Set<string>(['REGISTRATION', 'HACKING', 'PRESENTATION', 'JUDGING', 'FINISHED'])
+
+function resolveType(stage: { type?: string; name?: string } | undefined): StageType {
+  if (!stage) return 'CUSTOM'
+  const t = stage.type ?? ''
+  if (t && t !== 'CUSTOM' && KNOWN_TYPES.has(t)) return t as StageType
+  const n = (stage.name ?? '').toUpperCase()
+  if (n && KNOWN_TYPES.has(n)) return n as StageType
+  return 'CUSTOM'
+}
+
 export function useHackathonStage(hackathon?: Hackathon) {
+  const now = useNow()   // re-evaluates every minute automatically
+
   return useMemo(() => {
     if (!hackathon?.stages || hackathon.stages.length === 0) {
       return {
         activeStage: null,
+        activeStageType: 'CUSTOM' as StageType,
         canRegister: false,
         canSubmit: false,
         canBookMentor: false,
@@ -13,45 +37,36 @@ export function useHackathonStage(hackathon?: Hackathon) {
       }
     }
 
-    const now = new Date()
-
     // Sort by orderIndex
     const sorted = [...hackathon.stages].sort(
       (a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0),
     )
 
-    // 1. "currentStage" — stage whose date window CONTAINS now.
-    //    Used for permissions (canRegister, canSubmit, etc.)
+    // 1. Current stage — whose date window CONTAINS now
     const currentStage = sorted.find((s) => {
       const start = new Date(s.startDate)
       const end = new Date(s.endDate)
       return now >= start && now <= end
     })
 
-    // 2. "displayStage" — what to show in the UI badge.
-    //    Falls back to the most recently ended stage, then to the next upcoming one.
+    // 2. Display stage — fallback to most recently ended, then first upcoming
     let displayStage = currentStage
-
     if (!displayStage) {
       const past = sorted.filter((s) => new Date(s.endDate) < now)
       if (past.length > 0) displayStage = past[past.length - 1]
     }
+    if (!displayStage) displayStage = sorted[0]
 
-    if (!displayStage) {
-      displayStage = sorted[0]
-    }
-
-    // Permissions are based on CURRENT stage only — a past REGISTRATION
-    // stage must NOT re-enable canRegister.
-    const type: StageType = currentStage?.type ?? 'CUSTOM'
+    // 3. Resolve effective type (handles NULL/CUSTOM type in DB by falling back to name)
+    const type = resolveType(currentStage)
 
     return {
       activeStage: displayStage,
+      activeStageType: type,
       canRegister:    type === 'REGISTRATION',
       canSubmit:      type === 'HACKING',
       canBookMentor:  type === 'HACKING',
       canViewResults: type === 'JUDGING' || type === 'FINISHED' || hackathon.status === 'ARCHIVED',
     }
-  }, [hackathon])
+  }, [hackathon, now])
 }
-

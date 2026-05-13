@@ -5,11 +5,12 @@ import { useNotificationsStore } from '@/store/notifications.store'
 import { formatDistanceToNow } from 'date-fns'
 import { uk } from 'date-fns/locale'
 
-const statusStyles = {
+const statusStyles: Record<string, { bg: string; dot: string; text: string }> = {
   APPROVED:     { bg: 'bg-green-50 border-green-100',  dot: 'bg-green-500',  text: 'text-green-800' },
   REJECTED:     { bg: 'bg-red-50 border-red-100',      dot: 'bg-red-500',    text: 'text-red-800' },
   DISQUALIFIED: { bg: 'bg-orange-50 border-orange-100', dot: 'bg-orange-500', text: 'text-orange-800' },
   PENDING:      { bg: 'bg-amber-50 border-amber-100',  dot: 'bg-amber-500',  text: 'text-amber-800' },
+  SLOT_CANCELLED: { bg: 'bg-purple-50 border-purple-100', dot: 'bg-purple-500', text: 'text-purple-800' },
 }
 
 export function NotificationBell() {
@@ -120,7 +121,7 @@ export function NotificationBell() {
                     {/* Status dot */}
                     <div className="mt-0.5 shrink-0">
                       <span className={`flex h-8 w-8 items-center justify-center rounded-full ${styles.bg} border text-base`}>
-                        {n.status === 'APPROVED' ? '✅' : n.status === 'REJECTED' ? '❌' : n.status === 'PENDING' ? '⏳' : '🚫'}
+                        {n.status === 'APPROVED' ? '✅' : n.status === 'REJECTED' ? '❌' : n.status === 'PENDING' ? '⏳' : n.status === 'SLOT_CANCELLED' ? '🗓️' : '🚫'}
                       </span>
                     </div>
 

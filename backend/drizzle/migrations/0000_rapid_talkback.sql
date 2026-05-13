@@ -5,13 +5,19 @@ EXCEPTION
 END $$;
 --> statement-breakpoint
 DO $$ BEGIN
+ CREATE TYPE "public"."join_request_status" AS ENUM('pending', 'accepted', 'rejected');
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
  CREATE TYPE "public"."mentor_availability_status" AS ENUM('available', 'blocked');
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 --> statement-breakpoint
 DO $$ BEGIN
- CREATE TYPE "public"."mentor_slot_status" AS ENUM('booked', 'completed', 'cancelled');
+ CREATE TYPE "public"."mentor_request_status" AS ENUM('pending', 'accepted', 'rejected', 'completed', 'cancelled');
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -30,6 +36,12 @@ END $$;
 --> statement-breakpoint
 DO $$ BEGIN
  CREATE TYPE "public"."social_type" AS ENUM('discord', 'telegram', 'viber', 'github');
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ CREATE TYPE "public"."stage_type" AS ENUM('REGISTRATION', 'HACKING', 'PRESENTATION', 'JUDGING', 'FINISHED', 'CUSTOM');
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -120,17 +132,31 @@ CREATE TABLE IF NOT EXISTS "mentor_availabilities" (
 	"track_id" uuid,
 	"start_datetime" timestamp NOT NULL,
 	"end_datetime" timestamp NOT NULL,
+	"slot_duration" integer DEFAULT 30 NOT NULL,
 	"status" "mentor_availability_status" DEFAULT 'available' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "mentor_slots" (
+CREATE TABLE IF NOT EXISTS "mentor_requests" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"mentor_availability_id" uuid NOT NULL,
 	"team_id" uuid NOT NULL,
 	"start_datetime" timestamp NOT NULL,
 	"duration_minute" integer NOT NULL,
-	"status" "mentor_slot_status" DEFAULT 'booked' NOT NULL,
-	"meeting_link" text
+	"message" text,
+	"status" "mentor_request_status" DEFAULT 'pending' NOT NULL,
+	"meeting_link" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "mentor_track" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"track_id" uuid NOT NULL,
+	"hackathon_id" uuid NOT NULL,
+	"assigned_at" timestamp DEFAULT now() NOT NULL,
+	"assigned_by" uuid,
+	CONSTRAINT "mentor_track_user_id_track_id_unique" UNIQUE("user_id","track_id")
 );
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "physical_gifts" (
@@ -160,8 +186,11 @@ CREATE TABLE IF NOT EXISTS "projects" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"team_id" uuid NOT NULL,
 	"stage_id" uuid NOT NULL,
+	"title" varchar(255),
+	"description" text,
 	"status" "project_status" DEFAULT 'DRAFT' NOT NULL,
 	"submitted_at" timestamp,
+	"submitted_late_by_minutes" integer,
 	"reviewed_at" timestamp,
 	"comment" text,
 	"deleted_at" timestamp,
@@ -197,9 +226,11 @@ CREATE TABLE IF NOT EXISTS "stages" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"hackathon_id" uuid NOT NULL,
 	"name" varchar(255) NOT NULL,
+	"type" "stage_type" DEFAULT 'CUSTOM' NOT NULL,
 	"order_index" integer NOT NULL,
 	"start_date" timestamp NOT NULL,
-	"end_date" timestamp NOT NULL
+	"end_date" timestamp NOT NULL,
+	"description" text
 );
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "student_groups" (
@@ -243,6 +274,16 @@ CREATE TABLE IF NOT EXISTS "team_invites" (
 	CONSTRAINT "team_invites_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "team_join_requests" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"team_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"message" text,
+	"status" "join_request_status" DEFAULT 'pending' NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "team_members" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"team_id" uuid NOT NULL,
@@ -275,7 +316,11 @@ CREATE TABLE IF NOT EXISTS "tracks" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"hackathon_id" uuid NOT NULL,
 	"name" varchar(255) NOT NULL,
-	"description" text
+	"description" text,
+	"guidelines" text,
+	"allowed_technologies" text,
+	"expected_outcome" text,
+	"external_url" varchar(500)
 );
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "user_action_logs" (
@@ -408,13 +453,37 @@ EXCEPTION
 END $$;
 --> statement-breakpoint
 DO $$ BEGIN
- ALTER TABLE "mentor_slots" ADD CONSTRAINT "mentor_slots_mentor_availability_id_mentor_availabilities_id_fk" FOREIGN KEY ("mentor_availability_id") REFERENCES "public"."mentor_availabilities"("id") ON DELETE cascade ON UPDATE no action;
+ ALTER TABLE "mentor_requests" ADD CONSTRAINT "mentor_requests_mentor_availability_id_mentor_availabilities_id_fk" FOREIGN KEY ("mentor_availability_id") REFERENCES "public"."mentor_availabilities"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 --> statement-breakpoint
 DO $$ BEGIN
- ALTER TABLE "mentor_slots" ADD CONSTRAINT "mentor_slots_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
+ ALTER TABLE "mentor_requests" ADD CONSTRAINT "mentor_requests_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "mentor_track" ADD CONSTRAINT "mentor_track_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "mentor_track" ADD CONSTRAINT "mentor_track_track_id_tracks_id_fk" FOREIGN KEY ("track_id") REFERENCES "public"."tracks"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "mentor_track" ADD CONSTRAINT "mentor_track_hackathon_id_hackathons_id_fk" FOREIGN KEY ("hackathon_id") REFERENCES "public"."hackathons"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "mentor_track" ADD CONSTRAINT "mentor_track_assigned_by_users_id_fk" FOREIGN KEY ("assigned_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -523,6 +592,18 @@ END $$;
 --> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "team_invites" ADD CONSTRAINT "team_invites_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "team_join_requests" ADD CONSTRAINT "team_join_requests_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "team_join_requests" ADD CONSTRAINT "team_join_requests_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;

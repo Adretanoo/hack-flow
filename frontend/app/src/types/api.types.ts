@@ -244,14 +244,17 @@ export interface MentorAvailability {
   topics?: string[]
 }
 
-export interface MentorSlot {
+export interface MentorRequest {
   id: string
   mentorAvailabilityId: string
   teamId: string
   startDatetime: string
   durationMinute: number
+  message?: string | null
   meetingLink?: string | null
-  status: 'booked' | 'completed' | 'cancelled'
+  status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled'
+  createdAt: string
+  updatedAt: string
 }
 
 // ── Awards ────────────────────────────────────────────────────────────────

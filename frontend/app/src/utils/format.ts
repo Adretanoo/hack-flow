@@ -17,6 +17,24 @@ export function formatDateTime(dateStr: string): string {
   }
 }
 
+export function formatTime24h(dateStr: string | Date): string {
+  try {
+    const d = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr
+    return format(d, 'HH:mm')
+  } catch {
+    return String(dateStr)
+  }
+}
+
+export function formatDateTime24h(dateStr: string | Date): string {
+  try {
+    const d = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr
+    return format(d, 'dd MMM yyyy, HH:mm', { locale: uk })
+  } catch {
+    return String(dateStr)
+  }
+}
+
 export function formatRelative(dateStr: string | Date): string {
   try {
     const d = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr
@@ -51,4 +69,23 @@ export function getStatusLabel(status: string): string {
 
 export function truncate(str: string, n = 60): string {
   return str.length > n ? str.slice(0, n) + '…' : str
+}
+
+export function getMentorSlotStatusMeta(status: string) {
+  switch (status) {
+    case 'FREE':
+    case 'free':
+      return { label: 'Вільний', icon: '🟢', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' }
+    case 'PENDING':
+    case 'pending':
+      return { label: 'Очікує підтвердження', icon: '🟡', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' }
+    case 'BOOKED':
+    case 'booked':
+      return { label: 'Заброньовано', icon: '🔵', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' }
+    case 'COMPLETED':
+    case 'completed':
+      return { label: 'Завершено', icon: '⚫', className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300' }
+    default:
+      return { label: status, icon: '⚪', className: 'bg-muted text-muted-foreground' }
+  }
 }

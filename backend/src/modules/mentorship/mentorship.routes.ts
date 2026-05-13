@@ -43,15 +43,15 @@ export async function mentorshipRoutes(app: FastifyInstance): Promise<void> {
     },
   }, (req, reply) => ctrl.listAvailabilities(req, reply));
 
-  app.get('/availabilities/:id/slots', {
+  app.get('/availabilities/:id/requests', {
     onRequest: [authenticate],
     schema: {
       tags: ['Mentorship'],
-      summary: 'Get booked slots for an availability window',
+      summary: 'Get mentor requests for an availability window',
       security: Sec,
       params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
     },
-  }, (req, reply) => ctrl.getSlots(req, reply));
+  }, (req, reply) => ctrl.getRequests(req, reply));
 
   app.post('/availabilities', {
     onRequest: [authenticate, authorize('mentor')],
@@ -67,6 +67,7 @@ export async function mentorshipRoutes(app: FastifyInstance): Promise<void> {
           trackId: { type: 'string', format: 'uuid' },
           startDatetime: { type: 'string', format: 'date-time' },
           endDatetime: { type: 'string', format: 'date-time' },
+          slotDuration: { type: 'integer', minimum: 15, maximum: 120 },
           maxConcurrentSessions: { type: 'integer', minimum: 1, default: 1 },
           meetingLink: { type: 'string' },
           topics: { type: 'array', items: { type: 'string' } },
@@ -85,14 +86,12 @@ export async function mentorshipRoutes(app: FastifyInstance): Promise<void> {
     },
   }, (req, reply) => ctrl.deleteAvailability(req, reply));
 
-  app.post('/slots', {
+  app.post('/requests', {
     onRequest: [authenticate],
     schema: {
       tags: ['Mentorship'],
-      summary: 'Book a mentor slot (Redis-distributed-lock)',
-      description:
-        'Uses a 10-second Redis lock per availability to prevent double-booking. ' +
-        'Also schedules a 15-minute email reminder via Redis ZSET.',
+      summary: 'Create a mentorship request',
+      description: 'Uses a Redis lock to prevent concurrent overlapping requests.',
       security: Sec,
       body: {
         type: 'object',
@@ -102,25 +101,82 @@ export async function mentorshipRoutes(app: FastifyInstance): Promise<void> {
           teamId: { type: 'string', format: 'uuid' },
           startDatetime: { type: 'string', format: 'date-time' },
           durationMinute: { type: 'integer', minimum: 15, maximum: 120 },
-          meetingLink: { type: 'string' },
+          message: { type: 'string' },
         },
       },
     },
-  }, (req, reply) => ctrl.bookSlot(req, reply));
+  }, (req, reply) => ctrl.createRequest(req, reply));
 
-  app.patch('/slots/:id/status', {
-    onRequest: [authenticate],
+  app.patch('/requests/:id/accept', {
+    onRequest: [authenticate, authorize('mentor')],
     schema: {
       tags: ['Mentorship'],
-      summary: 'Update slot status (complete or cancel)',
-      description: 'Cancellation removes any pending email reminder from the Redis ZSET.',
+      summary: 'Accept a mentorship request',
       security: Sec,
       params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
       body: {
         type: 'object',
-        required: ['status'],
-        properties: { status: { type: 'string', enum: ['completed', 'cancelled'] } },
+        required: ['meetingLink'],
+        properties: { meetingLink: { type: 'string', format: 'uri' } },
       },
     },
-  }, (req, reply) => ctrl.updateSlotStatus(req, reply));
+  }, (req, reply) => ctrl.acceptRequest(req, reply));
+
+  app.patch('/requests/:id/reject', {
+    onRequest: [authenticate, authorize('mentor')],
+    schema: {
+      tags: ['Mentorship'],
+      summary: 'Reject a mentorship request',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.rejectRequest(req, reply));
+
+  app.patch('/requests/:id/cancel', {
+    onRequest: [authenticate],
+    schema: {
+      tags: ['Mentorship'],
+      summary: 'Cancel a mentorship request',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.cancelRequest(req, reply));
+
+  app.patch('/requests/:id/complete', {
+    onRequest: [authenticate, authorize('mentor', 'admin')],
+    schema: {
+      tags: ['Mentorship'],
+      summary: 'Complete a mentorship session',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.completeRequest(req, reply));
+
+  app.post('/availabilities/:id/block', {
+    onRequest: [authenticate, authorize('mentor')],
+    schema: {
+      tags: ['Mentorship'],
+      summary: 'Block a specific slot within an availability',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        required: ['startDatetime', 'durationMinute'],
+        properties: {
+          startDatetime: { type: 'string', format: 'date-time' },
+          durationMinute: { type: 'integer', minimum: 15, maximum: 120 },
+        },
+      },
+    },
+  }, (req, reply) => ctrl.blockSlot(req, reply));
+
+  app.delete('/requests/:id/unblock', {
+    onRequest: [authenticate, authorize('mentor')],
+    schema: {
+      tags: ['Mentorship'],
+      summary: 'Unblock a previously blocked slot',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.unblockSlot(req, reply));
 }

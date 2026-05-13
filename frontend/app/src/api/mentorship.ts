@@ -1,31 +1,46 @@
 import api from './client'
-import type { ApiResponse, PaginatedResponse, MentorSlot, MentorAvailability } from '@/types/api.types'
+import type { ApiResponse, PaginatedResponse, MentorRequest, MentorAvailability } from '@/types/api.types'
 
 export const mentorshipApi = {
   getAvailableMentors: (params?: { hackathonId?: string; trackId?: string }) =>
-    api.get<PaginatedResponse<MentorAvailability & { user: { fullName: string, avatarUrl: string | null } }>>('/mentorship/availability', { params }),
+    api.get<PaginatedResponse<MentorAvailability & { mentor: { fullName: string, avatarUrl: string | null } }>>('/mentorship/availabilities', { params }),
 
-  getMentorSlots: (availabilityId: string) =>
-    api.get<ApiResponse<MentorSlot[]>>(`/mentorship/availability/${availabilityId}/slots`),
+  getMentorRequests: (availabilityId: string) =>
+    api.get<ApiResponse<MentorRequest[]>>(`/mentorship/availabilities/${availabilityId}/requests`),
 
-  bookSlot: (slotId: string, teamId: string) =>
-    api.post<ApiResponse<MentorSlot>>(`/mentorship/slots/${slotId}/book`, { teamId }),
+  createRequest: (data: { mentorAvailabilityId: string, teamId: string, startDatetime: string, durationMinute: number, message?: string }) =>
+    api.post<ApiResponse<MentorRequest>>(`/mentorship/requests`, data),
 
-  getMyBookings: (teamId: string) =>
-    api.get<ApiResponse<(MentorSlot & { mentorAvailability: MentorAvailability & { user: { fullName: string } } })[]>>('/mentorship/slots', { params: { teamId } }),
+  getMyRequests: (teamId: string) =>
+    api.get<ApiResponse<(MentorRequest & { mentorAvailability: MentorAvailability & { user: { fullName: string } } })[]>>('/mentorship/requests', { params: { teamId } }),
 
-  cancelBooking: (slotId: string) =>
-    api.patch<ApiResponse<MentorSlot>>(`/mentorship/slots/${slotId}/status`, { status: 'cancelled' }),
+  cancelRequest: (requestId: string) =>
+    api.patch<ApiResponse<MentorRequest>>(`/mentorship/requests/${requestId}/cancel`),
 
-  completeBooking: (slotId: string) =>
-    api.patch<ApiResponse<MentorSlot>>(`/mentorship/slots/${slotId}/status`, { status: 'completed' }),
+  completeRequest: (requestId: string) =>
+    api.patch<ApiResponse<MentorRequest>>(`/mentorship/requests/${requestId}/complete`),
+
+  blockSlot: (availabilityId: string, data: { startDatetime: string, durationMinute: number }) =>
+    api.post<ApiResponse<MentorRequest>>(`/mentorship/availabilities/${availabilityId}/block`, data),
+
+  unblockSlot: (requestId: string) =>
+    api.delete<ApiResponse<{success: boolean}>>(`/mentorship/requests/${requestId}/unblock`),
+
+  acceptRequest: (requestId: string, meetingLink: string) =>
+    api.patch<ApiResponse<MentorRequest>>(`/mentorship/requests/${requestId}/accept`, { meetingLink }),
+
+  rejectRequest: (requestId: string) =>
+    api.patch<ApiResponse<MentorRequest>>(`/mentorship/requests/${requestId}/reject`),
 
   getMyAvailabilities: (hackathonId?: string) =>
-    api.get<ApiResponse<(MentorAvailability & { slots: (MentorSlot & { team: any })[], track: any })[]>>('/mentorship/availabilities/my', { params: { hackathonId } }),
+    api.get<ApiResponse<(MentorAvailability & { slots: (MentorRequest & { team: any })[], track: any })[]>>('/mentorship/availabilities/my', { params: { hackathonId } }),
 
   createAvailability: (data: { hackathonId?: string, trackId?: string, startDatetime: string, endDatetime: string, slotDuration: number }) =>
     api.post<ApiResponse<MentorAvailability>>('/mentorship/availabilities', data),
 
   deleteAvailability: (id: string) =>
-    api.delete(`/mentorship/availabilities/${id}`),
+    api.delete<ApiResponse<{ cancelledRequests: Array<{ id: string; teamId: string; teamName: string; startDatetime: string; durationMinute: number }> }>>(`/mentorship/availabilities/${id}`),
+
+  getMyTracks: (hackathonId: string) =>
+    api.get<ApiResponse<{ track: any }[]>>('/mentorship/my-tracks', { params: { hackathonId } }),
 }

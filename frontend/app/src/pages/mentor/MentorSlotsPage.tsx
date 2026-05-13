@@ -14,11 +14,11 @@ function fmtTime(d: Date) { return d.toLocaleTimeString([], { hour: '2-digit', m
 function fmtDayLabel(d: Date) { return `${UK_DAYS[d.getDay()]}, ${d.getDate()} ${UK_MONTHS[d.getMonth()]}` }
 function minutesUntil(d: Date) { return Math.floor((d.getTime() - Date.now()) / 60000) }
 
-type FilterType = 'all' | 'booked' | 'completed' | 'cancelled'
+type FilterType = 'all' | 'accepted' | 'completed' | 'cancelled'
 
 const EMPTY_MESSAGES: Record<FilterType, string> = {
   all:       'У вас ще немає заброньованих сесій',
-  booked:    'Немає запланованих сесій',
+  accepted:  'Немає запланованих сесій',
   completed: 'Ще немає завершених сесій',
   cancelled: 'Скасованих сесій немає',
 }
@@ -51,25 +51,25 @@ export function MentorSlotsPage() {
     ).sort((a: any, b: any) => new Date(a.startDatetime).getTime() - new Date(b.startDatetime).getTime())
   }, [availData])
 
-  const bookedSlots = allSlots.filter(s => s.status === 'booked')
+  const acceptedSlots = allSlots.filter(s => s.status === 'accepted')
 
   // Stats
   const stats = [
     { label: 'Всього',    value: allSlots.length,                                         icon: CalendarIcon, color: 'text-primary' },
     { label: 'Завершено', value: allSlots.filter(s => s.status === 'completed').length,    icon: CheckCircle,  color: 'text-green-600' },
-    { label: 'Очікує',   value: bookedSlots.length,                                       icon: Clock,        color: 'text-blue-600' },
+    { label: 'Заплановано', value: acceptedSlots.length,                                   icon: Clock,        color: 'text-blue-600' },
     { label: 'Скасовано', value: allSlots.filter(s => s.status === 'cancelled').length,   icon: XCircle,      color: 'text-muted-foreground' },
   ]
 
   // Today panel
   const todayStr  = now.toDateString()
-  const todaySlots = bookedSlots.filter(s => new Date(s.startDatetime).toDateString() === todayStr)
+  const todaySlots = acceptedSlots.filter(s => new Date(s.startDatetime).toDateString() === todayStr)
   const nextSlot   = todaySlots.find(s => new Date(s.startDatetime) > now)
   const minsToNext = nextSlot ? minutesUntil(new Date(nextSlot.startDatetime)) : null
   const isImminent = minsToNext !== null && minsToNext <= 30 && minsToNext >= 0
 
   // Upcoming alert (≤15 min)
-  const alertSlot = bookedSlots.find(s => {
+  const alertSlot = acceptedSlots.find(s => {
     const mins = minutesUntil(new Date(s.startDatetime))
     return mins <= 15 && mins >= 0
   })
@@ -94,7 +94,7 @@ export function MentorSlotsPage() {
   }
 
   const completeMut = useMutation({
-    mutationFn: (id: string) => mentorshipApi.completeBooking(id),
+    mutationFn: (id: string) => mentorshipApi.completeRequest(id),
     // Optimistic update
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: ['my-availabilities'] })
@@ -190,9 +190,9 @@ export function MentorSlotsPage() {
       <div className="flex gap-1 border-b border-border pb-1">
         {([
           { key: 'all',       label: 'Всі' },
-          { key: 'booked',    label: 'Очікувані' },
+          { key: 'accepted',  label: 'Заплановані' },
           { key: 'completed', label: 'Завершені' },
-          { key: 'cancelled', label: 'Скасовані' },
+          { key: 'cancelled', label: 'Скасовані / Відхилені' },
         ] as const).map(f => (
           <button
             key={f.key}
@@ -224,7 +224,7 @@ export function MentorSlotsPage() {
                   const end   = new Date(slot.endDatetime)
                   const durMins = Math.round((end.getTime() - start.getTime()) / 60000)
                   const mins  = minutesUntil(start)
-                  const slotImminent = slot.status === 'booked' && mins >= 0 && mins <= 30
+                  const slotImminent = slot.status === 'accepted' && mins >= 0 && mins <= 30
                   const isCompleted = slot.status === 'completed'
                   const isCancelled = slot.status === 'cancelled'
 

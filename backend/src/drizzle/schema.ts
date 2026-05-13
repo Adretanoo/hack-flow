@@ -57,10 +57,13 @@ export const mentorAvailabilityStatusEnum = pgEnum('mentor_availability_status',
   'blocked',
 ]);
 
-export const mentorSlotStatusEnum = pgEnum('mentor_slot_status', [
-  'booked',
+export const mentorRequestStatusEnum = pgEnum('mentor_request_status', [
+  'pending',
+  'accepted',
+  'rejected',
   'completed',
   'cancelled',
+  'blocked',
 ]);
 
 // ── Users ─────────────────────────────────────────────────────
@@ -373,18 +376,20 @@ export const mentorAvailabilities = pgTable('mentor_availabilities', {
   status: mentorAvailabilityStatusEnum('status').default('available').notNull(),
 });
 
-export const mentorSlots = pgTable('mentor_slots', {
+export const mentorRequests = pgTable('mentor_requests', {
   id: uuid('id').primaryKey().defaultRandom(),
   mentorAvailabilityId: uuid('mentor_availability_id')
     .notNull()
     .references(() => mentorAvailabilities.id, { onDelete: 'cascade' }),
   teamId: uuid('team_id')
-    .notNull()
     .references(() => teams.id, { onDelete: 'cascade' }),
   startDatetime: timestamp('start_datetime').notNull(),
   durationMinute: integer('duration_minute').notNull(),
-  status: mentorSlotStatusEnum('status').default('booked').notNull(),
+  message: text('message'),
+  status: mentorRequestStatusEnum('status').default('pending').notNull(),
   meetingLink: text('meeting_link'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 // ── Judging ───────────────────────────────────────────────────
@@ -574,12 +579,12 @@ export const judgeConflictsRelations = relations(judgeConflicts, ({ one }) => ({
 export const mentorAvailabilitiesRelations = relations(mentorAvailabilities, ({ one, many }) => ({
   mentor: one(users, { fields: [mentorAvailabilities.mentorId], references: [users.id] }),
   track: one(tracks, { fields: [mentorAvailabilities.trackId], references: [tracks.id] }),
-  slots: many(mentorSlots),
+  slots: many(mentorRequests),
 }));
 
-export const mentorSlotsRelations = relations(mentorSlots, ({ one }) => ({
-  availability: one(mentorAvailabilities, { fields: [mentorSlots.mentorAvailabilityId], references: [mentorAvailabilities.id] }),
-  team: one(teams, { fields: [mentorSlots.teamId], references: [teams.id] }),
+export const mentorRequestsRelations = relations(mentorRequests, ({ one }) => ({
+  availability: one(mentorAvailabilities, { fields: [mentorRequests.mentorAvailabilityId], references: [mentorAvailabilities.id] }),
+  team: one(teams, { fields: [mentorRequests.teamId], references: [teams.id] }),
 }));
 
 export const userActionLogsRelations = relations(userActionLogs, ({ one }) => ({

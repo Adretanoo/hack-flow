@@ -1,5 +1,5 @@
 {
-  "id": "45b2b24a-047b-45a8-ad7f-2c1ccd5591a9",
+  "id": "585ad5d0-eaa8-462e-aec0-3e864b23483f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "6",
   "dialect": "postgresql",
@@ -548,6 +548,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "slot_duration": {
+          "name": "slot_duration",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 30
+        },
         "status": {
           "name": "status",
           "type": "mentor_availability_status",
@@ -602,8 +609,8 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "public.mentor_slots": {
-      "name": "mentor_slots",
+    "public.mentor_requests": {
+      "name": "mentor_requests",
       "schema": "",
       "columns": {
         "id": {
@@ -637,26 +644,46 @@
           "primaryKey": false,
           "notNull": true
         },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
-          "type": "mentor_slot_status",
+          "type": "mentor_request_status",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
-          "default": "'booked'"
+          "default": "'pending'"
         },
         "meeting_link": {
           "name": "meeting_link",
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "mentor_slots_mentor_availability_id_mentor_availabilities_id_fk": {
-          "name": "mentor_slots_mentor_availability_id_mentor_availabilities_id_fk",
-          "tableFrom": "mentor_slots",
+        "mentor_requests_mentor_availability_id_mentor_availabilities_id_fk": {
+          "name": "mentor_requests_mentor_availability_id_mentor_availabilities_id_fk",
+          "tableFrom": "mentor_requests",
           "tableTo": "mentor_availabilities",
           "columnsFrom": [
             "mentor_availability_id"
@@ -667,9 +694,9 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "mentor_slots_team_id_teams_id_fk": {
-          "name": "mentor_slots_team_id_teams_id_fk",
-          "tableFrom": "mentor_slots",
+        "mentor_requests_team_id_teams_id_fk": {
+          "name": "mentor_requests_team_id_teams_id_fk",
+          "tableFrom": "mentor_requests",
           "tableTo": "teams",
           "columnsFrom": [
             "team_id"
@@ -683,6 +710,116 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
+    },
+    "public.mentor_track": {
+      "name": "mentor_track",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "track_id": {
+          "name": "track_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hackathon_id": {
+          "name": "hackathon_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "assigned_at": {
+          "name": "assigned_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "assigned_by": {
+          "name": "assigned_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "mentor_track_user_id_users_id_fk": {
+          "name": "mentor_track_user_id_users_id_fk",
+          "tableFrom": "mentor_track",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "mentor_track_track_id_tracks_id_fk": {
+          "name": "mentor_track_track_id_tracks_id_fk",
+          "tableFrom": "mentor_track",
+          "tableTo": "tracks",
+          "columnsFrom": [
+            "track_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "mentor_track_hackathon_id_hackathons_id_fk": {
+          "name": "mentor_track_hackathon_id_hackathons_id_fk",
+          "tableFrom": "mentor_track",
+          "tableTo": "hackathons",
+          "columnsFrom": [
+            "hackathon_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "mentor_track_assigned_by_users_id_fk": {
+          "name": "mentor_track_assigned_by_users_id_fk",
+          "tableFrom": "mentor_track",
+          "tableTo": "users",
+          "columnsFrom": [
+            "assigned_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "mentor_track_user_id_track_id_unique": {
+          "name": "mentor_track_user_id_track_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id",
+            "track_id"
+          ]
+        }
+      }
     },
     "public.physical_gifts": {
       "name": "physical_gifts",
@@ -867,6 +1004,18 @@
           "primaryKey": false,
           "notNull": true
         },
+        "title": {
+          "name": "title",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
           "type": "project_status",
@@ -878,6 +1027,12 @@
         "submitted_at": {
           "name": "submitted_at",
           "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "submitted_late_by_minutes": {
+          "name": "submitted_late_by_minutes",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
@@ -1139,6 +1294,14 @@
           "primaryKey": false,
           "notNull": true
         },
+        "type": {
+          "name": "type",
+          "type": "stage_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'CUSTOM'"
+        },
         "order_index": {
           "name": "order_index",
           "type": "integer",
@@ -1156,6 +1319,12 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -1519,6 +1688,90 @@
         }
       }
     },
+    "public.team_join_requests": {
+      "name": "team_join_requests",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "team_id": {
+          "name": "team_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "join_request_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "team_join_requests_team_id_teams_id_fk": {
+          "name": "team_join_requests_team_id_teams_id_fk",
+          "tableFrom": "team_join_requests",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "team_join_requests_user_id_users_id_fk": {
+          "name": "team_join_requests_user_id_users_id_fk",
+          "tableFrom": "team_join_requests",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
     "public.team_members": {
       "name": "team_members",
       "schema": "",
@@ -1780,6 +2033,30 @@
         "description": {
           "name": "description",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "guidelines": {
+          "name": "guidelines",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "allowed_technologies": {
+          "name": "allowed_technologies",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expected_outcome": {
+          "name": "expected_outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_url": {
+          "name": "external_url",
+          "type": "varchar(500)",
           "primaryKey": false,
           "notNull": false
         }
@@ -2182,6 +2459,15 @@
         "DISQUALIFIED"
       ]
     },
+    "public.join_request_status": {
+      "name": "join_request_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "accepted",
+        "rejected"
+      ]
+    },
     "public.mentor_availability_status": {
       "name": "mentor_availability_status",
       "schema": "public",
@@ -2190,11 +2476,13 @@
         "blocked"
       ]
     },
-    "public.mentor_slot_status": {
-      "name": "mentor_slot_status",
+    "public.mentor_request_status": {
+      "name": "mentor_request_status",
       "schema": "public",
       "values": [
-        "booked",
+        "pending",
+        "accepted",
+        "rejected",
         "completed",
         "cancelled"
       ]
@@ -2228,6 +2516,18 @@
         "telegram",
         "viber",
         "github"
+      ]
+    },
+    "public.stage_type": {
+      "name": "stage_type",
+      "schema": "public",
+      "values": [
+        "REGISTRATION",
+        "HACKING",
+        "PRESENTATION",
+        "JUDGING",
+        "FINISHED",
+        "CUSTOM"
       ]
     },
     "public.team_member_role": {

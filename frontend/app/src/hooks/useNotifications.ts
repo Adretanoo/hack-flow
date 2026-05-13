@@ -16,12 +16,9 @@ function buildNotifications(teams: any[]): AppNotification[] {
       if (!approval.approvedAt) continue
 
       const status = approval.status as AppNotification['status']
-
-      // Skip bare PENDING with no comment — it's just the initial state, not an admin action
       if (status === 'PENDING' && !approval.comment?.trim()) continue
 
       const id = `${team.id}-${approval.id ?? approval.approvedAt}`
-
       let title = ''
       let body = ''
 
@@ -34,49 +31,46 @@ function buildNotifications(teams: any[]): AppNotification[] {
         title = `❌ Команду «${team.name}» відхилено`
         body = approval.comment
           ? `Причина: ${approval.comment}`
-          : `Організатор відхилив вашу команду без пояснення. Зверніться до організаторів.`
+          : `Організатор відхилив вашу команду без пояснення.`
       } else if (status === 'DISQUALIFIED') {
         title = `🚫 Команду «${team.name}» дискваліфіковано`
-        body = approval.comment
-          ? `Причина: ${approval.comment}`
-          : `Зверніться до організаторів хакатону для уточнення.`
+        body = approval.comment ? `Причина: ${approval.comment}` : `Зверніться до організаторів хакатону.`
       } else if (status === 'PENDING') {
-        // PENDING with comment = admin explicitly returned for review
         title = `⏳ Заявку команди «${team.name}» повернуто на розгляд`
         body = `Повідомлення організатора: ${approval.comment}`
       } else {
         continue
       }
 
-      result.push({
-        id,
-        status,
-        title,
-        body,
-        teamName: team.name,
-        hackathonTitle,
-        timestamp: approval.approvedAt,
-      })
+      result.push({ id, status, title, body, teamName: team.name, hackathonTitle, timestamp: approval.approvedAt })
     }
   }
 
-  // Newest first
   return result.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 }
 
 export function useNotifications() {
   const { user } = useAuthStore()
-  const { readIds, dismissedIds } = useNotificationsStore()
+  const { readIds, dismissedIds, mentorNotifications } = useNotificationsStore()
 
   const { data } = useQuery({
     queryKey: ['my-teams-notifications', user?.id],
     queryFn: () => teamsApi.getMyTeams().then((r) => r.data?.data ?? []),
     enabled: !!user,
-    refetchInterval: 60_000, // refresh every minute
+    refetchInterval: 60_000,
     staleTime: 30_000,
   })
 
-  const all = useMemo(() => buildNotifications(data ?? []), [data])
+  const teamNotifications = useMemo(() => buildNotifications(data ?? []), [data])
+
+  // Merge team approval notifications + mentor slot cancellation notifications
+  const all = useMemo(() => {
+    const mentor = (mentorNotifications ?? []).map((n) => ({ ...n } as AppNotification))
+    return [...teamNotifications, ...mentor].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    )
+  }, [teamNotifications, mentorNotifications])
+
   const visible = useMemo(() => all.filter((n) => !dismissedIds.includes(n.id)), [all, dismissedIds])
   const unread = useMemo(() => visible.filter((n) => !readIds.includes(n.id)), [visible, readIds])
 

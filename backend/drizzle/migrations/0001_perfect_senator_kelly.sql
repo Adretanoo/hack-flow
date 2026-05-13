@@ -1,1 +1,0 @@
-ALTER TABLE "mentor_availabilities" ADD COLUMN "slot_duration" integer DEFAULT 30 NOT NULL;

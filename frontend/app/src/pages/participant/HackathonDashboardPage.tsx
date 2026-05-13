@@ -27,6 +27,8 @@ export function HackathonDashboardPage() {
     queryKey: ['hackathon', hackathonId],
     queryFn: () => hackathonsApi.getById(hackathonId!),
     enabled: !!hackathonId,
+    refetchInterval: 60_000,   // re-check every minute for stage transitions
+    staleTime: 30_000,
   })
 
   // Fetch user's own team with full approval data
@@ -68,19 +70,29 @@ export function HackathonDashboardPage() {
             <h1 className="text-3xl font-bold tracking-tight">{hackathon.title}</h1>
             <div className="mt-2 flex items-center gap-3">
               <StatusBadge status={hackathon.status} />
-              {stageInfo.activeStage && (
-                <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                  Етап: {(stageInfo.activeStage as any).type || (stageInfo.activeStage as any).name}
-                </span>
-              )}
+              {stageInfo.activeStage && stageInfo.activeStageType && (() => {
+                const STAGE_LABELS: Record<string, string> = {
+                  REGISTRATION: '📋 Реєстрація',
+                  HACKING:      '💻 Хакінг',
+                  PRESENTATION: '🎤 Презентація',
+                  JUDGING:      '⚖️ Оцінювання',
+                  FINISHED:     '🏁 Завершено',
+                  CUSTOM:       stageInfo.activeStage.name,
+                }
+                const label = STAGE_LABELS[stageInfo.activeStageType] ?? stageInfo.activeStage.name
+                return (
+                  <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                    Етап: {label}
+                  </span>
+                )
+              })()}
             </div>
           </div>
         </div>
       </div>
 
       {/* ── Hacking task banner — visible ONLY during active HACKING stage with a task ── */}
-      {stageInfo.activeStage &&
-        (stageInfo.activeStage as any).type === 'HACKING' &&
+      {stageInfo.activeStageType === 'HACKING' &&
         (stageInfo.activeStage as any).description && (
           <div className="rounded-xl border border-amber-300/50 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700/40 overflow-hidden">
             {/* Header */}
