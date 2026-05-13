@@ -89,7 +89,7 @@ export function MentorAvailabilityPage() {
     const list: string[] = []
     let cur = new Date(s)
     for (let i = 0; i < Math.min(count, 24); i++) {
-      list.push(cur.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }))
+      list.push(cur.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', hour12: false }))
       cur = new Date(cur.getTime() + slotDur * 60000)
     }
     return list
@@ -98,7 +98,14 @@ export function MentorAvailabilityPage() {
   const createMut = useMutation({
     mutationFn: (data: any) => mentorshipApi.createAvailability(data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['my-availabilities'] }); setFormDate(''); setFormStart('10:00'); setFormEnd('12:00'); setFormTrackId(''); setErrs({}); setShowForm(false) },
-    onError: (e: any) => alert(e.message || 'Помилка'),
+    onError: (e: any) => {
+      const msg = e?.response?.data?.message || e?.message || 'Помилка'
+      if (msg.toLowerCase().includes('overlap') || msg.toLowerCase().includes('conflict')) {
+        setErrs(p => ({ ...p, range: 'Цей час перетинається з іншим вашим блоком доступності. Оберіть інший час.' }))
+      } else {
+        setErrs(p => ({ ...p, range: msg }))
+      }
+    },
   })
 
   const validate = () => {

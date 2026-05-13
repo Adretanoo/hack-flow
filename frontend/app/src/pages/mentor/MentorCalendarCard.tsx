@@ -2,10 +2,9 @@ import { useState } from 'react'
 import { Trash2, Video, X } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { mentorshipApi } from '@/api/mentorship'
-import { useNotificationsStore } from '@/store/notifications.store'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 
-function fmtTime(dt: Date) { return dt.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }) }
+function fmtTime(dt: Date) { return dt.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', hour12: false }) }
 function fmtDate(dt: Date) { return dt.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' }) }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -67,7 +66,6 @@ export function AvailDetailPanel({ avail, onClose }: { avail: any; onClose: () =
   const qc = useQueryClient()
   const [links, setLinks] = useState<Record<string, string>>({})
   const [deleteConfirm, setDeleteConfirm] = useState(false)
-  const { addMentorCancellation } = useNotificationsStore()
 
   const start = new Date(avail.startDatetime)
   const end = new Date(avail.endDatetime)
@@ -91,17 +89,8 @@ export function AvailDetailPanel({ avail, onClose }: { avail: any; onClose: () =
 
   const deleteMut = useMutation({
     mutationFn: () => mentorshipApi.deleteAvailability(avail.id),
-    onSuccess: (res: any) => {
-      const cancelled = res?.data?.data?.cancelledRequests || []
-      cancelled.forEach((r: any) => addMentorCancellation({
-        id: `slot-del-${r.id}`, status: 'SLOT_CANCELLED',
-        title: '🗓️ Слот скасовано',
-        body: `Ментор видалив слот ${new Date(r.startDatetime).toLocaleDateString('uk-UA')}`,
-        teamName: r.teamName, hackathonTitle: '', timestamp: new Date().toISOString(),
-      }))
-      inv(); onClose()
-    },
-    onError: (e: any) => alert(e.message || 'Помилка'),
+    onSuccess: () => { inv(); onClose() },
+    onError: (e: any) => alert(e?.response?.data?.message || e.message || 'Помилка'),
   })
 
   const acceptMut = useMutation({ mutationFn: ({ id, link }: { id: string; link: string }) => mentorshipApi.acceptRequest(id, link), onSuccess: inv })

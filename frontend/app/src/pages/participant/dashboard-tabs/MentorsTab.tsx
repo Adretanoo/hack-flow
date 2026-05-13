@@ -12,7 +12,7 @@ const UK_DAYS = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб']
 const UK_MONTHS = ['січ','лют','бер','кві','тра','чер','лип','сер','вер','жов','лис','гру']
 const UK_MONTHS_FULL = ['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня']
 
-function fmtTime(dt: Date) { return dt.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }) }
+function fmtTime(dt: Date) { return dt.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', hour12: false }) }
 function isSameDay(a: Date, b: Date) { return a.toDateString() === b.toDateString() }
 
 function fmtRange(days: Date[]) {
