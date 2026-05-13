@@ -49,4 +49,19 @@ export const judgingApi = {
 
   deleteCriteria: (id: string) =>
     api.delete<ApiResponse<any>>(`/judging/criteria/${id}`),
+
+  getFullResults: (hackathonId: string) =>
+    api.get<ApiResponse<any>>(`/judging/results/${hackathonId}`),
+
+  listAwards: (hackathonId: string) =>
+    api.get<ApiResponse<any[]>>(`/judging/hackathons/${hackathonId}/awards`),
+
+  createAward: (hackathonId: string, data: { name: string; place: number; description?: string }) =>
+    api.post<ApiResponse<any>>(`/judging/hackathons/${hackathonId}/awards`, data),
+
+  assignAward: (teamId: string, awardId: string) =>
+    api.post<ApiResponse<any>>(`/judging/teams/${teamId}/awards/${awardId}`, {}),
+
+  removeAward: (teamId: string, awardId: string) =>
+    api.delete<ApiResponse<void>>(`/judging/teams/${teamId}/awards/${awardId}`),
 }

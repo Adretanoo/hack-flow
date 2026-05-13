@@ -33,6 +33,8 @@ async function cleanDatabase() {
   await db.delete(projectResources);
   await db.delete(schema.projectResourceTypes);
   await db.delete(projects);
+  await db.delete(schema.teamAwards);
+  await db.delete(schema.awards);
   await db.delete(teamApprovals);
   await db.delete(teamMembers);
   await db.delete(teamStage);
@@ -523,6 +525,9 @@ async function seed() {
   console.log('⚠️  Seeding conflicts...');
   await seedConflicts(users, teams);
 
+  console.log('🏅 Seeding awards...');
+  await seedAwards(hackathons, teams);
+
   console.log('✅ Seed complete!');
   console.log('');
   console.log('Test accounts (password: Password123!):');
@@ -532,6 +537,38 @@ async function seed() {
   console.log('  User:     user1@hackflow.com');
 
   process.exit(0);
+}
+
+async function seedAwards(hackathons: any, teams: any) {
+  const h3 = hackathons['EduTech Sprint'];
+  if (!h3) return;
+
+  // Create awards for EduTech Sprint
+  const [award1] = await db.insert(schema.awards).values({
+    hackathonId: h3.id, name: '🥇 Гран-прі EdTech', place: 1,
+    description: 'Найкращий проєкт у галузі освітніх технологій',
+  }).returning();
+
+  const [award2] = await db.insert(schema.awards).values({
+    hackathonId: h3.id, name: '🥈 2 місце EdTech', place: 2,
+    description: 'Друге місце серед освітніх проєктів',
+  }).returning();
+
+  const [award3] = await db.insert(schema.awards).values({
+    hackathonId: h3.id, name: '🥉 3 місце HealthTech', place: 3,
+    description: 'Найкращий проєкт у галузі медичних технологій',
+  }).returning();
+
+  // Assign awards to top teams from EduTech Sprint
+  const teamLearnify = teams['LearnTech'];
+  const teamHealthBot = teams['EduInnovators'];
+
+  if (teamLearnify && award1) {
+    await db.insert(schema.teamAwards).values({ teamId: teamLearnify.id, awardId: award1.id }).onConflictDoNothing();
+  }
+  if (teamHealthBot && award2) {
+    await db.insert(schema.teamAwards).values({ teamId: teamHealthBot.id, awardId: award2.id }).onConflictDoNothing();
+  }
 }
 
 seed().catch((err) => {

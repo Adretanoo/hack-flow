@@ -22,6 +22,16 @@ function resolveType(stage: { type?: string; name?: string } | undefined): Stage
   return 'CUSTOM'
 }
 
+function getLockMessage(type: StageType): string {
+  switch (type) {
+    case 'REGISTRATION': return 'Йде реєстрація команд'
+    case 'HACKING':      return 'Йде хакінг'
+    case 'JUDGING':      return 'Йде суддівство'
+    case 'FINISHED':     return 'Хакатон завершено'
+    default:             return 'Хакатон ще не розпочато'
+  }
+}
+
 export function useHackathonStage(hackathon?: Hackathon) {
   const now = useNow()   // re-evaluates every minute automatically
 
@@ -30,10 +40,13 @@ export function useHackathonStage(hackathon?: Hackathon) {
       return {
         activeStage: null,
         activeStageType: 'CUSTOM' as StageType,
+        isFinished: false,
         canRegister: false,
         canSubmit: false,
         canBookMentor: false,
+        canScore: false,
         canViewResults: false,
+        lockMessage: getLockMessage('CUSTOM'),
       }
     }
 
@@ -63,10 +76,13 @@ export function useHackathonStage(hackathon?: Hackathon) {
     return {
       activeStage: displayStage,
       activeStageType: type,
+      isFinished:     type === 'FINISHED',
       canRegister:    type === 'REGISTRATION',
       canSubmit:      type === 'HACKING',
       canBookMentor:  type === 'HACKING',
+      canScore:       type === 'JUDGING',
       canViewResults: type === 'JUDGING' || type === 'FINISHED' || hackathon.status === 'ARCHIVED',
+      lockMessage:    getLockMessage(type),
     }
   }, [hackathon, now])
 }

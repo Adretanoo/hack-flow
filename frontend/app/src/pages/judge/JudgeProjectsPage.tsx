@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, ShieldAlert, Clock, CheckCircle, ChevronRight, Folder } from 'lucide-react'
+import { AlertTriangle, ShieldAlert, Clock, CheckCircle, ChevronRight, Folder, Lock } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -10,6 +10,7 @@ import { judgingApi } from '@/api/judging'
 import { teamsApi } from '@/api/teams'
 import { formatRelativeTime } from '@/utils/format'
 import { useAuthStore } from '@/store/auth.store'
+import { useHackathonStage } from '@/hooks/useHackathonStage'
 
 type Filter = 'all' | 'unscored' | 'scored' | 'conflict'
 
@@ -77,6 +78,15 @@ export function JudgeProjectsPage() {
   const teams: any[] = teamsData || []
   const myScores: any[] = myScoresData || []
   const myConflicts: any[] = myConflictsData || []
+
+  // Detect FINISHED stage for active hackathon
+  const { data: activeHackathonData } = useQuery({
+    queryKey: ['hackathon-detail', activeHackathonId],
+    queryFn: () => hackathonsApi.getById(activeHackathonId).then(r => r.data.data),
+    enabled: !!activeHackathonId,
+  })
+  const stageInfo = useHackathonStage(activeHackathonData)
+  const isFinished = stageInfo.isFinished
 
   // Build project list enriched with score/conflict status.
   // Show any project that has been officially submitted (not a draft).
@@ -150,6 +160,17 @@ export function JudgeProjectsPage() {
         </div>
       ) : (
         <>
+          {/* FINISHED stage banner */}
+          {isFinished && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 flex items-start gap-3">
+              <Lock className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-blue-900">Хакатон завершено — оцінювання закрито</p>
+                <p className="text-sm text-blue-700 mt-0.5">Ви можете переглядати проєкти, але не змінювати оцінки.</p>
+              </div>
+            </div>
+          )}
+
           {/* My tracks banner */}
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-muted-foreground">Ви суддя треків:</span>
@@ -229,7 +250,7 @@ export function JudgeProjectsPage() {
 
                   <div className="space-y-3">
                     {projects.map((project: any) => (
-                      <ProjectCard key={project.id} project={project} />
+                      <ProjectCard key={project.id} project={project} isFinished={isFinished} />
                     ))}
                   </div>
                 </div>
@@ -242,7 +263,7 @@ export function JudgeProjectsPage() {
   )
 }
 
-function ProjectCard({ project }: { project: any }) {
+function ProjectCard({ project, isFinished }: { project: any; isFinished: boolean }) {
   const { user } = useAuthStore()
   const isAdmin = user?.role === 'admin'
   const submittedAgo = project.submittedAt ? formatRelativeTime(project.submittedAt) : null
@@ -288,9 +309,13 @@ function ProjectCard({ project }: { project: any }) {
           ) : (
               <Link
                 to={`/app/judge/score/${project.id}`}
-                className="shrink-0 flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+                className={`shrink-0 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+                  isFinished
+                    ? 'bg-muted text-muted-foreground hover:bg-muted/80 border border-border'
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                }`}
               >
-                {isAdmin ? 'Статистика' : project.scored ? 'Змінити' : 'Оцінити'}
+                {isFinished ? 'Переглянути' : isAdmin ? 'Статистика' : project.scored ? 'Змінити' : 'Оцінити'}
                 <ChevronRight className="h-4 w-4" />
               </Link>
           )}

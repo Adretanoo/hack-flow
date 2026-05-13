@@ -165,4 +165,62 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, (req, reply) => ctrl.reportConflict(req, reply));
+
+  // ── Full Results ────────────────────────────────────────────
+  app.get('/results/:id', {
+    schema: {
+      tags: ['Judging'],
+      summary: 'Full hackathon results — ranked teams, disqualified, stats',
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.getFullResults(req, reply));
+
+  // ── Awards ─────────────────────────────────────────────────
+  app.get('/hackathons/:id/awards', {
+    schema: {
+      tags: ['Judging'],
+      summary: 'List awards for a hackathon',
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.listAwards(req, reply));
+
+  app.post('/hackathons/:id/awards', {
+    onRequest: [authenticate, authorize('admin')],
+    schema: {
+      tags: ['Judging'],
+      summary: 'Create an award for a hackathon — admin only',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object', required: ['name', 'place'],
+        properties: { name: { type: 'string' }, place: { type: 'integer' }, description: { type: 'string' } },
+      },
+    },
+  }, (req, reply) => ctrl.createAward(req, reply));
+
+  app.post('/teams/:teamId/awards/:awardId', {
+    onRequest: [authenticate, authorize('admin')],
+    schema: {
+      tags: ['Judging'],
+      summary: 'Assign award to team — admin only',
+      security: Sec,
+      params: {
+        type: 'object', required: ['teamId', 'awardId'],
+        properties: { teamId: { type: 'string', format: 'uuid' }, awardId: { type: 'string', format: 'uuid' } },
+      },
+    },
+  }, (req, reply) => ctrl.assignAward(req, reply));
+
+  app.delete('/teams/:teamId/awards/:awardId', {
+    onRequest: [authenticate, authorize('admin')],
+    schema: {
+      tags: ['Judging'],
+      summary: 'Remove award from team — admin only',
+      security: Sec,
+      params: {
+        type: 'object', required: ['teamId', 'awardId'],
+        properties: { teamId: { type: 'string', format: 'uuid' }, awardId: { type: 'string', format: 'uuid' } },
+      },
+    },
+  }, (req, reply) => ctrl.removeAward(req, reply));
 }

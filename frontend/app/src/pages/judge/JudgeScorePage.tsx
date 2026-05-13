@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ExternalLink, Code2, MonitorPlay, FileText, CheckCircle, RotateCcw, Users, BookOpen, Save } from 'lucide-react'
+import { ChevronLeft, ExternalLink, Code2, MonitorPlay, FileText, CheckCircle, RotateCcw, Users, BookOpen, Save, Lock } from 'lucide-react'
 import { judgingApi } from '@/api/judging'
 import { projectsApi } from '@/api/projects'
 import { teamsApi } from '@/api/teams'
+import { hackathonsApi } from '@/api/hackathons'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { formatRelativeTime } from '@/utils/format'
 import { useAuthStore } from '@/store/auth.store'
+import { useHackathonStage } from '@/hooks/useHackathonStage'
 
 export function JudgeScorePage() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -53,6 +55,16 @@ export function JudgeScorePage() {
     queryFn: () => judgingApi.getTeamScores(projectId!).then(r => r.data.data),
     enabled: isAdmin && !!projectId,
   })
+
+  // Detect FINISHED stage
+  const hackathonId = (teamData as any)?.hackathonId
+  const { data: hackathonData } = useQuery({
+    queryKey: ['hackathon-detail', hackathonId],
+    queryFn: () => hackathonsApi.getById(hackathonId!).then(r => r.data.data),
+    enabled: !!hackathonId,
+  })
+  const stageInfo = useHackathonStage(hackathonData)
+  const isFinished = stageInfo.isFinished
 
   const criteria: any[] = criteriaData || []
   const members: any[] = membersData || []
@@ -132,6 +144,16 @@ export function JudgeScorePage() {
       {done && (
         <div className="rounded-xl bg-green-50 border border-green-200 p-4 flex items-center gap-3 text-green-800">
           <CheckCircle className="h-5 w-5" /><span className="font-semibold">Оцінку збережено!</span>
+        </div>
+      )}
+
+      {isFinished && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 flex items-center gap-3">
+          <Lock className="h-5 w-5 text-blue-600 shrink-0" />
+          <div>
+            <p className="font-semibold text-blue-900">Хакатон завершено — оцінювання закрито</p>
+            <p className="text-sm text-blue-700">Ви переглядаєте оцінки у режимі читання.</p>
+          </div>
         </div>
       )}
 
@@ -326,7 +348,12 @@ export function JudgeScorePage() {
                           <span className="shrink-0 text-xs bg-accent px-2 py-0.5 rounded font-medium">вага: {Math.round(Number(c.weight) * 100)}%</span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <input type="range" min={0} max={max} step={1} value={val} onChange={e => handleSlider(c.id, Number(e.target.value))} className="flex-1 accent-primary cursor-pointer" />
+                          <input
+                            type="range" min={0} max={max} step={1} value={val}
+                            onChange={e => !isFinished && handleSlider(c.id, Number(e.target.value))}
+                            disabled={isFinished}
+                            className={`flex-1 accent-primary ${isFinished ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          />
                           <span className="w-14 text-right font-mono font-bold text-primary text-sm">{val}<span className="text-xs text-muted-foreground font-normal">/{max}</span></span>
                         </div>
                         <div className="h-1 bg-muted rounded-full overflow-hidden">
@@ -367,9 +394,15 @@ export function JudgeScorePage() {
                 )}
 
                 <div className="px-6 pb-6 pt-4 space-y-3">
-                  <button onClick={() => submitMut.mutate()} disabled={submitMut.isPending || criteria.length === 0 || done} className="w-full rounded-md bg-primary px-4 py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">
-                    {submitMut.isPending ? 'Збереження...' : hasExisting ? 'Оновити оцінку' : 'Зберегти оцінку'}
-                  </button>
+                  {isFinished ? (
+                    <div className="w-full rounded-md bg-muted border border-border px-4 py-3 text-sm font-medium text-muted-foreground text-center flex items-center justify-center gap-2">
+                      <Lock className="h-4 w-4" /> Оцінювання закрито
+                    </div>
+                  ) : (
+                    <button onClick={() => submitMut.mutate()} disabled={submitMut.isPending || criteria.length === 0 || done} className="w-full rounded-md bg-primary px-4 py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                      {submitMut.isPending ? 'Збереження...' : hasExisting ? 'Оновити оцінку' : 'Зберегти оцінку'}
+                    </button>
+                  )}
                   <p className="text-center text-xs text-muted-foreground">
                     <kbd className="px-1.5 py-0.5 bg-muted border border-border rounded text-xs">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-muted border border-border rounded text-xs">Enter</kbd>
                   </p>

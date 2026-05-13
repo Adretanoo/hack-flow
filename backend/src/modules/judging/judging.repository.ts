@@ -1,9 +1,28 @@
 // Soft-delete filter: verified 2026-04-29
 // findProjectsByHackathon excludes soft-deleted projects via isNull(projects.deletedAt).
 import type { Database } from '../../config/database';
-import { criteria, scores, judgeConflicts, projects, stages, tracks, users, teams, hackathons } from '../../drizzle/schema';
+import { criteria, scores, judgeConflicts, projects, stages, tracks, users, teams, hackathons, teamMembers, teamApprovals, awards, teamAwards, physicalGifts, projectResources, projectResourceTypes } from '../../drizzle/schema';
 import { eq, and, inArray, sql, isNull } from 'drizzle-orm';
 import type { CreateCriteriaDto, SubmitScoreDto, ReportConflictDto } from './judging.schema';
+
+export interface FullTeamData {
+  teamId: string;
+  teamName: string;
+  trackId: string | null;
+  trackName: string | null;
+  approvalStatus: string;
+  approvalComment: string | null;
+  approvalAt: Date | null;
+  members: { userId: string; fullName: string; role: string }[];
+  project: {
+    id: string; title: string | null; description: string | null;
+    status: string; submittedAt: Date | null; isLate: boolean;
+    submittedLateByMinutes: number | null;
+    resources: { url: string; typeName: string | null }[];
+  } | null;
+  scores: { judgeId: string; judgeName: string; criteriaId: string; criteriaName: string; assessment: number; weight: number; maxScore: number }[];
+  award: { id: string; name: string; place: number; certificate: string | null; gifts: { name: string }[] } | null;
+}
 
 export class JudgingRepository {
   constructor(private readonly db: Database) {}
@@ -259,5 +278,160 @@ export class JudgingRepository {
 
     return { data: rows, total, page: opts.page, limit: opts.limit };
   }
-}
 
+  // ── Full Results ──────────────────────────────────────────
+
+  /** All non-deleted teams for a hackathon with track and latest approval status */
+  async findAllTeamsForHackathon(hackathonId: string) {
+    const rows = await this.db
+      .select({
+        teamId: teams.id,
+        teamName: teams.name,
+        trackId: tracks.id,
+        trackName: tracks.name,
+        approvalStatus: teamApprovals.status,
+        approvalComment: teamApprovals.comment,
+        approvalAt: teamApprovals.approvedAt,
+      })
+      .from(teams)
+      .leftJoin(tracks, eq(teams.trackId, tracks.id))
+      .leftJoin(teamApprovals, eq(teamApprovals.teamId, teams.id))
+      .where(and(eq(teams.hackathonId, hackathonId), isNull(teams.deletedAt)));
+    return rows;
+  }
+
+  /** Members of multiple teams at once */
+  async findMembersByTeams(teamIds: string[]) {
+    if (teamIds.length === 0) return [];
+    return this.db
+      .select({
+        teamId: teamMembers.teamId,
+        userId: users.id,
+        fullName: users.fullName,
+        role: teamMembers.role,
+      })
+      .from(teamMembers)
+      .innerJoin(users, eq(teamMembers.userId, users.id))
+      .where(inArray(teamMembers.teamId, teamIds));
+  }
+
+  /** Latest non-deleted projects for multiple teams */
+  async findProjectsForTeams(teamIds: string[], hackathonId: string) {
+    if (teamIds.length === 0) return [];
+    // Get stage IDs for this hackathon first
+    const hackStages = await this.db.select({ id: stages.id }).from(stages).where(eq(stages.hackathonId, hackathonId));
+    if (hackStages.length === 0) return [];
+    const stageIds = hackStages.map(s => s.id);
+
+    const rows = await this.db
+      .select({
+        id: projects.id,
+        teamId: projects.teamId,
+        title: projects.title,
+        description: projects.description,
+        status: projects.status,
+        submittedAt: projects.submittedAt,
+        submittedLateByMinutes: projects.submittedLateByMinutes,
+      })
+      .from(projects)
+      .where(and(
+        inArray(projects.teamId, teamIds),
+        inArray(projects.stageId, stageIds),
+        isNull(projects.deletedAt),
+      ));
+
+    // Fetch resources for all found projects
+    const projectIds = rows.map(p => p.id);
+    const resources = projectIds.length > 0
+      ? await this.db
+          .select({ projectId: projectResources.projectId, url: projectResources.url, typeName: projectResourceTypes.name })
+          .from(projectResources)
+          .leftJoin(projectResourceTypes, eq(projectResources.projectTypeId, projectResourceTypes.id))
+          .where(inArray(projectResources.projectId, projectIds))
+      : [];
+
+    return rows.map(p => ({
+      ...p,
+      isLate: (p.submittedLateByMinutes ?? 0) > 0,
+      resources: resources.filter(r => r.projectId === p.id).map(r => ({ url: r.url, typeName: r.typeName })),
+    }));
+  }
+
+  /** All scores with criteria and judge info for given project IDs */
+  async findFullScoresForProjects(projectIds: string[]) {
+    if (projectIds.length === 0) return [];
+    return this.db
+      .select({
+        judgeId: scores.judgeId,
+        judgeName: users.fullName,
+        projectId: scores.projectId,
+        criteriaId: scores.criteriaId,
+        criteriaName: criteria.name,
+        assessment: scores.assessment,
+        weight: criteria.weight,
+        maxScore: criteria.maxScore,
+      })
+      .from(scores)
+      .innerJoin(users, eq(scores.judgeId, users.id))
+      .innerJoin(criteria, eq(scores.criteriaId, criteria.id))
+      .where(inArray(scores.projectId, projectIds));
+  }
+
+  /** Awards defined for a hackathon with physical gifts */
+  async listAwardsByHackathon(hackathonId: string) {
+    const awardRows = await this.db
+      .select()
+      .from(awards)
+      .where(eq(awards.hackathonId, hackathonId));
+
+    const awardIds = awardRows.map(a => a.id);
+    const gifts = awardIds.length > 0
+      ? await this.db.select().from(physicalGifts).where(inArray(physicalGifts.awardId, awardIds))
+      : [];
+
+    return awardRows.map(a => ({
+      ...a,
+      gifts: gifts.filter(g => g.awardId === a.id),
+    }));
+  }
+
+  /** team_awards assignments for a set of team IDs */
+  async findAwardsByTeams(teamIds: string[]) {
+    if (teamIds.length === 0) return [];
+    return this.db
+      .select({
+        teamId: teamAwards.teamId,
+        awardId: teamAwards.awardId,
+        assignedAt: teamAwards.assignedAt,
+        awardName: awards.name,
+        awardPlace: awards.place,
+        awardCertificate: awards.certificate,
+      })
+      .from(teamAwards)
+      .innerJoin(awards, eq(teamAwards.awardId, awards.id))
+      .where(inArray(teamAwards.teamId, teamIds));
+  }
+
+  /** Assign an award to a team */
+  async assignAward(teamId: string, awardId: string) {
+    const [row] = await this.db
+      .insert(teamAwards)
+      .values({ teamId, awardId })
+      .onConflictDoNothing()
+      .returning();
+    return row ?? null;
+  }
+
+  /** Remove award from team */
+  async removeAward(teamId: string, awardId: string) {
+    await this.db.delete(teamAwards).where(
+      and(eq(teamAwards.teamId, teamId), eq(teamAwards.awardId, awardId)),
+    );
+  }
+
+  /** Create a new award for a hackathon */
+  async createAward(data: { hackathonId: string; name: string; place: number; description?: string }) {
+    const [row] = await this.db.insert(awards).values(data).returning();
+    return row;
+  }
+}
