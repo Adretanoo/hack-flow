@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { hackathonsApi } from '@/api/hackathons'
-import { Plus, Trash2, Check, X, Pencil } from 'lucide-react'
+import { Plus, Trash2, Check, X, Pencil, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/utils/format'
 import type { Stage, StageType } from '@/types/api.types'
@@ -45,6 +45,14 @@ const STAGE_TYPE_COLORS: Record<StageType, string> = {
 }
 
 const emptyForm = { name: '', type: 'CUSTOM' as StageType, startDate: '', endDate: '', orderIndex: '1', description: '' }
+
+/** Convert UTC ISO string to datetime-local format in LOCAL time */
+function toDatetimeLocal(iso?: string | Date | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 type FormState = typeof emptyForm
 
@@ -131,6 +139,7 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
 
   // Local state for create mode
   const [localStages, setLocalStages] = useState<Array<Stage & { id: string }>>([])
+  const [validationError, setValidationError] = useState<string | null>(null)
 
   const { data: stagesData } = useQuery({
     queryKey: ['stages', hackathonId],
@@ -194,7 +203,27 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
     onChange?.(arr.map(s => ({ name: s.name, type: s.type, startDate: s.startDate, endDate: s.endDate, orderIndex: s.orderIndex })))
   }
 
+  // ── Date range validation ─────────────────────────────────────────────────
+  const validateStageDates = (f: FormState): string | null => {
+    if (!f.startDate || !f.endDate) return 'Дати початку та завершення обов\'язкові'
+    const start = new Date(f.startDate).getTime()
+    const end   = new Date(f.endDate).getTime()
+    if (start >= end) return 'Дата початку має бути раніше дати завершення'
+    if (hackathonStart) {
+      const hStart = new Date(hackathonStart).getTime()
+      if (start < hStart) return `Початок стадії раніше старту хакатону (${formatDate(hackathonStart)})`
+    }
+    if (hackathonEnd) {
+      const hEnd = new Date(hackathonEnd).getTime()
+      if (end > hEnd) return `Завершення стадії пізніше кінця хакатону (${formatDate(hackathonEnd)})`
+    }
+    return null
+  }
+
   const handleSaveAdd = () => {
+    const err = validateStageDates(form)
+    if (err) { setValidationError(err); return }
+    setValidationError(null)
     if (mode === 'create') {
       const newStage = {
         id: Date.now().toString(),
@@ -216,6 +245,9 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
   }
 
   const handleSaveEdit = (id: string) => {
+    const err = validateStageDates(form)
+    if (err) { setValidationError(err); return }
+    setValidationError(null)
     if (mode === 'create') {
       const newArr = localStages.map(x =>
         x.id === id
@@ -243,24 +275,40 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
   const handleCancel = () => {
     setAdding(false)
     setEditingId(null)
+    setValidationError(null)
     setForm({ ...emptyForm, orderIndex: String(sorted.length + 1) })
   }
 
-  // Build timeline — relative widths based on duration
-  const rangeStart = hackathonStart
-    ? new Date(hackathonStart).getTime()
-    : sorted[0]
-    ? new Date(sorted[0].startDate).getTime()
-    : Date.now()
+  // Build timeline — reactive to stages changes, recalculated whenever sorted changes
+  const timeline = (() => {
+    const first = sorted[0]
+    const last = sorted[sorted.length - 1]
 
-  const rangeEnd = hackathonEnd
-    ? new Date(hackathonEnd).getTime()
-    : sorted.length > 0
-    ? new Date(sorted[sorted.length - 1].endDate).getTime()
-    : Date.now() + 86400000
+    const rangeStart = hackathonStart
+      ? new Date(hackathonStart).getTime()
+      : first ? new Date(first.startDate).getTime() : Date.now()
 
-  const totalMs = rangeEnd - rangeStart || 1
-  const now = Date.now()
+    const rangeEnd = hackathonEnd
+      ? new Date(hackathonEnd).getTime()
+      : last ? new Date(last.endDate).getTime() : Date.now() + 86400000
+
+    const totalMs = Math.max(rangeEnd - rangeStart, 1)
+    const nowMs = Date.now()
+
+    const segments = sorted.map((stage, i) => {
+      const start = new Date(stage.startDate).getTime()
+      const end = new Date(stage.endDate).getTime()
+      const left = Math.max(0, ((start - rangeStart) / totalMs) * 100)
+      const width = Math.max(0.5, ((end - start) / totalMs) * 100)
+      const isActive = nowMs >= start && nowMs <= end
+      return { stage, i, left, width, isActive }
+    })
+
+    const nowPct = ((nowMs - rangeStart) / totalMs) * 100
+    const showNow = nowMs >= rangeStart && nowMs <= rangeEnd
+
+    return { segments, nowPct, showNow, rangeStart, rangeEnd }
+  })()
 
 
   return (
@@ -274,8 +322,9 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
         {sorted.map((stage, i) => {
           const start = new Date(stage.startDate).getTime()
           const end = new Date(stage.endDate).getTime()
-          const isActive = now >= start && now <= end
-          const isPast = now > end
+          const nowMs = Date.now()
+          const isActive = nowMs >= start && nowMs <= end
+          const isPast = nowMs > end
           const typeOpt = STAGE_TYPE_OPTIONS.find(o => o.value === stage.type)
           return (
             <div key={stage.id} className={clsx(
@@ -284,7 +333,19 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
             )}>
               {editingId === stage.id ? (
                 <div className="space-y-3">
-                                  <StageFormFields form={form} setForm={setForm} />
+                  {(hackathonStart || hackathonEnd) && (
+                    <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-1.5">
+                      📅 Допустимий діапазон хакатону:{' '}
+                      {hackathonStart && <strong>{formatDate(hackathonStart)}</strong>}{hackathonStart && hackathonEnd && ' — '}{hackathonEnd && <strong>{formatDate(hackathonEnd)}</strong>}
+                    </p>
+                  )}
+                  <StageFormFields form={form} setForm={setForm} />
+                  {validationError && (
+                    <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span>{validationError}</span>
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <button type="button" onClick={() => handleSaveEdit(stage.id)}
                       disabled={!form.name || !form.startDate || !form.endDate || updateMut.isPending}
@@ -340,8 +401,8 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
                           setForm({
                             name: stage.name,
                             type: stage.type ?? 'CUSTOM',
-                            startDate: new Date(stage.startDate).toISOString().slice(0, 16),
-                            endDate: new Date(stage.endDate).toISOString().slice(0, 16),
+                            startDate: toDatetimeLocal(stage.startDate),
+                            endDate: toDatetimeLocal(stage.endDate),
                             orderIndex: String(stage.orderIndex),
                             description: (stage as any).description ?? '',
                           })
@@ -368,36 +429,76 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
 
       {/* Visual timeline bar */}
       {sorted.length > 0 && (
-        <div className="relative h-8 rounded-lg bg-muted overflow-hidden">
-          {sorted.map((stage, i) => {
-            const start = new Date(stage.startDate).getTime()
-            const end = new Date(stage.endDate).getTime()
-            const left = ((start - rangeStart) / totalMs) * 100
-            const width = ((end - start) / totalMs) * 100
-            return (
+        <div className="mt-4 space-y-1">
+          {/* Date range labels */}
+          <div className="flex justify-between text-[10px] text-muted-foreground px-0.5">
+            <span>{formatDate(new Date(timeline.rangeStart).toISOString())}</span>
+            <span>{formatDate(new Date(timeline.rangeEnd).toISOString())}</span>
+          </div>
+
+          {/* Bar */}
+          <div className="relative h-7 rounded-lg bg-muted overflow-hidden">
+            {timeline.segments.map(({ stage, i, left, width, isActive }) => (
               <div
                 key={stage.id}
-                title={`${stage.name} (${STAGE_TYPE_OPTIONS.find(o => o.value === stage.type)?.label ?? stage.type})`}
-                className={clsx('absolute top-0 h-full opacity-80 flex items-center justify-center text-[10px] font-medium text-white overflow-hidden', STAGE_COLORS[i % STAGE_COLORS.length])}
-                style={{ left: `${left}%`, width: `${width}%` }}
+                title={`${stage.name}: ${formatDate(stage.startDate)} — ${formatDate(stage.endDate)}`}
+                className={clsx(
+                  'absolute top-0 h-full flex items-center justify-center text-[10px] font-semibold text-white overflow-hidden transition-all',
+                  STAGE_COLORS[i % STAGE_COLORS.length],
+                  isActive && 'ring-2 ring-white ring-inset',
+                )}
+                style={{ left: `${left}%`, width: `${width}%`, paddingLeft: 1, paddingRight: 1 }}
               >
-                {width > 8 && <span className="px-1 truncate">{stage.name}</span>}
+                {width > 6 && (
+                  <span className="truncate px-1 drop-shadow-sm">{stage.name}</span>
+                )}
               </div>
-            )
-          })}
-          {/* Today marker */}
-          {now >= rangeStart && now <= rangeEnd && (
-            <div
-              className="absolute top-0 h-full w-0.5 bg-white/80 z-10"
-              style={{ left: `${((now - rangeStart) / totalMs) * 100}%` }}
-            />
-          )}
+            ))}
+
+            {/* Today marker */}
+            {timeline.showNow && (
+              <div
+                className="absolute top-0 h-full w-0.5 bg-white/90 z-10 shadow-sm"
+                style={{ left: `${timeline.nowPct}%` }}
+              >
+                <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-white" />
+              </div>
+            )}
+          </div>
+
+          {/* Stage name labels below bar */}
+          <div className="relative h-5">
+            {timeline.segments.map(({ stage, i, left, width }) => (
+              <div
+                key={stage.id}
+                className={clsx(
+                  'absolute text-[9px] font-medium truncate text-center',
+                  STAGE_COLORS[i % STAGE_COLORS.length].replace('bg-', 'text-').replace('-500', '-700'),
+                )}
+                style={{ left: `${left}%`, width: `${Math.max(width, 4)}%` }}
+              >
+                {stage.name}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {adding ? (
         <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4 mt-4">
-                    <StageFormFields form={form} setForm={setForm} />
+          {(hackathonStart || hackathonEnd) && (
+            <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-1.5">
+              📅 Стадія має бути в межах хакатону:{' '}
+              {hackathonStart && <strong>{formatDate(hackathonStart)}</strong>}{hackathonStart && hackathonEnd && ' — '}{hackathonEnd && <strong>{formatDate(hackathonEnd)}</strong>}
+            </p>
+          )}
+          <StageFormFields form={form} setForm={setForm} />
+          {validationError && (
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              <span>{validationError}</span>
+            </div>
+          )}
           <div className="flex gap-2">
             <button type="button" onClick={handleSaveAdd}
               disabled={!form.name || !form.startDate || !form.endDate || createMut.isPending}

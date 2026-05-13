@@ -150,7 +150,22 @@ export class HackathonsService {
   }
 
   async createStage(hackathonId: string, dto: CreateStageDto) {
-    await this.getById(hackathonId);
+    const h = await this.getById(hackathonId);
+
+    const stageStart = new Date(dto.startDate);
+    const stageEnd   = new Date(dto.endDate);
+    const hackStart  = new Date(h.startDate);
+    const hackEnd    = new Date(h.endDate);
+
+    if (stageStart >= stageEnd) {
+      throw new BadRequestError('Дата початку стадії має бути раніше дати завершення');
+    }
+    if (stageStart < hackStart || stageEnd > hackEnd) {
+      throw new BadRequestError(
+        `Стадія виходить за межі хакатону (${hackStart.toLocaleDateString('uk')} — ${hackEnd.toLocaleDateString('uk')})`,
+      );
+    }
+
     return this.repo.createStage(hackathonId, dto);
   }
 
@@ -201,9 +216,33 @@ export class HackathonsService {
   }
 
   async updateStage(id: string, dto: any) {
+    // If dates are being updated, validate them against hackathon bounds
+    if (dto.startDate || dto.endDate) {
+      const existing = await this.repo.findStageById(id);
+      if (existing) {
+        const stageStart = dto.startDate ? new Date(dto.startDate) : existing.startDate;
+        const stageEnd   = dto.endDate   ? new Date(dto.endDate)   : existing.endDate;
+        const h = await this.repo.findById(existing.hackathonId);
+
+        if (h) {
+          const hackStart = new Date(h.startDate);
+          const hackEnd   = new Date(h.endDate);
+
+          if (stageStart >= stageEnd) {
+            throw new BadRequestError('Дата початку стадії має бути раніше дати завершення');
+          }
+          if (stageStart < hackStart || stageEnd > hackEnd) {
+            throw new BadRequestError(
+              `Стадія виходить за межі хакатону (${hackStart.toLocaleDateString('uk')} — ${hackEnd.toLocaleDateString('uk')})`,
+            );
+          }
+        }
+      }
+    }
+
     const stageDto = { ...dto };
     if (stageDto.startDate) stageDto.startDate = new Date(stageDto.startDate);
-    if (stageDto.endDate) stageDto.endDate = new Date(stageDto.endDate);
+    if (stageDto.endDate)   stageDto.endDate   = new Date(stageDto.endDate);
     return this.repo.updateStage(id, stageDto);
   }
 

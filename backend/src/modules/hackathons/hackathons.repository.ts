@@ -245,6 +245,11 @@ export class HackathonsRepository {
     return row ?? null;
   }
 
+  async findStageById(id: string) {
+    const [row] = await this.db.select().from(stages).where(eq(stages.id, id)).limit(1);
+    return row ?? null;
+  }
+
   async updateStage(id: string, data: any) {
     const [row] = await this.db.update(stages).set(data).where(eq(stages.id, id)).returning();
     return row ?? null;
