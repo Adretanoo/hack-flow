@@ -1,6 +1,6 @@
 import type { Database } from '../../config/database';
 import { hackathons, stages, tracks, awards, teams, teamMembers } from '../../drizzle/schema';
-import { eq, desc, count, lt, gt, and, lte, gte, inArray, ne, ilike, sql, countDistinct } from 'drizzle-orm';
+import { eq, desc, count, lt, gt, and, or, lte, gte, inArray, ne, ilike, sql, countDistinct, exists, notExists } from 'drizzle-orm';
 import type { CreateHackathonDto, UpdateHackathonDto, CreateTrackDto, CreateStageDto } from './hackathons.schema';
 
 export type HackathonStatus = 'upcoming' | 'active' | 'past';
@@ -14,9 +14,40 @@ export class HackathonsRepository {
 
     const filters = [];
 
-    if (status === 'upcoming') filters.push(gt(hackathons.startDate, now));
-    else if (status === 'active') filters.push(and(lte(hackathons.startDate, now), gte(hackathons.endDate, now)));
-    else if (status === 'past') filters.push(lt(hackathons.endDate, now));
+    if (status === 'upcoming') {
+      filters.push(gt(hackathons.startDate, now));
+    } else if (status === 'active') {
+      filters.push(and(
+        lte(hackathons.startDate, now),
+        gte(hackathons.endDate, now),
+        // Not in FINISHED stage currently
+        notExists(
+          this.db.select()
+            .from(stages)
+            .where(and(
+              eq(stages.hackathonId, hackathons.id),
+              eq(stages.type, 'FINISHED'),
+              lte(stages.startDate, now),
+              gte(stages.endDate, now)
+            ))
+        )
+      ));
+    } else if (status === 'past') {
+      filters.push(or(
+        lt(hackathons.endDate, now),
+        // OR currently in FINISHED stage
+        exists(
+          this.db.select()
+            .from(stages)
+            .where(and(
+              eq(stages.hackathonId, hackathons.id),
+              eq(stages.type, 'FINISHED'),
+              lte(stages.startDate, now),
+              gte(stages.endDate, now)
+            ))
+        )
+      ));
+    }
 
     if (tagIds && tagIds.length > 0) filters.push(inArray(hackathons.id, tagIds));
     
@@ -33,6 +64,8 @@ export class HackathonsRepository {
           teamsCount: countDistinct(teams.id),
           participantsCount: countDistinct(teamMembers.id),
           awardsCount: countDistinct(awards.id),
+          activeStageType: sql<string | null>`(SELECT type FROM ${stages} WHERE ${stages.hackathonId} = ${hackathons.id} AND ${stages.startDate} <= ${now} AND ${stages.endDate} >= ${now} LIMIT 1)`.mapWith(String),
+          activeStageName: sql<string | null>`(SELECT name FROM ${stages} WHERE ${stages.hackathonId} = ${hackathons.id} AND ${stages.startDate} <= ${now} AND ${stages.endDate} >= ${now} LIMIT 1)`.mapWith(String),
         })
         .from(hackathons)
         .leftJoin(teams, eq(hackathons.id, teams.hackathonId))
@@ -49,6 +82,7 @@ export class HackathonsRepository {
     return { 
       rows: rows.map(r => ({ 
         ...r.hackathon, 
+        activeStage: r.activeStageType ? { type: r.activeStageType, name: r.activeStageName } : undefined,
         _count: { 
           teams: Number(r.teamsCount),
           participants: Number(r.participantsCount),

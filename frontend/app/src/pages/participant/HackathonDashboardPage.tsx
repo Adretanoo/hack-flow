@@ -69,7 +69,11 @@ export function HackathonDashboardPage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{hackathon.title}</h1>
             <div className="mt-2 flex items-center gap-3">
-              <StatusBadge status={hackathon.status} />
+              <StatusBadge status={
+                hackathon.status === 'PUBLISHED' 
+                  ? (new Date() > new Date(hackathon.endDate) || stageInfo.activeStageType === 'FINISHED' ? 'past' : (new Date() < new Date(hackathon.startDate) ? 'upcoming' : 'active'))
+                  : hackathon.status
+              } />
               {stageInfo.activeStage && stageInfo.activeStageType && (() => {
                 const STAGE_LABELS: Record<string, string> = {
                   REGISTRATION: '📋 Реєстрація',

@@ -74,6 +74,7 @@ export interface Hackathon {
   tracks?: Track[]
   stages?: Stage[]
   awards?: Award[]
+  activeStage?: { type: StageType; name: string }
   teams?: any[]
   _count?: { teams: number; participants?: number; awards?: number; projects?: number }
 }

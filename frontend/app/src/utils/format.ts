@@ -57,7 +57,7 @@ export const STATUS_LABELS: Record<string, string> = {
   DISQUALIFIED: 'Дискваліфіковано',
   upcoming: 'Майбутній',
   active: 'Активний',
-  past: 'Минулий',
+  past: 'Завершено',
   booked: 'Заброньовано',
   completed: 'Завершено',
   cancelled: 'Скасовано',

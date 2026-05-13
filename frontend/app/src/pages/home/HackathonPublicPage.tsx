@@ -162,10 +162,14 @@ export function HackathonPublicPage() {
           {/* Title */}
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <StatusBadge status={hackathon.status} />
+              <StatusBadge status={
+                hackathon.status === 'PUBLISHED' 
+                  ? (now > new Date(hackathon.endDate) || activeStage?.type === 'FINISHED' ? 'past' : (now < new Date(hackathon.startDate) ? 'upcoming' : 'active'))
+                  : hackathon.status
+              } />
               {activeStage && (
                 <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                  Етап: {activeStage.type}
+                  Етап: {activeStage.type === 'CUSTOM' ? activeStage.name : activeStage.type}
                 </span>
               )}
             </div>
