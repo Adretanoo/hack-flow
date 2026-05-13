@@ -104,10 +104,10 @@ export function JudgeScorePage() {
 
   // Group scores by judge for admin view
   const scoresByJudge = useMemo(() => {
-    const map = new Map<string, { judge: any; total: number; assessments: any[] }>()
+    const map = new Map<string, { judgeId: string; judge: any; total: number; assessments: any[] }>()
     allScores.forEach((s: any) => {
       if (!map.has(s.judgeId)) {
-        map.set(s.judgeId, { judge: s.judge, total: 0, assessments: [] })
+        map.set(s.judgeId, { judgeId: s.judgeId, judge: s.judge, total: 0, assessments: [] })
       }
       const entry = map.get(s.judgeId)!
       const crit = criteria.find((c: any) => c.id === s.criteriaId)
@@ -211,41 +211,65 @@ export function JudgeScorePage() {
                <div className="grid gap-6 sm:grid-cols-1">
                  {scoresByJudge.map((sj, idx) => (
                    <div key={idx} className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-                     <div className="px-5 py-3 border-b border-border bg-muted/30 flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                           <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
-                             {sj.judge.fullName[0]}
+                      <div className="px-5 py-3 border-b border-border bg-muted/30 flex justify-between items-center">
+                         <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                              {sj.judge?.fullName ? sj.judge.fullName[0] : '?'}
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold">{sj.judge?.fullName || sj.judgeId.slice(0, 8)}</p>
+                              <p className="text-[10px] text-muted-foreground">@{sj.judge?.username || 'unknown'}</p>
+                            </div>
+                         </div>
+                         <div className="text-right">
+                           <p className="text-xl font-black text-primary">{sj.total.toFixed(2)}</p>
+                           <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Загальний бал</p>
+                         </div>
+                      </div>
+                      <div className="p-5 space-y-6">
+                        {/* Vertical Bars Chart */}
+                        <div className="flex items-end justify-between gap-2 h-48 pt-6 border-b border-border relative">
+                           {/* Score axis markers */}
+                           <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[8px] text-muted-foreground/50 font-bold pr-1 border-r border-border/50">
+                             <span>10</span><span>7.5</span><span>5</span><span>2.5</span><span>0</span>
                            </div>
-                           <div>
-                             <p className="text-sm font-bold">{sj.judge.fullName}</p>
-                             <p className="text-[10px] text-muted-foreground">@{sj.judge.username}</p>
-                           </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xl font-black text-primary">{sj.total.toFixed(2)}</p>
-                          <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Загальний бал</p>
-                        </div>
-                     </div>
-                     <div className="p-5 space-y-4">
-                        {/* Graph */}
-                        <div className="space-y-2">
+
                            {criteria.map(c => {
-                             const s = sj.assessments.find(a => a.criteriaId === c.id)
+                             const s = sj.assessments.find((a: any) => a.criteriaId === c.id)
                              const val = Number(s?.assessment || 0)
                              const max = Number(c.maxScore) || 10
+                             const height = (val / max) * 100
+                             
                              return (
-                               <div key={c.id} className="space-y-1">
-                                 <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase">
-                                   <span>{c.name}</span>
-                                   <span>{val}/{max}</span>
+                               <div key={c.id} className="flex-1 flex flex-col items-center gap-2 group relative">
+                                 {/* Tooltip on hover */}
+                                 <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-[10px] px-2 py-1 rounded shadow-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 font-bold border border-border">
+                                   {c.name}: {val}/{max}
                                  </div>
-                                 <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                                   <div className="h-full bg-primary transition-all" style={{ width: `${(val/max)*100}%` }} />
+
+                                 <div className="w-10 bg-muted/50 rounded-t-lg overflow-hidden flex flex-col justify-end h-full border border-border/50 shadow-inner">
+                                   <div 
+                                     className="w-full bg-gradient-to-t from-primary to-primary/80 transition-all duration-700 hover:brightness-110" 
+                                     style={{ height: `${height}%` }}
+                                   >
+                                     {height > 15 && (
+                                       <div className="text-[10px] text-primary-foreground font-bold text-center pt-2">
+                                         {val}
+                                       </div>
+                                     )}
+                                   </div>
+                                 </div>
+                                 
+                                 <div className="h-12 flex items-center justify-center">
+                                   <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter text-center leading-tight max-w-[45px] line-clamp-2" title={c.name}>
+                                     {c.name}
+                                   </span>
                                  </div>
                                </div>
                              )
                            })}
                         </div>
+
                         {sj.assessments[0]?.comment && (
                           <div className="bg-muted/50 rounded-lg p-3 border border-border/50">
                             <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Коментар судді</p>

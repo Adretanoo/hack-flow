@@ -579,6 +579,7 @@ export const judgeConflictsRelations = relations(judgeConflicts, ({ one }) => ({
 export const mentorAvailabilitiesRelations = relations(mentorAvailabilities, ({ one, many }) => ({
   mentor: one(users, { fields: [mentorAvailabilities.mentorId], references: [users.id] }),
   track: one(tracks, { fields: [mentorAvailabilities.trackId], references: [tracks.id] }),
+  hackathon: one(hackathons, { fields: [mentorAvailabilities.hackathonId], references: [hackathons.id] }),
   slots: many(mentorRequests),
 }));
 

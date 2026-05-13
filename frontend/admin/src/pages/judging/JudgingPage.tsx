@@ -179,7 +179,7 @@ export function JudgingPage() {
               { key: 'team', header: 'Команда (Проєкт)', render: (l) => <span className="font-medium">{l.teamName}</span> },
               { key: 'actions', header: '', className: 'text-right', render: (l) => (
                 <button onClick={() => setSelectedProjectId(l.projectId)} className="rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-xs font-medium hover:bg-primary/20 transition-colors">
-                  Оцінити
+                  Статистика
                 </button>
               )}
             ]}

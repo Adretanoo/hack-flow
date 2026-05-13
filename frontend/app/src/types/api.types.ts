@@ -211,6 +211,7 @@ export interface Score {
   criteriaId: string
   assessment: number
   comment?: string | null
+  judge?: { id: string; fullName: string; username: string }
 }
 
 export interface Conflict {

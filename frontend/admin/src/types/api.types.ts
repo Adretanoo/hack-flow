@@ -200,6 +200,8 @@ export interface Score {
   criteriaId: string
   assessment: number
   comment?: string | null
+  judge?: { id: string; fullName: string; username: string }
+  criteria?: { id: string; name: string }
 }
 
 export interface Conflict {

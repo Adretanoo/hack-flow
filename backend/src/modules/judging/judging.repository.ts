@@ -45,9 +45,14 @@ export class JudgingRepository {
           fullName: users.fullName,
           username: users.username,
         },
+        criteria: {
+          id: criteria.id,
+          name: criteria.name,
+        },
       })
       .from(scores)
       .innerJoin(users, eq(scores.judgeId, users.id))
+      .innerJoin(criteria, eq(scores.criteriaId, criteria.id))
       .where(eq(scores.projectId, projectId));
   }
 

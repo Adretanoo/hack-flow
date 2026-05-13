@@ -180,7 +180,7 @@ export function JudgeProjectsPage() {
             {([
               { key: 'all',      label: 'Всі',        count: allProjects.length },
               { key: 'unscored', label: 'Не оцінені', count: allProjects.filter((p:any) => !p.scored && !p.hasConflict).length },
-              { key: 'scored',   label: 'Оцінені',    count: evaluatedCount },
+              { key: 'scored',   label: 'Оцінки',    count: evaluatedCount },
               { key: 'conflict', label: 'Конфлікти',  count: conflictsCount },
             ] as const).map(tab => (
               <button
@@ -286,13 +286,13 @@ function ProjectCard({ project }: { project: any }) {
               Оцінювання недоступне
             </div>
           ) : (
-            <Link
-              to={`/app/judge/score/${project.id}`}
-              className="shrink-0 flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              {isAdmin ? 'Переглянути' : project.scored ? 'Змінити' : 'Оцінити'}
-              <ChevronRight className="h-4 w-4" />
-            </Link>
+              <Link
+                to={`/app/judge/score/${project.id}`}
+                className="shrink-0 flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                {isAdmin ? 'Статистика' : project.scored ? 'Змінити' : 'Оцінити'}
+                <ChevronRight className="h-4 w-4" />
+              </Link>
           )}
         </div>
 
