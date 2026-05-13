@@ -20,8 +20,8 @@ export function HackathonCard({ hackathon }: HackathonCardProps) {
   const activeStage = hackathon.stages?.find(s => now >= new Date(s.startDate) && now <= new Date(s.endDate))
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-all hover:shadow-md hover:-translate-y-1">
-      <div className={`h-32 w-full bg-gradient-to-r ${gradientClass} relative`}>
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-all hover:shadow-md hover:-translate-y-1">
+      <div className={`h-32 w-full bg-gradient-to-r ${gradientClass} relative shrink-0`}>
         {hackathon.status === 'PUBLISHED' && (
           <div className="absolute top-3 right-3 flex items-center gap-1.5 rounded-full bg-black/30 backdrop-blur-md px-2.5 py-1 text-xs font-semibold text-white">
             <span className="relative flex h-2 w-2">
@@ -35,10 +35,14 @@ export function HackathonCard({ hackathon }: HackathonCardProps) {
       
       <div className="flex flex-1 flex-col p-5">
         <div className="mb-2 flex items-center justify-between">
-          <StatusBadge status={hackathon.status} />
+          <StatusBadge status={
+            hackathon.status === 'PUBLISHED' 
+              ? (now > new Date(hackathon.endDate) || activeStage?.type === 'FINISHED' ? 'past' : (now < new Date(hackathon.startDate) ? 'upcoming' : 'active'))
+              : hackathon.status
+          } />
           {activeStage && (
             <span className="text-xs font-medium text-primary">
-              Етап: {activeStage.type}
+              Етап: {activeStage.type === 'CUSTOM' ? activeStage.name : activeStage.type}
             </span>
           )}
         </div>
@@ -56,23 +60,32 @@ export function HackathonCard({ hackathon }: HackathonCardProps) {
           </p>
         )}
         
-        <div className="mt-auto flex flex-col gap-2.5 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 shrink-0" />
-            <span>{formatDate(hackathon.startDate)} - {formatDate(hackathon.endDate)}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 shrink-0" />
-            <span>{hackathon.online ? 'Online' : hackathon.location || 'TBA'}</span>
-          </div>
-          <div className="flex items-center justify-between border-t border-border pt-3 mt-1">
-            <div className="flex items-center gap-1.5" title="Кількість напрямків">
-              <Trophy className="h-4 w-4" />
-              <span className="font-medium text-foreground">{hackathon.tracks?.length || 0}</span>
+        <div className="mt-auto space-y-3">
+          <div className="flex flex-col gap-2.5 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 shrink-0" />
+              <span>{formatDate(hackathon.startDate)} - {formatDate(hackathon.endDate)}</span>
             </div>
-            <div className="flex items-center gap-1.5" title="Зареєстровано команд">
-              <Users className="h-4 w-4" />
-              <span className="font-medium text-foreground">{hackathon.teams?.length || 0}</span>
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 shrink-0" />
+              <span>{hackathon.online ? 'Online' : hackathon.location || 'TBA'}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-border pt-3">
+            <div className="flex gap-4">
+              <div className="flex items-center gap-1.5" title="Нагороди">
+                <Trophy className="h-4 w-4 text-amber-500" />
+                <span className="font-medium text-foreground">{hackathon._count?.awards || 0}</span>
+              </div>
+              <div className="flex items-center gap-1.5" title="Учасників">
+                <Users className="h-4 w-4 text-blue-500" />
+                <span className="font-medium text-foreground">{hackathon._count?.participants || 0}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5" title="Команди">
+              <span className="text-xs text-muted-foreground">Команд:</span>
+              <span className="font-medium text-foreground">{hackathon._count?.teams || 0}</span>
             </div>
           </div>
         </div>

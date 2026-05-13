@@ -10,9 +10,9 @@ import { EmptyState } from '@/components/shared/EmptyState'
 
 const TABS = [
   { id: '', label: 'Всі' },
-  { id: 'ACTIVE', label: 'Активні' },
-  { id: 'UPCOMING', label: 'Анонсовані' },
-  { id: 'COMPLETED', label: 'Завершені' },
+  { id: 'active', label: 'Активні' },
+  { id: 'upcoming', label: 'Майбутні' },
+  { id: 'past', label: 'Завершені' },
 ]
 
 export function HomePage() {
@@ -25,6 +25,7 @@ export function HomePage() {
     queryFn: () => hackathonsApi.list({ 
       status: activeTab || undefined,
       search: search || undefined,
+      publishStatus: 'PUBLISHED',
       limit: 20
     }),
   })
@@ -65,7 +66,7 @@ export function HomePage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Пошук..."
+                placeholder="Пошук за назвою..."
                 className="h-10 w-full sm:w-64 rounded-full border border-border bg-background pl-9 pr-4 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -101,7 +102,9 @@ export function HomePage() {
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {hackathons.map((hackathon) => (
-              <HackathonCard key={hackathon.id} hackathon={hackathon} />
+              <div key={hackathon.id} className="h-full">
+                <HackathonCard hackathon={hackathon} />
+              </div>
             ))}
           </div>
         )}

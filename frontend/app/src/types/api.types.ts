@@ -73,8 +73,18 @@ export interface Hackathon {
   tags?: { tag: Tag }[]
   tracks?: Track[]
   stages?: Stage[]
+  awards?: Award[]
   teams?: any[]
-  _count?: { teams: number; projects?: number }
+  _count?: { teams: number; participants?: number; awards?: number; projects?: number }
+}
+
+export interface Award {
+  id: string
+  hackathonId: string
+  name: string
+  description?: string | null
+  place: number
+  certificate?: string | null
 }
 
 export interface Track {

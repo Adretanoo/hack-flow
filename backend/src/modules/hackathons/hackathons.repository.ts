@@ -1,6 +1,6 @@
 import type { Database } from '../../config/database';
-import { hackathons, stages, tracks, awards, teams } from '../../drizzle/schema';
-import { eq, desc, count, lt, gt, and, lte, gte, inArray, ne, ilike } from 'drizzle-orm';
+import { hackathons, stages, tracks, awards, teams, teamMembers } from '../../drizzle/schema';
+import { eq, desc, count, lt, gt, and, lte, gte, inArray, ne, ilike, sql, countDistinct } from 'drizzle-orm';
 import type { CreateHackathonDto, UpdateHackathonDto, CreateTrackDto, CreateStageDto } from './hackathons.schema';
 
 export type HackathonStatus = 'upcoming' | 'active' | 'past';
@@ -30,10 +30,14 @@ export class HackathonsRepository {
       this.db
         .select({
           hackathon: hackathons,
-          teamsCount: count(teams.id),
+          teamsCount: countDistinct(teams.id),
+          participantsCount: countDistinct(teamMembers.id),
+          awardsCount: countDistinct(awards.id),
         })
         .from(hackathons)
         .leftJoin(teams, eq(hackathons.id, teams.hackathonId))
+        .leftJoin(teamMembers, eq(teams.id, teamMembers.teamId))
+        .leftJoin(awards, eq(hackathons.id, awards.hackathonId))
         .where(whereClause)
         .groupBy(hackathons.id)
         .orderBy(desc(hackathons.createdAt))
@@ -43,27 +47,43 @@ export class HackathonsRepository {
     ]);
     
     return { 
-      rows: rows.map(r => ({ ...r.hackathon, _count: { teams: Number(r.teamsCount) } })), 
+      rows: rows.map(r => ({ 
+        ...r.hackathon, 
+        _count: { 
+          teams: Number(r.teamsCount),
+          participants: Number(r.participantsCount),
+          awards: Number(r.awardsCount)
+        } 
+      })), 
       total: Number(total) 
     };
   }
 
   async findById(id: string) {
-    const [row, tracksList, stagesList, teamsCount] = await Promise.all([
+    const [row, tracksList, stagesList, awardsList, teamsCountData, participantsCountData] = await Promise.all([
       this.db.select().from(hackathons).where(eq(hackathons.id, id)).limit(1),
       this.db.select().from(tracks).where(eq(tracks.hackathonId, id)),
       this.db.select().from(stages).where(eq(stages.hackathonId, id)).orderBy(stages.orderIndex),
+      this.db.select().from(awards).where(eq(awards.hackathonId, id)),
       this.db.select({ count: count() }).from(teams).where(eq(teams.hackathonId, id)),
+      this.db
+        .select({ count: count() })
+        .from(teamMembers)
+        .innerJoin(teams, eq(teamMembers.teamId, teams.id))
+        .where(eq(teams.hackathonId, id)),
     ]);
 
-    if (!row || row.length === 0) return null;
+    const hackathonRow = row[0];
+    if (!hackathonRow) return null;
 
     return {
-      ...row[0],
+      ...hackathonRow,
       tracks: tracksList,
       stages: stagesList,
+      awards: awardsList,
       _count: {
-        teams: Number(teamsCount[0]?.count ?? 0),
+        teams: Number(teamsCountData[0]?.count ?? 0),
+        participants: Number(participantsCountData[0]?.count ?? 0),
         projects: 0,
       },
     };

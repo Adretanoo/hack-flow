@@ -85,7 +85,7 @@ function MyHackathonsList() {
           status === 'DISQUALIFIED' ? 'Дискваліфіковано' : 'Очікує'
 
         return (
-          <div key={team.id} className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-all hover:shadow-md hover:-translate-y-1">
+          <div key={team.id} className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-all hover:shadow-md hover:-translate-y-1">
             <div className="p-5 flex flex-col h-full">
               <div className="mb-3 flex justify-between items-start">
                 <span className={`px-2 py-1 text-xs font-medium rounded-md ${statusColor}`}>
@@ -157,7 +157,7 @@ function FindHackathonList() {
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {hackathons.map((hackathon) => (
-            <div key={hackathon.id} className="relative">
+            <div key={hackathon.id} className="relative h-full">
               <HackathonCard hackathon={hackathon} />
               <div className="absolute top-3 right-3 z-10">
                 <Link to={`/hackathons/${hackathon.id}`} className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-semibold rounded-md shadow-sm hover:bg-primary/90 transition-colors pointer-events-auto">
