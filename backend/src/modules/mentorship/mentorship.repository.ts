@@ -1,6 +1,6 @@
 import type { Database } from '../../config/database';
 import { mentorAvailabilities, mentorRequests } from '../../drizzle/schema';
-import { eq, and, gte, lte, lt, gt, ne, inArray } from 'drizzle-orm';
+import { eq, and, gte, lte, lt, gt, ne, inArray, desc } from 'drizzle-orm';
 import type { CreateAvailabilityDto, CreateMentorshipRequestDto } from './mentorship.schema';
 
 export class MentorshipRepository {
@@ -100,6 +100,19 @@ export class MentorshipRepository {
       .select()
       .from(mentorRequests)
       .where(eq(mentorRequests.mentorAvailabilityId, mentorAvailabilityId));
+  }
+
+  /** Find all requests made by a team (for participant's booking view). */
+  async findRequestsByTeam(teamId: string) {
+    return this.db.query.mentorRequests.findMany({
+      where: eq(mentorRequests.teamId, teamId),
+      with: {
+        availability: {
+          with: { mentor: true, track: true },
+        },
+      },
+      orderBy: [desc(mentorRequests.createdAt)],
+    });
   }
 
   async findRequestById(id: string) {

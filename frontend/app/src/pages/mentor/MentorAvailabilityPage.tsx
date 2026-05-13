@@ -6,7 +6,7 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { mentorshipApi } from '@/api/mentorship'
 import { hackathonsApi } from '@/api/hackathons'
 import { tracksApi } from '@/api/tracks'
-import { AvailabilityCard } from './MentorCalendarCard'
+import { AvailabilityCard, AvailDetailPanel } from './MentorCalendarCard'
 
 const UK_DAYS = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб']
 const UK_MONTHS_SHORT = ['січ','лют','бер','кві','тра','чер','лип','сер','вер','жов','лис','гру']
@@ -40,6 +40,7 @@ export function MentorAvailabilityPage() {
   const [hackathonId, setHackathonId] = useState(() => localStorage.getItem(LS_KEY) || '')
   const [weekOffset, setWeekOffset] = useState(0)
   const [showForm, setShowForm] = useState(false)
+  const [selectedAvail, setSelectedAvail] = useState<any>(null)
   const [formTrackId, setFormTrackId] = useState('')
   const [formDate, setFormDate] = useState('')
   const [formStart, setFormStart] = useState('10:00')
@@ -170,7 +171,8 @@ export function MentorAvailabilityPage() {
           </div>
 
           {isLoading ? <div className="py-16"><LoadingSpinner /></div> : (
-            <div className="grid grid-cols-7 gap-1.5">
+            <div className="overflow-x-auto pb-2 -mx-1 px-1">
+              <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(7, minmax(130px, 1fr))', minWidth: '910px' }}>
               {weekDates.map(date => {
                 const dayAvails = byDate.get(date.toDateString()) || []
                 const isToday = isSameDay(date, TODAY)
@@ -190,12 +192,13 @@ export function MentorAvailabilityPage() {
                       </div>
                     ) : (
                       <div className="space-y-1.5">
-                        {dayAvails.map(av => <AvailabilityCard key={av.id} avail={av} />)}
+                        {dayAvails.map(av => <AvailabilityCard key={av.id} avail={av} onSelect={setSelectedAvail} />)}
                       </div>
                     )}
                   </div>
                 )
               })}
+            </div>
             </div>
           )}
 
@@ -280,6 +283,9 @@ export function MentorAvailabilityPage() {
           </div>
         )}
       </div>
+      {selectedAvail && (
+        <AvailDetailPanel avail={selectedAvail} onClose={() => setSelectedAvail(null)} />
+      )}
     </div>
   )
 }

@@ -86,6 +86,16 @@ export async function mentorshipRoutes(app: FastifyInstance): Promise<void> {
     },
   }, (req, reply) => ctrl.deleteAvailability(req, reply));
 
+  app.get('/requests', {
+    onRequest: [authenticate],
+    schema: {
+      tags: ['Mentorship'],
+      summary: 'Get mentorship requests for a team',
+      security: Sec,
+      querystring: { type: 'object', properties: { teamId: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.getTeamRequests(req, reply));
+
   app.post('/requests', {
     onRequest: [authenticate],
     schema: {

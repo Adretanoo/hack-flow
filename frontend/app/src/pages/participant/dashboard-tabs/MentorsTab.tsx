@@ -1,338 +1,368 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Video, X, Lock, CalendarDays, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Lock, CalendarDays, Video, X } from 'lucide-react'
 import { mentorshipApi } from '@/api/mentorship'
-import { Avatar } from '@/components/shared/Avatar'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import type { Hackathon, Team } from '@/types/api.types'
 
-const UK_DAYS_SHORT = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб']
-const UK_MONTHS_SHORT = ['січ','лют','бер','кві','тра','чер','лип','сер','вер','жов','лис','гру']
+const UK_DAYS = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб']
+const UK_MONTHS = ['січ','лют','бер','кві','тра','чер','лип','сер','вер','жов','лис','гру']
+const UK_MONTHS_FULL = ['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня']
 
 function fmtTime(dt: Date) { return dt.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }) }
 function isSameDay(a: Date, b: Date) { return a.toDateString() === b.toDateString() }
 
-interface MentorsTabProps { hackathon: Hackathon; myTeam?: Team; stageInfo: any }
-
-const STATUS_META: Record<string, { label: string; cls: string; dot: string }> = {
-  pending:   { label: 'Очікує',      cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',  dot: 'bg-amber-400' },
-  accepted:  { label: 'Заплановано', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',     dot: 'bg-blue-500' },
-  completed: { label: 'Завершено',   cls: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300', dot: 'bg-green-500' },
+function fmtRange(days: Date[]) {
+  const f = days[0], l = days[6]
+  if (f.getMonth() === l.getMonth()) return `${f.getDate()}–${l.getDate()} ${UK_MONTHS_FULL[f.getMonth()]} ${f.getFullYear()}`
+  return `${f.getDate()} ${UK_MONTHS[f.getMonth()]} – ${l.getDate()} ${UK_MONTHS[l.getMonth()]} ${l.getFullYear()}`
 }
+
+const STATUS_STYLE: Record<string, { card: string; badge: string; label: string; dot: string }> = {
+  pending:   { card: 'bg-amber-50 border-amber-300 dark:bg-amber-900/20 dark:border-amber-700',  badge: 'bg-amber-100 text-amber-700',   label: '⏳ Очікує',       dot: 'bg-amber-400' },
+  accepted:  { card: 'bg-blue-50  border-blue-300  dark:bg-blue-900/20  dark:border-blue-700',   badge: 'bg-blue-100  text-blue-700',    label: '✓ Підтверджено', dot: 'bg-blue-500'  },
+  completed: { card: 'bg-green-50 border-green-300 dark:bg-green-900/20 dark:border-green-700',  badge: 'bg-green-100 text-green-700',   label: '✅ Завершено',    dot: 'bg-green-500' },
+  cancelled: { card: 'bg-muted/40 border-border opacity-50',                                      badge: 'bg-muted text-muted-foreground', label: '✗ Скасовано',    dot: 'bg-muted-foreground' },
+  rejected:  { card: 'bg-muted/40 border-border opacity-50',                                      badge: 'bg-muted text-muted-foreground', label: '✗ Відхилено',    dot: 'bg-red-400'   },
+}
+
+interface MentorsTabProps { hackathon: Hackathon; myTeam?: Team; stageInfo: any }
 
 export function MentorsTab({ hackathon, myTeam, stageInfo }: MentorsTabProps) {
   const qc = useQueryClient()
-  const [selectedMentor, setSelectedMentor] = useState<any>(null)
-  const [calOffset, setCalOffset] = useState(0)
   const TODAY = useMemo(() => new Date(), [])
+  const [weekOffset, setWeekOffset] = useState(0)
+  const [selectedAvail, setSelectedAvail] = useState<any>(null)
+  const [cancelConfirm, setCancelConfirm] = useState<{ open: boolean; id: string; mentorName: string }>({ open: false, id: '', mentorName: '' })
 
-  // 7-day window starting from today + offset
-  const calDays = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(TODAY)
-      d.setDate(TODAY.getDate() + calOffset * 7 + i)
-      d.setHours(0,0,0,0)
-      return d
-    })
-  }, [TODAY, calOffset])
+  const weekDates = useMemo(() => {
+    const day = TODAY.getDay()
+    const monday = new Date(TODAY)
+    monday.setDate(TODAY.getDate() + (day === 0 ? -6 : 1 - day) + weekOffset * 7)
+    monday.setHours(0, 0, 0, 0)
+    return Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d })
+  }, [TODAY, weekOffset])
 
-  const { data: mentorsData, isLoading } = useQuery({
+  const { data: mentorsData, isLoading: mentorsLoading } = useQuery({
     queryKey: ['mentors', hackathon.id],
     queryFn: () => mentorshipApi.getAvailableMentors({ hackathonId: hackathon.id }),
     enabled: stageInfo.canBookMentor,
   })
-  const { data: myBookingsData } = useQuery({
+
+  const { data: myBookingsData, isLoading: bookingsLoading } = useQuery({
     queryKey: ['my-bookings', myTeam?.id],
     queryFn: () => mentorshipApi.getMyRequests(myTeam!.id),
-    enabled: !!myTeam?.id && stageInfo.canBookMentor,
+    enabled: !!myTeam?.id,
   })
 
   const cancelMut = useMutation({
     mutationFn: (id: string) => mentorshipApi.cancelRequest(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['my-bookings'] }); qc.invalidateQueries({ queryKey: ['mentor-slots'] }) },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookings'] }),
   })
 
   if (!stageInfo.canBookMentor) {
     return (
       <div className="mt-8 rounded-xl border border-dashed border-border bg-card p-12 text-center flex flex-col items-center gap-4">
         <Lock className="h-12 w-12 text-muted-foreground/30" />
-        <div><h3 className="text-xl font-semibold mb-1">Бронювання менторів недоступне</h3>
-          <p className="text-muted-foreground text-sm max-w-md">Сесії з менторами можна забронювати лише під час етапу розробки (Hacking).</p></div>
+        <h3 className="text-xl font-semibold">Бронювання менторів недоступне</h3>
+        <p className="text-muted-foreground text-sm max-w-md">Доступно під час етапу хакінгу.</p>
       </div>
     )
   }
-  if (!myTeam) return <div className="py-24 text-center text-muted-foreground">Спершу створіть або приєднайтесь до команди</div>
+  if (!myTeam) return <div className="py-24 text-center text-muted-foreground">Спершу приєднайтесь до команди</div>
 
   const mentors: any[] = mentorsData?.data?.data || []
   const myBookings: any[] = myBookingsData?.data?.data || []
 
-  // Build calendar data: for each (mentorId, date), list free slot times
-  const mentorDaySlots = useMemo(() => {
-    // mentors: array of availability objects (one mentor may have multiple)
-    // Group by mentor user id
-    const byMentor = new Map<string, { mentor: any; avails: any[] }>()
-    for (const av of mentors) {
-      const mid = av.mentor?.id || av.mentorId
-      if (!byMentor.has(mid)) byMentor.set(mid, { mentor: av.mentor, avails: [] })
-      byMentor.get(mid)!.avails.push(av)
-    }
-
-    return Array.from(byMentor.values()).map(({ mentor, avails }) => {
-      const days = calDays.map(day => {
-        const slots: { avail: any; time: string; dt: Date }[] = []
-        for (const av of avails) {
-          if (!isSameDay(new Date(av.startDatetime), day)) continue
-          const start = new Date(av.startDatetime)
-          const end = new Date(av.endDatetime)
-          const dur = av.slotDuration || 30
-          const bookedTimes = (av.slots || []).filter((s: any) => s.status === 'pending' || s.status === 'accepted').map((s: any) => new Date(s.startDatetime).getTime())
-          let cur = new Date(start)
-          while (cur < end) {
-            if (!bookedTimes.some((t: number) => Math.abs(t - cur.getTime()) < 60000)) {
-              slots.push({ avail: av, time: fmtTime(cur), dt: new Date(cur) })
-            }
-            cur = new Date(cur.getTime() + dur * 60000)
-          }
-        }
-        return slots
-      })
-      return { mentor, avails, days }
+  // Group MY bookings by date
+  const myBookingsByDate = useMemo(() => {
+    const map = new Map<string, any[]>()
+    weekDates.forEach(d => map.set(d.toDateString(), []))
+    myBookings.forEach(b => {
+      const k = new Date(b.startDatetime).toDateString()
+      if (map.has(k)) map.get(k)!.push(b)
     })
-  }, [mentors, calDays])
+    return map
+  }, [myBookings, weekDates])
 
-  const hasAnythingInWindow = mentorDaySlots.some(m => m.days.some(d => d.length > 0))
+  // Group available mentor slots by date
+  const availByDate = useMemo(() => {
+    const map = new Map<string, any[]>()
+    weekDates.forEach(d => map.set(d.toDateString(), []))
+    for (const av of mentors) {
+      const k = new Date(av.startDatetime).toDateString()
+      if (map.has(k)) map.get(k)!.push(av)
+    }
+    return map
+  }, [mentors, weekDates])
+
+  const hasAnything = weekDates.some(d => (myBookingsByDate.get(d.toDateString())?.length || 0) + (availByDate.get(d.toDateString())?.length || 0) > 0)
+
+  const pastBookings = myBookings.filter(b => b.status !== 'pending' && b.status !== 'accepted')
 
   return (
-    <div className="mt-6 space-y-8">
+    <div className="mt-6 space-y-6">
 
-      {/* ── My Bookings ── */}
-      {myBookings.length > 0 && (
-        <section>
-          <h3 className="text-base font-bold mb-3 flex items-center gap-2"><Clock className="h-4 w-4 text-primary" />Мої бронювання</h3>
-          <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-muted-foreground border-b border-border text-xs">
-                <tr>
-                  <th className="px-4 py-3 font-semibold text-left">Ментор</th>
-                  <th className="px-4 py-3 font-semibold text-left">Дата і час</th>
-                  <th className="px-4 py-3 font-semibold text-left">Тривалість</th>
-                  <th className="px-4 py-3 font-semibold text-left">Статус</th>
-                  <th className="px-4 py-3 font-semibold text-right">Дія</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {myBookings.map((b: any) => {
-                  const meta = STATUS_META[b.status]
-                  return (
-                    <tr key={b.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-4 py-3 font-semibold">{b.mentorAvailability?.user?.fullName || b.mentorAvailability?.mentor?.fullName || 'Ментор'}</td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(b.startDatetime).toLocaleString('uk-UA', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs">{b.durationMinute} хв</td>
-                      <td className="px-4 py-3">
-                        {meta ? (
-                          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${meta.cls}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />{meta.label}
-                          </span>
-                        ) : <span className="text-xs text-destructive font-medium">Скасовано</span>}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {b.status === 'accepted' && b.meetingLink && (
-                            <a href={b.meetingLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-xs font-semibold hover:bg-primary/20 transition-colors">
-                              <Video className="h-3.5 w-3.5" />Приєднатись
-                            </a>
-                          )}
-                          {(b.status === 'accepted' || b.status === 'pending') && (
-                            <button onClick={() => { if (confirm('Скасувати сесію?')) cancelMut.mutate(b.id) }} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors">
-                              Скасувати
-                            </button>
-                          )}
+      {/* ── Week navigation ── */}
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
+        <button onClick={() => setWeekOffset(w => w - 1)} className="p-2 rounded-lg hover:bg-accent transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+        <div className="flex-1 text-center">
+          <p className="font-semibold text-sm flex items-center justify-center gap-1.5"><CalendarDays className="h-4 w-4 text-primary" />{fmtRange(weekDates)}</p>
+          {weekOffset !== 0 && <button onClick={() => setWeekOffset(0)} className="text-xs text-primary hover:underline">← Сьогодні</button>}
+        </div>
+        <button onClick={() => setWeekOffset(w => w + 1)} className="p-2 rounded-lg hover:bg-accent transition-colors"><ChevronRight className="h-5 w-5" /></button>
+      </div>
+
+      {/* ── Weekly calendar grid ── */}
+      {mentorsLoading || bookingsLoading ? <div className="py-12"><LoadingSpinner /></div> : (
+        <div className="overflow-x-auto -mx-1 px-1 pb-2">
+          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(7, minmax(130px, 1fr))', minWidth: '910px' }}>
+            {weekDates.map(date => {
+              const isToday = isSameDay(date, TODAY)
+              const isPast = date < TODAY && !isToday
+              const dayBookings = myBookingsByDate.get(date.toDateString()) || []
+              const dayAvails = availByDate.get(date.toDateString()) || []
+
+              // Build free slots from mentor availabilities (excluding booked by others or self)
+              const freeSlots: { avail: any; time: string; dt: Date }[] = []
+              for (const av of dayAvails) {
+                const start = new Date(av.startDatetime), end = new Date(av.endDatetime), dur = av.slotDuration || 30
+                const booked = (av.slots || []).filter((s: any) => s.status === 'pending' || s.status === 'accepted').map((s: any) => new Date(s.startDatetime).getTime())
+                let cur = new Date(start)
+                while (cur < end) {
+                  if (!booked.some((t: number) => Math.abs(t - cur.getTime()) < 60000))
+                    freeSlots.push({ avail: av, time: fmtTime(cur), dt: new Date(cur) })
+                  cur = new Date(cur.getTime() + dur * 60000)
+                }
+              }
+
+              return (
+                <div key={date.toDateString()} className="flex flex-col gap-1.5 min-w-0">
+                  {/* Day header */}
+                  <div className={`rounded-xl p-2 text-center transition-all ${isToday ? 'bg-primary shadow-md shadow-primary/20' : 'bg-card border border-border'}`}>
+                    <p className={`text-[10px] font-semibold uppercase tracking-widest ${isToday ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{UK_DAYS[date.getDay()]}</p>
+                    <p className={`text-base font-bold leading-tight ${isToday ? 'text-primary-foreground' : isPast ? 'text-muted-foreground/40' : ''}`}>{date.getDate()}</p>
+                    <p className={`text-[9px] ${isToday ? 'text-primary-foreground/60' : 'text-muted-foreground/50'}`}>{UK_MONTHS[date.getMonth()]}</p>
+                  </div>
+
+                  {/* My bookings for this day */}
+                  {dayBookings.map(b => {
+                    const st = STATUS_STYLE[b.status] || STATUS_STYLE.cancelled
+                    const dt = new Date(b.startDatetime)
+                    const mentorName = b.mentorAvailability?.user?.fullName || b.mentorAvailability?.mentor?.fullName || 'Ментор'
+                    return (
+                      <div key={b.id} className={`rounded-xl border-2 p-2.5 ${st.card}`}>
+                        <div className="flex items-start justify-between gap-1">
+                          <div className="min-w-0">
+                            <p className="font-bold text-xs">{fmtTime(dt)}</p>
+                            <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">{mentorName}</p>
+                          </div>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${st.badge}`}>{st.label}</span>
                         </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                        <p className="text-[10px] text-muted-foreground mt-1">{b.durationMinute} хв</p>
+                        {b.status === 'accepted' && b.meetingLink && (
+                          <a href={b.meetingLink} target="_blank" rel="noreferrer" className="mt-1.5 flex items-center gap-1 text-[10px] text-blue-600 hover:underline font-semibold">
+                            <Video className="h-2.5 w-2.5 shrink-0" /><span className="truncate">Приєднатись</span>
+                          </a>
+                        )}
+                        {(b.status === 'accepted' || b.status === 'pending') && (
+                          <button onClick={() => setCancelConfirm({ open: true, id: b.id, mentorName })}
+                            className="mt-1.5 w-full text-[10px] text-muted-foreground hover:text-destructive transition-colors text-left">
+                            ✗ Скасувати
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+
+                  {/* Free available slots */}
+                  {!isPast && freeSlots.length > 0 && (
+                    <div className="space-y-1">
+                      {freeSlots.slice(0, 3).map((s, i) => (
+                        <button key={i} onClick={() => setSelectedAvail(s.avail)}
+                          className="w-full rounded-lg bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-400 text-[10px] font-bold px-2 py-1.5 hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors text-left">
+                          {s.time} · {s.avail.mentor?.fullName?.split(' ')[0] || 'Ментор'}
+                        </button>
+                      ))}
+                      {freeSlots.length > 3 && (
+                        <button onClick={() => setSelectedAvail(freeSlots[0].avail)} className="w-full text-[10px] text-primary hover:underline font-semibold text-left pl-1">
+                          +{freeSlots.length - 3} слотів
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Empty state */}
+                  {dayBookings.length === 0 && freeSlots.length === 0 && (
+                    <div className={`flex-1 rounded-xl border-2 border-dashed min-h-[60px] flex items-center justify-center ${isPast ? 'border-border/20 opacity-30' : 'border-border/40'}`}>
+                      <span className="text-[9px] text-muted-foreground/40">Немає</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {!hasAnything && !mentorsLoading && (
+        <div className="text-center py-6">
+          <p className="text-sm font-medium text-muted-foreground">Немає слотів та бронювань на цей тиждень</p>
+          <button onClick={() => setWeekOffset(w => w + 1)} className="mt-1.5 text-xs text-primary hover:underline">Наступний тиждень →</button>
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-4 px-1">
+        {[
+          { cls: 'bg-teal-100 border-teal-300',   label: 'Вільний слот' },
+          { cls: 'bg-amber-100 border-amber-300',  label: 'Очікує' },
+          { cls: 'bg-blue-100 border-blue-300',    label: 'Підтверджено' },
+          { cls: 'bg-green-100 border-green-300',  label: 'Завершено' },
+        ].map(l => (
+          <div key={l.label} className="flex items-center gap-1.5">
+            <span className={`w-3 h-3 rounded border-2 ${l.cls}`} />
+            <span className="text-xs text-muted-foreground">{l.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── History table ── */}
+      {pastBookings.length > 0 && (
+        <section>
+          <h3 className="text-sm font-bold mb-3 text-muted-foreground uppercase tracking-wide">Архів</h3>
+          <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[450px]">
+                <thead className="text-xs text-muted-foreground border-b border-border bg-muted/10">
+                  <tr>
+                    <th className="px-4 py-2.5 text-left font-semibold">Ментор</th>
+                    <th className="px-4 py-2.5 text-left font-semibold">Дата і час</th>
+                    <th className="px-4 py-2.5 text-left font-semibold">Тривалість</th>
+                    <th className="px-4 py-2.5 text-left font-semibold">Статус</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {pastBookings.map((b: any) => {
+                    const st = STATUS_STYLE[b.status] || STATUS_STYLE.cancelled
+                    const dt = new Date(b.startDatetime)
+                    return (
+                      <tr key={b.id} className="hover:bg-muted/10 transition-colors opacity-70">
+                        <td className="px-4 py-3 font-medium text-sm">{b.mentorAvailability?.user?.fullName || 'Ментор'}</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">{dt.getDate()} {UK_MONTHS[dt.getMonth()]}, {fmtTime(dt)}</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">{b.durationMinute} хв</td>
+                        <td className="px-4 py-3"><span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${st.badge}`}>{st.label}</span></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       )}
 
-      {/* ── Mentor Calendar Table ── */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-bold flex items-center gap-2"><CalendarDays className="h-4 w-4 text-primary" />Доступні ментори</h3>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setCalOffset(o => o - 1)} className="p-1.5 rounded-lg border border-border hover:bg-accent transition-colors"><ChevronLeft className="h-4 w-4" /></button>
-            <span className="text-xs font-semibold text-muted-foreground min-w-[160px] text-center">
-              {calDays[0].getDate()} {UK_MONTHS_SHORT[calDays[0].getMonth()]} – {calDays[6].getDate()} {UK_MONTHS_SHORT[calDays[6].getMonth()]}
-            </span>
-            <button onClick={() => setCalOffset(o => o + 1)} className="p-1.5 rounded-lg border border-border hover:bg-accent transition-colors"><ChevronRight className="h-4 w-4" /></button>
-            {calOffset !== 0 && <button onClick={() => setCalOffset(0)} className="text-xs text-primary hover:underline ml-1">Сьогодні</button>}
-          </div>
-        </div>
-
-        {isLoading ? <div className="py-12"><LoadingSpinner /></div>
-          : mentors.length === 0 ? <EmptyState title="Немає доступних менторів" description="Зараз немає менторів з відкритими слотами" />
-          : (
-            <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[600px]">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/30">
-                      <th className="px-4 py-3 text-left font-semibold text-xs text-muted-foreground uppercase tracking-wide w-48">Ментор</th>
-                      {calDays.map(d => {
-                        const isToday = isSameDay(d, TODAY)
-                        return (
-                          <th key={d.toDateString()} className={`px-2 py-3 text-center font-semibold text-xs uppercase tracking-wide ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
-                            <span className={`inline-flex flex-col items-center ${isToday ? 'bg-primary text-primary-foreground rounded-lg px-2 py-1' : ''}`}>
-                              <span className="text-[10px]">{UK_DAYS_SHORT[d.getDay()]}</span>
-                              <span className="text-sm font-bold">{d.getDate()}</span>
-                            </span>
-                          </th>
-                        )
-                      })}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {mentorDaySlots.map(({ mentor, avails, days }, ri) => (
-                      <tr key={mentor?.id || ri} className="hover:bg-muted/10 transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2.5">
-                            <Avatar name={mentor?.fullName || 'M'} url={mentor?.avatarUrl} size="sm" />
-                            <div className="min-w-0">
-                              <p className="font-semibold text-xs truncate">{mentor?.fullName || 'Ментор'}</p>
-                              <p className="text-[10px] text-muted-foreground truncate">{avails[0]?.track?.name || 'Всі треки'}</p>
-                            </div>
-                          </div>
-                        </td>
-                        {days.map((slots, di) => (
-                          <td key={di} className="px-2 py-2 text-center align-top">
-                            {slots.length === 0 ? (
-                              <span className="text-[10px] text-muted-foreground/30">—</span>
-                            ) : (
-                              <div className="flex flex-col gap-1 items-center">
-                                {slots.slice(0, 3).map((s, si) => (
-                                  <button key={si} onClick={() => setSelectedMentor(s.avail)} className="w-full px-2 py-1 rounded-lg bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-400 text-[10px] font-bold hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors">
-                                    {s.time}
-                                  </button>
-                                ))}
-                                {slots.length > 3 && (
-                                  <button onClick={() => setSelectedMentor(slots[0].avail)} className="text-[10px] text-primary hover:underline font-semibold">+{slots.length - 3} ще</button>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {!hasAnythingInWindow && (
-                <div className="py-10 text-center text-muted-foreground text-sm">
-                  <p className="font-medium">Немає доступних слотів на цей тиждень</p>
-                  <button onClick={() => setCalOffset(o => o + 1)} className="mt-2 text-primary text-xs hover:underline">Переглянути наступний тиждень →</button>
-                </div>
-              )}
-            </div>
-          )}
-
-        {/* Legend */}
-        <div className="mt-3 flex items-center gap-4">
-          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-teal-100 border-2 border-teal-300" /><span className="text-xs text-muted-foreground">Вільний слот</span></div>
-          <div className="flex items-center gap-1.5"><span className="text-xs text-muted-foreground/50">— = немає слотів</span></div>
-        </div>
-      </section>
-
-      {/* ── Booking Modal ── */}
-      {selectedMentor && (
-        <BookingModal mentor={selectedMentor} teamId={myTeam.id} onClose={() => setSelectedMentor(null)}
-          onBooked={() => { qc.invalidateQueries({ queryKey: ['my-bookings'] }); setSelectedMentor(null) }} />
+      {/* ── Booking modal ── */}
+      {selectedAvail && (
+        <BookingModal avail={selectedAvail} teamId={myTeam.id}
+          onClose={() => setSelectedAvail(null)}
+          onBooked={() => { qc.invalidateQueries({ queryKey: ['my-bookings'] }); setSelectedAvail(null) }} />
       )}
+
+      {/* ── Cancel confirm ── */}
+      <ConfirmDialog open={cancelConfirm.open}
+        title="Скасувати сесію?"
+        message={`Скасувати бронювання ментора ${cancelConfirm.mentorName}?`}
+        confirmLabel="Так, скасувати" cancelLabel="Ні" danger
+        onConfirm={() => { cancelMut.mutate(cancelConfirm.id); setCancelConfirm({ open: false, id: '', mentorName: '' }) }}
+        onCancel={() => setCancelConfirm({ open: false, id: '', mentorName: '' })} />
     </div>
   )
 }
 
-function BookingModal({ mentor, teamId, onClose, onBooked }: any) {
-  const [selectedSlot, setSelectedSlot] = useState<any>(null)
+function BookingModal({ avail, teamId, onClose, onBooked }: any) {
+  const [selected, setSelected] = useState<any>(null)
   const [message, setMessage] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['mentor-requests', mentor.id],
-    queryFn: () => mentorshipApi.getMentorRequests(mentor.id).then(r => r.data.data),
+    queryKey: ['mentor-requests', avail.id],
+    queryFn: () => mentorshipApi.getMentorRequests(avail.id).then(r => r.data.data),
   })
 
   const requestMut = useMutation({
-    mutationFn: (d: any) => mentorshipApi.createRequest({ mentorAvailabilityId: mentor.id, teamId, startDatetime: d.startDatetime, durationMinute: d.duration, message: d.message }),
+    mutationFn: (d: any) => mentorshipApi.createRequest({ mentorAvailabilityId: avail.id, teamId, startDatetime: d.startDatetime, durationMinute: d.duration, message: d.message }),
     onSuccess: () => onBooked(),
-    onError: (e: any) => alert(e.message || 'Помилка надсилання запиту'),
+    onError: (e: any) => alert(e.message || 'Помилка'),
   })
 
   const requests = data || []
-  const start = new Date(mentor.startDatetime)
-  const end = new Date(mentor.endDatetime)
-  const dur = mentor.slotDuration || 30
-  const totalSlots = Math.floor((end.getTime() - start.getTime()) / 60000 / dur)
-
+  const start = new Date(avail.startDatetime), end = new Date(avail.endDatetime), dur = avail.slotDuration || 30
   const slots: any[] = []
   let cur = new Date(start)
-  for (let i = 0; i < totalSlots; i++) {
+  for (let i = 0; i < Math.floor((end.getTime() - start.getTime()) / 60000 / dur); i++) {
     const dt = new Date(cur)
-    const req = requests.find((r: any) => Math.abs(new Date(r.startDatetime).getTime() - dt.getTime()) < 60000 && r.status !== 'rejected')
-    if (!req || req.teamId === teamId) slots.push({ id: `s-${i}`, startDatetime: dt.toISOString(), durationMinute: dur, request: req })
+    const req = requests.find((r: any) => Math.abs(new Date(r.startDatetime).getTime() - dt.getTime()) < 60000 && r.status !== 'rejected' && r.status !== 'cancelled')
+    slots.push({ id: `s-${i}`, startDatetime: dt.toISOString(), durationMinute: dur, request: req })
     cur = new Date(cur.getTime() + dur * 60000)
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
-        <div className="flex items-center justify-between border-b border-border px-5 py-4 bg-muted/20">
-          <div>
-            <h3 className="font-bold">{mentor.mentor?.fullName || mentor.user?.fullName}</h3>
-            <p className="text-xs text-muted-foreground">{new Date(mentor.startDatetime).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' })} · {mentor.slotDuration || 30} хв/слот</p>
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
+          <div className="flex items-center justify-between border-b border-border px-5 py-4 bg-muted/20">
+            <div>
+              <h3 className="font-bold">{avail.mentor?.fullName || avail.user?.fullName || 'Ментор'}</h3>
+              <p className="text-xs text-muted-foreground">
+                {new Date(avail.startDatetime).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' })} · {avail.slotDuration || 30} хв/слот
+              </p>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-accent transition-colors"><X className="h-5 w-5" /></button>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-accent transition-colors"><X className="h-5 w-5" /></button>
-        </div>
-        <div className="overflow-y-auto p-4 flex-1">
-          {isLoading ? <div className="py-12"><LoadingSpinner /></div>
-            : slots.length === 0 ? <EmptyState title="Немає вільних слотів" description="Усі слоти вже зайняті" />
-            : (
-              <div className="space-y-2">
-                {slots.map(slot => {
-                  const dt = new Date(slot.startDatetime)
-                  const isSelected = selectedSlot?.id === slot.id
-                  const isPending = slot.request?.status === 'pending'
-                  const isAccepted = slot.request?.status === 'accepted'
-
-                  return (
-                    <div key={slot.id} className={`rounded-xl border-2 p-3 transition-all ${isSelected ? 'border-primary bg-primary/5' : isPending || isAccepted ? 'border-amber-200 bg-amber-50/50 dark:bg-amber-900/10' : 'border-border hover:border-primary/40'}`}>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-bold text-sm">{fmtTime(dt)}</p>
-                          <p className="text-xs text-muted-foreground">{slot.durationMinute} хв</p>
+          <div className="overflow-y-auto p-4 flex-1">
+            {isLoading ? <div className="py-12"><LoadingSpinner /></div>
+              : slots.length === 0 ? <EmptyState title="Немає слотів" description="Всі зайняті" />
+              : (
+                <div className="space-y-2">
+                  {slots.map(slot => {
+                    const dt = new Date(slot.startDatetime)
+                    const isSel = selected?.id === slot.id
+                    const isBusy = slot.request?.status === 'pending' || slot.request?.status === 'accepted'
+                    return (
+                      <div key={slot.id} className={`rounded-xl border-2 p-3 transition-all ${isSel ? 'border-primary bg-primary/5' : isBusy ? 'border-amber-200 bg-amber-50/50 dark:bg-amber-900/10 opacity-60' : 'border-border hover:border-primary/40'}`}>
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="font-bold text-sm">{fmtTime(dt)}</p>
+                            <p className="text-xs text-muted-foreground">{slot.durationMinute} хв</p>
+                          </div>
+                          {isBusy
+                            ? <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${slot.request?.status === 'accepted' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>{slot.request?.status === 'accepted' ? '✓ Зайнято' : '⏳ Очікує'}</span>
+                            : <button onClick={() => setSelected(isSel ? null : slot)} className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold hover:bg-secondary/80 transition-colors">{isSel ? 'Сховати' : 'Вибрати'}</button>}
                         </div>
-                        {isPending ? <span className="text-xs font-bold text-amber-600 bg-amber-100 px-2.5 py-1 rounded-full">⏳ Очікує</span>
-                          : isAccepted ? <span className="text-xs font-bold text-green-600 bg-green-100 px-2.5 py-1 rounded-full">✓ Підтверджено</span>
-                          : <button onClick={() => setSelectedSlot(isSelected ? null : slot)} className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold hover:bg-secondary/80 transition-colors">{isSelected ? 'Сховати' : 'Вибрати'}</button>}
+                        {isSel && !isBusy && (
+                          <div className="mt-3 pt-3 border-t border-border space-y-2.5">
+                            <textarea placeholder="Опишіть, з чим потрібна допомога..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary resize-none" rows={3} value={message} onChange={e => setMessage(e.target.value)} />
+                            <button onClick={() => setConfirmOpen(true)} className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-colors">
+                              Надіслати запит
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      {isSelected && !isPending && !isAccepted && (
-                        <div className="mt-3 pt-3 border-t border-border space-y-2.5">
-                          <textarea placeholder="Коротко опишіть, з чим потрібна допомога..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary resize-none" rows={3} value={message} onChange={e => setMessage(e.target.value)} />
-                          <button onClick={() => { if (confirm('Надіслати запит?')) requestMut.mutate({ startDatetime: slot.startDatetime, duration: slot.durationMinute, message }) }} disabled={requestMut.isPending} className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">
-                            {requestMut.isPending ? 'Зачекайте...' : 'Надіслати запит'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+                    )
+                  })}
+                </div>
+              )}
+          </div>
         </div>
       </div>
-    </div>
+      <ConfirmDialog open={confirmOpen} title="Надіслати запит?"
+        message={`Надіслати запит на ${fmtTime(new Date(selected?.startDatetime || Date.now()))} (${selected?.durationMinute} хв)?`}
+        confirmLabel="Надіслати" cancelLabel="Назад" danger={false}
+        onConfirm={() => { requestMut.mutate({ startDatetime: selected.startDatetime, duration: selected.durationMinute, message }); setConfirmOpen(false) }}
+        onCancel={() => setConfirmOpen(false)} />
+    </>
   )
 }

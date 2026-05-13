@@ -60,6 +60,10 @@ export class MentorshipService {
     return this.repo.findRequestsByAvailability(availabilityId);
   }
 
+  async getRequestsByTeam(teamId: string) {
+    return this.repo.findRequestsByTeam(teamId);
+  }
+
   async createRequest(dto: CreateMentorshipRequestDto, userId?: string) {
     const start = new Date(dto.startDatetime);
     const end = new Date(start.getTime() + dto.durationMinute * 60_000);

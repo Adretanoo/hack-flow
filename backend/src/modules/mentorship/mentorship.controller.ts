@@ -47,6 +47,12 @@ export class MentorshipController {
     return reply.send({ success: true, data: await this.service.getRequestsByAvailability(id) });
   }
 
+  async getTeamRequests(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { teamId } = request.query as { teamId?: string };
+    if (!teamId) return reply.status(400).send({ success: false, message: 'teamId is required' });
+    return reply.send({ success: true, data: await this.service.getRequestsByTeam(teamId) });
+  }
+
   async createRequest(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const body = CreateMentorshipRequestSchema.parse(request.body);
     return reply.status(201).send({ success: true, data: await this.service.createRequest(body) });
