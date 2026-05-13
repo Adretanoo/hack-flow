@@ -32,8 +32,9 @@ export interface LoginDto {
 
 export interface RegisterDto {
   email: string
+  username: string
   fullName: string
-  password?: string
+  password: string
 }
 
 export interface UserProfile {
