@@ -6,6 +6,8 @@ import { RoleGuard } from '@/components/layout/RoleGuard'
 import { HomePage } from '@/pages/home/HomePage'
 import { HackathonPublicPage } from '@/pages/home/HackathonPublicPage'
 import { UserGuidePage } from '@/pages/home/UserGuidePage'
+import { AboutPage } from '@/pages/home/AboutPage'
+import { MentorsPage } from '@/pages/home/MentorsPage'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { RegisterPage } from '@/pages/auth/RegisterPage'
 import { ProfilePage } from '@/pages/shared/ProfilePage'
@@ -44,6 +46,8 @@ export const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: 'hackathons/:id', element: <HackathonPublicPage /> },
       { path: 'guide', element: <UserGuidePage /> },
+      { path: 'about', element: <AboutPage /> },
+      { path: 'mentors', element: <MentorsPage /> },
       { path: 'login', element: <LoginPage /> },
       { path: 'register', element: <RegisterPage /> },
     ],
