@@ -103,7 +103,7 @@ export function ProfilePage() {
     <div className="max-w-3xl mx-auto space-y-6 animate-fade-in pb-12">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Мій профіль</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Мій профіль</h1>
         <p className="mt-2 text-muted-foreground">
           Керуйте своїми особистими даними та налаштуваннями.
         </p>
@@ -113,7 +113,7 @@ export function ProfilePage() {
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Avatar + identity */}
-          <div className="flex items-center gap-5">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-5">
             <div className="relative">
               <Avatar name={user.fullName} size="xl" />
               <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground ring-2 ring-card">

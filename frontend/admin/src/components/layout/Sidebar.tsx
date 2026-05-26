@@ -1,7 +1,8 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import { clsx } from 'clsx'
 import {
-  LayoutDashboard, Trophy, Users, User, Star, BookOpen, LogOut, Zap,
+  LayoutDashboard, Trophy, Users, User, Star, BookOpen, LogOut, Zap, X,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
 
@@ -14,17 +15,26 @@ const NAV = [
   { to: '/mentorship', label: 'Менторство',    icon: BookOpen },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  open?: boolean
+  onClose?: () => void
+}
+
+export function Sidebar({ open = false, onClose }: SidebarProps) {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+
+  // Close on route change (mobile)
+  useEffect(() => { onClose?.() }, [pathname])
 
   function handleLogout() {
     logout()
     navigate('/login')
   }
 
-  return (
-    <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+  const content = (
+    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       {/* Logo */}
       <div className="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-5">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
@@ -34,6 +44,16 @@ export function Sidebar() {
         <span className="ml-auto rounded-md bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">
           admin
         </span>
+        {/* Mobile close */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="lg:hidden ml-1 p-1 rounded text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
+            aria-label="Закрити"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       {/* Nav */}
@@ -80,5 +100,28 @@ export function Sidebar() {
         </button>
       </div>
     </aside>
+  )
+
+  return (
+    <>
+      {/* Desktop — always visible */}
+      <div className="hidden lg:flex h-screen">
+        {content}
+      </div>
+
+      {/* Mobile drawer */}
+      {open && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={onClose}
+            aria-hidden="true"
+          />
+          <div className="absolute left-0 top-0 h-full shadow-2xl">
+            {content}
+          </div>
+        </div>
+      )}
+    </>
   )
 }

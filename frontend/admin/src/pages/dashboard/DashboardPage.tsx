@@ -123,7 +123,7 @@ export function DashboardPage() {
       </div>
 
       {/* Row 1: Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
         <StatCard title="Всього хакатонів" value={hackathons.length} icon={Trophy} />
         <StatCard title="Активні" value={activeHackathons} icon={Activity} trend="+1" />
         <StatCard title="Користувачі" value={users.length} icon={Users} trend="+12" />
@@ -177,9 +177,9 @@ export function DashboardPage() {
       </div>
 
       {/* Row 3: Activity & Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         {/* Activity Feed */}
-        <div className="md:col-span-2 rounded-xl border border-border bg-card p-5 flex flex-col max-h-[400px]">
+        <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5 flex flex-col max-h-[400px]">
           <h3 className="font-semibold mb-4">Стрічка активності</h3>
           <div className="flex-1 overflow-y-auto pr-2 space-y-4">
             {activityFeed.length === 0 ? (

@@ -65,10 +65,10 @@ export function HackathonDashboardPage() {
           <ChevronLeft className="mr-1 h-4 w-4" />
           До списку хакатонів
         </Link>
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{hackathon.title}</h1>
-            <div className="mt-2 flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{hackathon.title}</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
               <StatusBadge status={
                 hackathon.status === 'PUBLISHED' 
                   ? (new Date() > new Date(hackathon.endDate) || stageInfo.activeStageType === 'FINISHED' ? 'past' : (new Date() < new Date(hackathon.startDate) ? 'upcoming' : 'active'))
