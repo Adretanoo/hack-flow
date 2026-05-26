@@ -165,10 +165,10 @@ export function TeamDetailPage() {
 
       {/* Tabs */}
       <div className="border-b border-border">
-        <div className="flex">
+        <div className="flex overflow-x-auto scrollbar-hide">
           {TABS.map(({ key, label }) => (
             <button key={key} onClick={() => setActiveTab(key)}
-              className={clsx('relative border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
+              className={clsx('relative border-b-2 px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap',
                 activeTab === key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
               {label}
               {key === 'approval' && team.approvalStatus === 'PENDING' && (
@@ -184,7 +184,7 @@ export function TeamDetailPage() {
 
       {/* Members tab */}
       {activeTab === 'members' && (
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">

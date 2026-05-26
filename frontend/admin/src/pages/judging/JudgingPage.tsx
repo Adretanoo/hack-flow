@@ -221,10 +221,10 @@ export function JudgingPage() {
       </div>
 
       <div className="border-b border-border">
-        <div className="flex">
+        <div className="flex overflow-x-auto scrollbar-hide">
           {TABS.map(({ key, label }) => (
             <button key={key} onClick={() => setActiveTab(key)}
-              className={clsx('border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
+              className={clsx('border-b-2 px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap',
                 activeTab === key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
               {label}
             </button>

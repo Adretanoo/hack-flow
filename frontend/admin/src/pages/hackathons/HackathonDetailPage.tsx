@@ -134,7 +134,7 @@ export function HackathonDetailPage() {
 
       {/* Tabs */}
       <div className="border-b border-border">
-        <div className="flex gap-0">
+        <div className="flex overflow-x-auto scrollbar-hide">
           {TABS.map(({ key, label, icon: Icon }) => (
             <button key={key} onClick={() => setActiveTab(key)}
               className={clsx(
