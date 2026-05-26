@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom'
 import { Menu } from 'lucide-react'
 import { NotificationBell } from '@/components/shared/NotificationBell'
+import { ThemeToggle } from '@/components/shared/ThemeToggle'
 
 const BREADCRUMBS: Record<string, string> = {
   '/dashboard':  'Dashboard',
@@ -33,7 +34,8 @@ export function Header({ onMenuClick }: HeaderProps) {
         </button>
         <span className="font-semibold text-foreground text-sm md:text-base">{title}</span>
       </div>
-      <div className="flex items-center gap-3 md:gap-4">
+      <div className="flex items-center gap-2 md:gap-3">
+        <ThemeToggle />
         <NotificationBell />
       </div>
     </header>

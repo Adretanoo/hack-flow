@@ -3,6 +3,7 @@ import { useAuthStore } from '@/store/auth.store'
 import { LogOut, Menu } from 'lucide-react'
 import { Avatar } from '@/components/shared/Avatar'
 import { NotificationBell } from '@/components/shared/NotificationBell'
+import { ThemeToggle } from '@/components/shared/ThemeToggle'
 
 interface NavbarProps {
   onMenuClick?: () => void
@@ -42,6 +43,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
           </nav>
 
           <div className="flex items-center space-x-2 sm:space-x-3">
+            <ThemeToggle />
             {user ? (
               <div className="flex items-center space-x-2 sm:space-x-3">
                 <Link to="/app" className="hidden sm:inline text-sm font-medium text-foreground/60 hover:text-foreground/80">
