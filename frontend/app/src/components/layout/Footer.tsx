@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Mail, Heart, Zap, Shield, Users } from 'lucide-react'
+import { Mail, Heart, Zap, Shield, Users, BookOpen } from 'lucide-react'
 
 // Custom social icons (Lucide removed brand icons in v1.0)
 const Github = (props: any) => (
@@ -68,6 +68,9 @@ export function Footer() {
               <Link to="#" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
                 <Shield className="h-4 w-4" /> Правила
               </Link>
+              <Link to="/guide" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
+                <BookOpen className="h-4 w-4" /> Посібник користувача
+              </Link>
             </nav>
           </div>
 
@@ -105,6 +108,13 @@ export function Footer() {
           <p className="text-xs text-muted-foreground">
             © {new Date().getFullYear()} Hack-Flow. Всі права захищені.
           </p>
+          <Link
+            to="/guide"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors font-medium"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Посібник користувача
+          </Link>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             Зроблено з <Heart className="h-3.5 w-3.5 text-red-500 fill-current" /> в Україні
           </div>
