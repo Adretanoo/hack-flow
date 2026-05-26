@@ -5,15 +5,7 @@ import {
   LayoutDashboard, Trophy, Users, User, Star, BookOpen, LogOut, Zap, X,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
-
-const NAV = [
-  { to: '/dashboard',  label: 'Dashboard',    icon: LayoutDashboard },
-  { to: '/hackathons', label: 'Хакатони',      icon: Trophy },
-  { to: '/teams',      label: 'Команди',       icon: Users },
-  { to: '/users',      label: 'Користувачі',   icon: User },
-  { to: '/judging',    label: 'Суддівство',    icon: Star },
-  { to: '/mentorship', label: 'Менторство',    icon: BookOpen },
-]
+import { useI18n } from '@/i18n'
 
 interface SidebarProps {
   open?: boolean
@@ -24,6 +16,16 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const { t } = useI18n()
+
+  const navItems = [
+    { to: '/dashboard',  label: t.adminNav.dashboard,    icon: LayoutDashboard },
+    { to: '/hackathons', label: t.adminNav.hackathons,   icon: Trophy },
+    { to: '/teams',      label: t.adminNav.teams,        icon: Users },
+    { to: '/users',      label: t.adminNav.users,        icon: User },
+    { to: '/judging',    label: t.adminNav.judging,      icon: Star },
+    { to: '/mentorship', label: t.adminNav.mentorship,   icon: BookOpen },
+  ]
 
   // Close on route change (mobile)
   useEffect(() => { onClose?.() }, [pathname])
@@ -49,7 +51,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           <button
             onClick={onClose}
             className="lg:hidden ml-1 p-1 rounded text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
-            aria-label="Закрити"
+            aria-label={t.actions.close}
           >
             <X className="h-5 w-5" />
           </button>
@@ -59,7 +61,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-4">
         <ul className="space-y-0.5 px-3">
-          {NAV.map(({ to, label, icon: Icon }) => (
+          {navItems.map(({ to, label, icon: Icon }) => (
             <li key={to}>
               <NavLink
                 to={to}
@@ -96,7 +98,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/70 transition-colors hover:bg-destructive/20 hover:text-destructive"
         >
           <LogOut className="h-4 w-4" />
-          Вийти
+          {t.nav.logout}
         </button>
       </div>
     </aside>

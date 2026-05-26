@@ -13,26 +13,29 @@ import { AwardsSection } from './components/AwardsSection'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { toast } from 'sonner'
 import { Save, ArrowLeft, Loader2 } from 'lucide-react'
+import { useI18n } from '@/i18n'
 
-const schema = z.object({
-  title: z.string().min(3, 'Мінімум 3 символи'),
-  subtitle: z.string().optional(),
-  description: z.string().min(50, 'Мінімум 50 символів').optional().or(z.literal('')),
-  location: z.string().optional(),
-  online: z.boolean(),
-  contactEmail: z.string().email('Невірний email').optional().or(z.literal('')),
-  banner: z.string().url('Невірний URL').optional().or(z.literal('')),
-  rulesUrl: z.string().url('Невірний URL').optional().or(z.literal('')),
-  startDate: z.string().min(1, 'Обов\'язкове поле'),
-  endDate: z.string().min(1, 'Обов\'язкове поле'),
-  minTeamSize: z.number().min(1).max(10),
-  maxTeamSize: z.number().min(1).max(20),
-}).refine((d) => !d.endDate || !d.startDate || d.endDate >= d.startDate, {
-  message: 'Дата завершення має бути після початку',
-  path: ['endDate'],
-})
+type FormData = z.infer<ReturnType<typeof getValidationSchema>>
 
-type FormData = z.infer<typeof schema>
+function getValidationSchema(lang: string) {
+  return z.object({
+    title: z.string().min(3, lang === 'uk' ? 'Мінімум 3 символи' : 'Minimum 3 characters'),
+    subtitle: z.string().optional(),
+    description: z.string().min(50, lang === 'uk' ? 'Мінімум 50 символів' : 'Minimum 50 characters').optional().or(z.literal('')),
+    location: z.string().optional(),
+    online: z.boolean(),
+    contactEmail: z.string().email(lang === 'uk' ? 'Невірний email' : 'Invalid email').optional().or(z.literal('')),
+    banner: z.string().url(lang === 'uk' ? 'Невірний URL' : 'Invalid URL').optional().or(z.literal('')),
+    rulesUrl: z.string().url(lang === 'uk' ? 'Невірний URL' : 'Invalid URL').optional().or(z.literal('')),
+    startDate: z.string().min(1, lang === 'uk' ? 'Обов\'язкове поле' : 'Required field'),
+    endDate: z.string().min(1, lang === 'uk' ? 'Обов\'язкове поле' : 'Required field'),
+    minTeamSize: z.number().min(1).max(10),
+    maxTeamSize: z.number().min(1).max(20),
+  }).refine((d) => !d.endDate || !d.startDate || d.endDate >= d.startDate, {
+    message: lang === 'uk' ? 'Дата завершення має бути після початку' : 'End date must be after start date',
+    path: ['endDate'],
+  })
+}
 
 function toDatetimeLocal(iso?: string | null) {
   if (!iso) return ''
@@ -45,7 +48,9 @@ function toDatetimeLocal(iso?: string | null) {
 import { usePageTitle } from '@/hooks/usePageTitle'
 
 export function HackathonFormPage() {
-  usePageTitle('Форма хакатону')
+  const { t, lang } = useI18n()
+  const schema = getValidationSchema(lang)
+  usePageTitle(lang === 'uk' ? 'Форма хакатону' : 'Hackathon Form')
   const { id } = useParams<{ id: string }>()
   const isEdit = !!id
   const navigate = useNavigate()
@@ -105,11 +110,11 @@ export function HackathonFormPage() {
       awards: localAwards.length > 0 ? localAwards : undefined,
     }),
     onSuccess: (res) => {
-      toast.success('Хакатон створено!')
+      toast.success(lang === 'uk' ? 'Хакатон створено!' : 'Hackathon created!')
       qc.invalidateQueries({ queryKey: ['hackathons'] })
       navigate(`/hackathons/${res.data.data.id}/edit`)
     },
-    onError: () => toast.error('Помилка при створенні'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при створенні' : 'Error creating'),
   })
 
   const updateMut = useMutation({
@@ -124,11 +129,11 @@ export function HackathonFormPage() {
       location: data.location || undefined,
     }),
     onSuccess: () => {
-      toast.success('Зміни збережено')
+      toast.success(lang === 'uk' ? 'Зміни збережено' : 'Changes saved')
       qc.invalidateQueries({ queryKey: ['hackathon', id] })
       qc.invalidateQueries({ queryKey: ['hackathons'] })
     },
-    onError: () => toast.error('Помилка при збереженні'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при збереженні' : 'Error saving'),
   })
 
   const onSubmit = (data: FormData) => {
@@ -140,7 +145,7 @@ export function HackathonFormPage() {
   const banner = watch('banner')
   const isPending = createMut.isPending || updateMut.isPending
 
-  if (isEdit && isLoading) return <LoadingSpinner className="py-20" label="Завантаження…" />
+  if (isEdit && isLoading) return <LoadingSpinner className="py-20" label={lang === 'uk' ? 'Завантаження…' : 'Loading...'} />
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 animate-fade-in">
@@ -151,48 +156,50 @@ export function HackathonFormPage() {
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="flex-1">
-          <h2 className="text-2xl font-bold">{isEdit ? 'Редагування хакатону' : 'Новий хакатон'}</h2>
+          <h2 className="text-2xl font-bold">
+            {isEdit ? (lang === 'uk' ? 'Редагування хакатону' : 'Edit Hackathon') : (lang === 'uk' ? 'Новий хакатон' : 'New Hackathon')}
+          </h2>
           {hackathon && <p className="text-sm text-muted-foreground">{hackathon.title}</p>}
         </div>
         <button type="submit" form="hackathon-form" disabled={isPending}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors">
           {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          {isEdit ? 'Зберегти' : 'Створити'}
+          {isEdit ? t.actions.save : t.actions.create}
         </button>
       </div>
 
       <form id="hackathon-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {/* Section 1 */}
-        <FormSection title="Основна інформація">
-          <Field label="Назва *" error={errors.title?.message}>
-            <input {...register('title')} placeholder="Назва хакатону" className={inputCls} />
+        <FormSection title={lang === 'uk' ? 'Основна інформація' : 'Basic Information'}>
+          <Field label={lang === 'uk' ? 'Назва *' : 'Name *'} error={errors.title?.message}>
+            <input {...register('title')} placeholder={lang === 'uk' ? 'Назва хакатону' : 'Hackathon title'} className={inputCls} />
           </Field>
-          <Field label="Підзаголовок" error={errors.subtitle?.message}>
-            <input {...register('subtitle')} placeholder="Короткий опис" className={inputCls} />
+          <Field label={lang === 'uk' ? 'Підзаголовок' : 'Subtitle'} error={errors.subtitle?.message}>
+            <input {...register('subtitle')} placeholder={lang === 'uk' ? 'Короткий опис' : 'Short description'} className={inputCls} />
           </Field>
-          <Field label="Опис" error={errors.description?.message}>
-            <textarea {...register('description')} rows={4} placeholder="Детальний опис (мін. 50 символів)" className={textareaCls} />
+          <Field label={lang === 'uk' ? 'Опис' : 'Description'} error={errors.description?.message}>
+            <textarea {...register('description')} rows={4} placeholder={lang === 'uk' ? 'Детальний опис (мін. 50 символів)' : 'Detailed description (min. 50 characters)'} className={textareaCls} />
           </Field>
-          <Field label="Онлайн-подія">
+          <Field label={lang === 'uk' ? 'Онлайн-подія' : 'Online Event'}>
             <label className="flex cursor-pointer items-center gap-2">
               <input type="checkbox" {...register('online')} className="h-4 w-4 accent-primary" />
-              <span className="text-sm">Проводиться онлайн</span>
+              <span className="text-sm">{lang === 'uk' ? 'Проводиться онлайн' : 'Happens online'}</span>
             </label>
           </Field>
           {!online && (
-            <Field label="Локація" error={errors.location?.message}>
-              <input {...register('location')} placeholder="Місто, адреса" className={inputCls} />
+            <Field label={lang === 'uk' ? 'Локація' : 'Location'} error={errors.location?.message}>
+              <input {...register('location')} placeholder={lang === 'uk' ? 'Місто, адреса' : 'City, address'} className={inputCls} />
             </Field>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Email для контакту" error={errors.contactEmail?.message}>
+            <Field label={lang === 'uk' ? 'Email для контакту' : 'Contact Email'} error={errors.contactEmail?.message}>
               <input {...register('contactEmail')} type="email" placeholder="contact@example.com" className={inputCls} />
             </Field>
-            <Field label="URL правил" error={errors.rulesUrl?.message}>
+            <Field label={lang === 'uk' ? 'URL правил' : 'Rules URL'} error={errors.rulesUrl?.message}>
               <input {...register('rulesUrl')} placeholder="https://…" className={inputCls} />
             </Field>
           </div>
-          <Field label="URL банера" error={errors.banner?.message}>
+          <Field label={lang === 'uk' ? 'URL банера' : 'Banner URL'} error={errors.banner?.message}>
             <input {...register('banner')} placeholder="https://…" className={inputCls} />
           </Field>
           {banner && banner.startsWith('http') && (
@@ -201,36 +208,36 @@ export function HackathonFormPage() {
         </FormSection>
 
         {/* Section 2 */}
-        <FormSection title="Дати та команди">
+        <FormSection title={lang === 'uk' ? 'Дати та команди' : 'Dates & Teams'}>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Початок *" error={errors.startDate?.message}>
+            <Field label={lang === 'uk' ? 'Початок *' : 'Start *'} error={errors.startDate?.message}>
               <input {...register('startDate')} type="datetime-local" className={inputCls} />
             </Field>
-            <Field label="Завершення *" error={errors.endDate?.message}>
+            <Field label={lang === 'uk' ? 'Завершення *' : 'End *'} error={errors.endDate?.message}>
               <input {...register('endDate')} type="datetime-local" className={inputCls} />
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Мін. розмір команди" error={errors.minTeamSize?.message}>
+            <Field label={lang === 'uk' ? 'Мін. розмір команди' : 'Min Team Size'} error={errors.minTeamSize?.message}>
               <input {...register('minTeamSize', { valueAsNumber: true })} type="number" min={1} max={10} className={inputCls} />
             </Field>
-            <Field label="Макс. розмір команди" error={errors.maxTeamSize?.message}>
+            <Field label={lang === 'uk' ? 'Макс. розмір команди' : 'Max Team Size'} error={errors.maxTeamSize?.message}>
               <input {...register('maxTeamSize', { valueAsNumber: true })} type="number" min={1} max={20} className={inputCls} />
             </Field>
           </div>
         </FormSection>
 
         {/* Sections 3-6 available in both modes */}
-        <FormSection title="Теги" defaultOpen={false}>
+        <FormSection title={lang === 'uk' ? 'Теги' : 'Tags'} defaultOpen={false}>
           <TagsSection hackathonId={hackathon?.id} selectedTags={isEdit ? (hackathon?.tags ?? []) : (localTags.map((t: string) => ({ id: t, name: t })) as any)} mode={isEdit ? 'edit' : 'create'} onChange={setLocalTags} />
         </FormSection>
-        <FormSection title="Треки" defaultOpen={false}>
+        <FormSection title={lang === 'uk' ? 'Треки' : 'Tracks'} defaultOpen={false}>
           <TracksSection hackathonId={hackathon?.id} tracks={isEdit ? hackathon?.tracks : (localTracks as any)} mode={isEdit ? 'edit' : 'create'} onChange={setLocalTracks} />
         </FormSection>
-        <FormSection title="Стадії" defaultOpen={false}>
+        <FormSection title={lang === 'uk' ? 'Стадії' : 'Stages'} defaultOpen={false}>
           <StagesSection hackathonId={hackathon?.id} stages={isEdit ? hackathon?.stages : (localStages as any)} hackathonStart={watch('startDate')} hackathonEnd={watch('endDate')} mode={isEdit ? 'edit' : 'create'} onChange={setLocalStages as any} />
         </FormSection>
-        <FormSection title="Нагороди" defaultOpen={false}>
+        <FormSection title={lang === 'uk' ? 'Нагороди' : 'Awards'} defaultOpen={false}>
           <AwardsSection hackathonId={hackathon?.id} awards={isEdit ? (hackathon as any)?.awards : (localAwards as any)} mode={isEdit ? 'edit' : 'create'} onChange={setLocalAwards as any} />
         </FormSection>
       </form>

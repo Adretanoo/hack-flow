@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { hackathonsApi } from '@/api/hackathons'
@@ -10,20 +10,14 @@ import { useDebounce } from '@/hooks/useDebounce'
 import { formatDate } from '@/utils/format'
 import { Plus, Eye, Pencil, Trash2, Search, Tag } from 'lucide-react'
 import { toast } from 'sonner'
+import { useI18n } from '@/i18n'
 import type { Hackathon, Tag as TagType } from '@/types/api.types'
 import type { Column } from '@/components/shared/DataTable'
-
-const STATUS_TABS = [
-  { value: '', label: 'Всі' },
-  { value: 'DRAFT', label: 'Чернетки' },
-  { value: 'PUBLISHED', label: 'Опубліковані' },
-  { value: 'ARCHIVED', label: 'Архів' },
-]
-
 import { usePageTitle } from '@/hooks/usePageTitle'
 
 export function HackathonsListPage() {
-  usePageTitle('Хакатони')
+  const { t, lang } = useI18n()
+  usePageTitle(t.adminHackathons.title)
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { page, limit, setPage } = usePagination(10)
@@ -35,6 +29,13 @@ export function HackathonsListPage() {
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false)
 
   const debouncedSearch = useDebounce(search, 300)
+
+  const statusTabs = useMemo(() => [
+    { value: '', label: lang === 'uk' ? 'Всі' : 'All' },
+    { value: 'DRAFT', label: t.shared.statusBadge.draft },
+    { value: 'PUBLISHED', label: t.shared.statusBadge.published },
+    { value: 'ARCHIVED', label: lang === 'uk' ? 'Архів' : 'Archive' },
+  ], [lang, t])
 
   const { data, isLoading } = useQuery({
     queryKey: ['hackathons', page, limit, statusFilter, selectedTags, debouncedSearch],
@@ -55,22 +56,22 @@ export function HackathonsListPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => hackathonsApi.delete(id),
     onSuccess: () => {
-      toast.success('Хакатон видалено')
+      toast.success(lang === 'uk' ? 'Хакатон видалено' : 'Hackathon deleted')
       qc.invalidateQueries({ queryKey: ['hackathons'] })
       setDeleteTarget(null)
     },
-    onError: () => toast.error('Помилка при видаленні'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при видаленні' : 'Error deleting'),
   })
 
   const updateStatusMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' }) => 
       hackathonsApi.overrideStatus(id, status),
     onSuccess: () => {
-      toast.success('Статус оновлено')
+      toast.success(lang === 'uk' ? 'Статус оновлено' : 'Status updated')
       qc.invalidateQueries({ queryKey: ['hackathons'] })
     },
     onError: (err: any) => {
-      const msg = err.response?.data?.error?.message || err.response?.data?.message || 'Помилка при оновленні статусу';
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || (lang === 'uk' ? 'Помилка при оновленні статусу' : 'Error updating status');
       toast.error(msg);
     },
   })
@@ -102,7 +103,7 @@ export function HackathonsListPage() {
     },
     {
       key: 'title',
-      header: 'Назва',
+      header: t.adminHackathons.name,
       render: (h) => (
         <div>
           <p className="font-medium text-foreground">{h.title}</p>
@@ -112,7 +113,7 @@ export function HackathonsListPage() {
     },
     {
       key: 'status',
-      header: 'Статус',
+      header: t.adminHackathons.status,
       render: (h) => (
         <select
           value={h.status}
@@ -124,15 +125,15 @@ export function HackathonsListPage() {
             color: h.status === 'PUBLISHED' ? 'var(--green-700, #15803d)' : h.status === 'ARCHIVED' ? 'var(--purple-700, #7e22ce)' : 'var(--gray-700, #374151)'
           }}
         >
-          <option value="DRAFT">Чернетка</option>
-          <option value="PUBLISHED">Опубліковано</option>
-          <option value="ARCHIVED">Архів</option>
+          <option value="DRAFT">{t.shared.statusBadge.draft}</option>
+          <option value="PUBLISHED">{t.shared.statusBadge.published}</option>
+          <option value="ARCHIVED">{lang === 'uk' ? 'Архів' : 'Archive'}</option>
         </select>
       ),
     },
     {
       key: 'dates',
-      header: 'Дати',
+      header: lang === 'uk' ? 'Дати' : 'Dates',
       render: (h) => (
         <span className="text-sm text-muted-foreground whitespace-nowrap">
           {formatDate(h.startDate)} — {formatDate(h.endDate)}
@@ -141,7 +142,7 @@ export function HackathonsListPage() {
     },
     {
       key: 'teams',
-      header: 'Команди',
+      header: t.adminHackathons.teams,
       render: (h) => (
         <span className="text-sm text-muted-foreground">{h._count?.teams ?? '—'}</span>
       ),
@@ -153,7 +154,7 @@ export function HackathonsListPage() {
       render: (h) => (
         <div className="flex items-center gap-1">
           <button
-            title="Переглянути"
+            title={t.actions.view}
             className="rounded-md p-1.5 hover:bg-accent transition-colors"
             onClick={() => navigate(`/hackathons/${h.id}`)}
           >
@@ -161,14 +162,14 @@ export function HackathonsListPage() {
           </button>
 
           <button
-            title="Редагувати"
+            title={t.actions.edit}
             className="rounded-md p-1.5 hover:bg-accent transition-colors"
             onClick={() => navigate(`/hackathons/${h.id}/edit`)}
           >
             <Pencil className="h-4 w-4 text-muted-foreground" />
           </button>
           <button
-            title="Видалити"
+            title={t.actions.delete}
             className="rounded-md p-1.5 hover:bg-destructive/10 transition-colors"
             onClick={() => setDeleteTarget(h)}
           >
@@ -184,15 +185,17 @@ export function HackathonsListPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Хакатони</h2>
-          <p className="text-sm text-muted-foreground">Управління всіма хакатонами платформи</p>
+          <h2 className="text-2xl font-bold">{t.adminHackathons.title}</h2>
+          <p className="text-sm text-muted-foreground">
+            {lang === 'uk' ? 'Управління всіма хакатонами платформи' : 'Manage all platform hackathons'}
+          </p>
         </div>
         <button
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           onClick={() => navigate('/hackathons/new')}
         >
           <Plus className="h-4 w-4" />
-          Створити хакатон
+          {t.adminHackathons.create}
         </button>
       </div>
 
@@ -203,7 +206,7 @@ export function HackathonsListPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Пошук за назвою…"
+            placeholder={lang === 'uk' ? 'Пошук за назвою…' : 'Search by title...'}
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             className="pl-9 pr-3 py-2 text-sm rounded-lg border border-input bg-background outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 w-60"
@@ -212,7 +215,7 @@ export function HackathonsListPage() {
 
         {/* Status tabs */}
         <div className="flex rounded-lg border border-border overflow-hidden">
-          {STATUS_TABS.map((tab) => (
+          {statusTabs.map((tab) => (
             <button
               key={tab.value}
               onClick={() => { setStatusFilter(tab.value); setPage(1) }}
@@ -235,7 +238,7 @@ export function HackathonsListPage() {
               onClick={() => setTagDropdownOpen((o) => !o)}
             >
               <Tag className="h-4 w-4 text-muted-foreground" />
-              Теги
+              {lang === 'uk' ? 'Теги' : 'Tags'}
               {selectedTags.length > 0 && (
                 <span className="rounded-full bg-primary px-1.5 py-0.5 text-xs text-primary-foreground">
                   {selectedTags.length}
@@ -273,16 +276,16 @@ export function HackathonsListPage() {
         page={page}
         limit={limit}
         onPageChange={setPage}
-        emptyTitle="Хакатонів ще немає"
-        emptyDescription='Натисніть "Створити хакатон" щоб додати перший.'
+        emptyTitle={t.adminHackathons.noHackathons}
+        emptyDescription={lang === 'uk' ? 'Натисніть "Створити хакатон" щоб додати перший.' : 'Click "Create Hackathon" to add the first one.'}
       />
 
       {/* Delete confirm */}
       <ConfirmDialog
         open={!!deleteTarget}
-        title={`Видалити «${deleteTarget?.title}»?`}
-        description="Ця дія є незворотною. Всі пов'язані команди та дані будуть втрачені."
-        confirmLabel="Видалити"
+        title={lang === 'uk' ? `Видалити «${deleteTarget?.title}»?` : `Delete "${deleteTarget?.title}"?`}
+        description={lang === 'uk' ? "Ця дія є незворотною. Всі пов'язані команди та дані будуть втрачені." : "This action is irreversible. All associated teams and data will be lost."}
+        confirmLabel={t.actions.delete}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onCancel={() => setDeleteTarget(null)}
       />

@@ -3,9 +3,14 @@ import { Trash2, Video, X, Clock } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { mentorshipApi } from '@/api/mentorship'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { useI18n } from '@/i18n'
 
-function fmtTime(dt: Date) { return dt.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', hour12: false }) }
-function fmtDate(dt: Date) { return dt.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' }) }
+function fmtTime(dt: Date, lang: string) {
+  return dt.toLocaleTimeString(lang === 'uk' ? 'uk-UA' : 'en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+function fmtDate(dt: Date, lang: string) {
+  return dt.toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US', { day: 'numeric', month: 'short' })
+}
 
 const STATUS_COLOR: Record<string, string> = {
   free:      'bg-teal-400',
@@ -34,6 +39,7 @@ const CARD_BG: Record<string, string> = {
 
 /** Compact card shown in the calendar grid — no expanding content */
 export function AvailabilityCard({ avail, onSelect }: { avail: any; onSelect: (a: any) => void }) {
+  const { t, lang } = useI18n()
   const start = new Date(avail.startDatetime)
   const end = new Date(avail.endDatetime)
   const dur = avail.slotDuration || 30
@@ -49,9 +55,9 @@ export function AvailabilityCard({ avail, onSelect }: { avail: any; onSelect: (a
     <button onClick={() => onSelect(avail)} className={`w-full text-left rounded-xl border-2 p-2.5 transition-all hover:shadow-md hover:scale-[1.01] ${CARD_BG[status]}`}>
       <div className="flex items-center gap-1.5 mb-1.5">
         <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_COLOR[status]}`} />
-        <p className="font-bold text-xs">{fmtTime(start)} – {fmtTime(end)}</p>
+        <p className="font-bold text-xs">{fmtTime(start, lang)} – {fmtTime(end, lang)}</p>
       </div>
-      <p className="text-[10px] text-muted-foreground truncate mb-1.5">{avail.track?.name || 'Всі треки'} · {dur}хв</p>
+      <p className="text-[10px] text-muted-foreground truncate mb-1.5">{avail.track?.name || t.judge.noTrack} · {dur}{t.mentorsTab.minutes}</p>
       <div className="flex gap-1 flex-wrap">
         {free > 0     && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-teal-100  text-teal-700  font-bold">○{free}</span>}
         {pending > 0  && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold">⏳{pending}</span>}
@@ -64,6 +70,7 @@ export function AvailabilityCard({ avail, onSelect }: { avail: any; onSelect: (a
 /** Full detail slide-over panel shown when a card is selected */
 export function AvailDetailPanel({ avail, onClose }: { avail: any; onClose: () => void }) {
   const qc = useQueryClient()
+  const { t, lang } = useI18n()
   const [links, setLinks] = useState<Record<string, string>>({})
   const [deleteConfirm, setDeleteConfirm] = useState(false)
 
@@ -82,7 +89,7 @@ export function AvailDetailPanel({ avail, onClose }: { avail: any; onClose: () =
   for (let i = 0; i < total; i++) {
     const dt = new Date(cur)
     const req = active.find((s: any) => Math.abs(new Date(s.startDatetime).getTime() - dt.getTime()) < 60000)
-    slotGrid.push({ time: fmtTime(dt), dt, req, passed: dt < now })
+    slotGrid.push({ time: fmtTime(dt, lang), dt, req, passed: dt < now })
     cur = new Date(cur.getTime() + dur * 60000)
   }
 
@@ -91,7 +98,7 @@ export function AvailDetailPanel({ avail, onClose }: { avail: any; onClose: () =
   const deleteMut = useMutation({
     mutationFn: () => mentorshipApi.deleteAvailability(avail.id),
     onSuccess: () => { inv(); onClose() },
-    onError: (e: any) => alert(e?.response?.data?.message || e.message || 'Помилка'),
+    onError: (e: any) => alert(e?.response?.data?.message || e.message || t.states.error),
   })
 
   const acceptMut = useMutation({ mutationFn: ({ id, link }: { id: string; link: string }) => mentorshipApi.acceptRequest(id, link), onSuccess: inv })
@@ -108,8 +115,12 @@ export function AvailDetailPanel({ avail, onClose }: { avail: any; onClose: () =
     cancelled: 'bg-muted text-muted-foreground',
   }
   const STATUS_LABEL: Record<string, string> = {
-    pending: '⏳ Очікує', accepted: '✓ Підтверджено', completed: '✅ Завершено',
-    blocked: '🔒 Заблоковано', rejected: '✗ Відхилено', cancelled: '✗ Скасовано',
+    pending: t.mentor.pendingStatusLabel,
+    accepted: t.mentor.confirmedStatusLabel,
+    completed: t.mentor.completedStatusLabel,
+    blocked: t.mentor.blockedStatusLabel,
+    rejected: t.mentor.rejectedStatusLabel,
+    cancelled: t.mentor.cancelledStatusLabel,
   }
 
   return (
@@ -118,8 +129,8 @@ export function AvailDetailPanel({ avail, onClose }: { avail: any; onClose: () =
       <div className="fixed right-0 top-0 z-50 h-full w-full max-w-md bg-card border-l border-border shadow-2xl flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20 shrink-0">
           <div>
-            <p className="font-bold">{fmtDate(start)} · {fmtTime(start)} – {fmtTime(end)}</p>
-            <p className="text-xs text-muted-foreground">{avail.track?.name || 'Всі треки'} · {dur} хв/слот · {total} слотів</p>
+            <p className="font-bold">{fmtDate(start, lang)} · {fmtTime(start, lang)} – {fmtTime(end, lang)}</p>
+            <p className="text-xs text-muted-foreground">{avail.track?.name || t.judge.noTrack} · {dur} {t.mentorsTab.minPerSlot} · {t.mentor.slotsCount(total)}</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setDeleteConfirm(true)} disabled={deleteMut.isPending}
@@ -134,9 +145,9 @@ export function AvailDetailPanel({ avail, onClose }: { avail: any; onClose: () =
 
         <div className="grid grid-cols-3 divide-x divide-border border-b border-border shrink-0">
           {[
-            { label: 'Вільних',      val: Math.max(0, total - active.length), cls: 'text-teal-600' },
-            { label: 'Очікує',       val: pending,  cls: 'text-amber-600' },
-            { label: 'Підтверджено', val: accepted, cls: 'text-blue-600' },
+            { label: t.mentor.freeLabel, val: Math.max(0, total - active.length), cls: 'text-teal-600' },
+            { label: t.mentor.pendingLabel, val: pending, cls: 'text-amber-600' },
+            { label: t.mentor.confirmedLabel, val: accepted, cls: 'text-blue-600' },
           ].map(s => (
             <div key={s.label} className="py-3 text-center">
               <p className={`text-xl font-bold ${s.cls}`}>{s.val}</p>
@@ -160,7 +171,7 @@ export function AvailDetailPanel({ avail, onClose }: { avail: any; onClose: () =
                     <div>
                       <p className={`font-bold text-sm ${isPassed ? 'text-muted-foreground' : ''}`}>{s.time}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {isPassed ? 'Час минув' : s.req ? (s.req.status === 'blocked' ? 'Заблоковано' : `Запит: ${s.req.team?.name || '...'}`) : 'Вільний слот'}
+                        {isPassed ? t.mentor.timePassed : s.req ? (s.req.status === 'blocked' ? t.mentor.blockedLabel : `${t.mentor.requestLabel}${s.req.team?.name || '...'}`) : t.mentor.freeSlotLabel}
                       </p>
                     </div>
                   </div>
@@ -169,19 +180,19 @@ export function AvailDetailPanel({ avail, onClose }: { avail: any; onClose: () =
                     {isOccupied && s.req && (
                       <div className="flex flex-col items-end gap-1">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isPassed && s.req.status === 'accepted' ? 'bg-muted text-muted-foreground' : (STATUS_BADGE[s.req.status] || 'bg-muted')}`}>
-                          {isPassed && s.req.status === 'accepted' ? '🕒 Час минув' : (STATUS_LABEL[s.req.status] || s.req.status)}
+                          {isPassed && s.req.status === 'accepted' ? t.mentor.timePassed : (STATUS_LABEL[s.req.status] || s.req.status)}
                         </span>
                       </div>
                     )}
                     {!isOccupied && !isPassed && (
                       <button onClick={() => blockMut.mutate({ id: avail.id, start: s.dt.toISOString(), d: dur })} disabled={blockMut.isPending}
                         className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors flex items-center gap-1">
-                        🔒 Блокувати
+                        {t.mentor.blockAction}
                       </button>
                     )}
                     {s.req?.status === 'blocked' && !isPassed && (
                       <button onClick={() => unblockMut.mutate(s.req.id)} disabled={unblockMut.isPending}
-                        className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors">Розблокувати</button>
+                        className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors">{t.mentor.unblockAction}</button>
                     )}
                   </div>
                 </div>
@@ -189,7 +200,7 @@ export function AvailDetailPanel({ avail, onClose }: { avail: any; onClose: () =
                 {s.req?.status === 'pending' && !isPassed && (
                   <div className="mt-3 pt-3 border-t border-border space-y-3">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Google Meet / Zoom посилання</label>
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase">{t.mentor.meetingLinkLabel}</label>
                       <input type="url" placeholder="https://meet.google.com/..." value={links[s.req.id] || ''}
                         onChange={e => setLinks(p => ({ ...p, [s.req.id]: e.target.value }))}
                         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:border-primary" />
@@ -197,11 +208,11 @@ export function AvailDetailPanel({ avail, onClose }: { avail: any; onClose: () =
                     <div className="flex gap-2">
                       <button onClick={() => acceptMut.mutate({ id: s.req.id, link: links[s.req.id] || '' })} disabled={!links[s.req.id] || acceptMut.isPending}
                         className="flex-1 rounded-lg bg-primary text-primary-foreground text-xs font-bold py-2 disabled:opacity-40 hover:bg-primary/90 transition-colors">
-                        ✓ Прийняти
+                        {t.mentor.acceptAction}
                       </button>
                       <button onClick={() => rejectMut.mutate(s.req.id)} disabled={rejectMut.isPending}
                         className="flex-1 rounded-lg bg-destructive/10 text-destructive text-xs font-bold py-2 hover:bg-destructive/20 transition-colors">
-                        ✗ Відхилити
+                        {t.mentor.declineAction}
                       </button>
                     </div>
                   </div>
@@ -210,7 +221,7 @@ export function AvailDetailPanel({ avail, onClose }: { avail: any; onClose: () =
                 {s.req?.status === 'accepted' && s.req.meetingLink && !isPassed && (
                   <div className="mt-2 pt-2 border-t border-border/50">
                     <a href={s.req.meetingLink} target="_blank" rel="noreferrer" className="text-blue-600 flex items-center gap-1 text-[10px] underline font-medium">
-                      <Video className="h-3.5 w-3.5" /> Посилання на зустріч
+                      <Video className="h-3.5 w-3.5" /> {t.mentor.openMeetingLink}
                     </a>
                   </div>
                 )}
@@ -220,9 +231,9 @@ export function AvailDetailPanel({ avail, onClose }: { avail: any; onClose: () =
         </div>
       </div>
 
-      <ConfirmDialog open={deleteConfirm} title="Видалити блок доступності?"
-        message={pending + accepted > 0 ? `Є ${pending + accepted} активних бронювань. Команди отримають сповіщення.` : `Видалити блок ${fmtTime(start)} – ${fmtTime(end)}?`}
-        confirmLabel="Так, видалити" cancelLabel="Скасувати" danger
+      <ConfirmDialog open={deleteConfirm} title={t.mentor.deleteAvailabilityTitle}
+        message={pending + accepted > 0 ? t.mentor.deleteAvailabilityHasBookings(pending + accepted) : t.mentor.deleteAvailabilityConfirm(`${fmtTime(start, lang)} – ${fmtTime(end, lang)}`)}
+        confirmLabel={t.mentor.deleteConfirmBtn} cancelLabel={t.actions.cancel} danger
         onConfirm={() => { deleteMut.mutate(); setDeleteConfirm(false) }}
         onCancel={() => setDeleteConfirm(false)} />
     </>

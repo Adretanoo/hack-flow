@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
 import type { Hackathon, StageType } from '@/types/api.types'
+import { useI18n } from '@/i18n'
 
 /** Live clock that ticks every minute — forces stage recalculation without page refresh */
 function useNow(intervalMs = 60_000): Date {
@@ -22,18 +23,19 @@ function resolveType(stage: { type?: string; name?: string } | undefined): Stage
   return 'CUSTOM'
 }
 
-function getLockMessage(type: StageType): string {
-  switch (type) {
-    case 'REGISTRATION': return 'Йде реєстрація команд'
-    case 'HACKING':      return 'Йде хакінг'
-    case 'JUDGING':      return 'Йде суддівство'
-    case 'FINISHED':     return 'Хакатон завершено'
-    default:             return 'Хакатон ще не розпочато'
-  }
-}
-
 export function useHackathonStage(hackathon?: Hackathon) {
   const now = useNow()   // re-evaluates every minute automatically
+  const { t } = useI18n()
+
+  const getLockMessage = (type: StageType): string => {
+    switch (type) {
+      case 'REGISTRATION': return t.dashboard.lockMessages.registration
+      case 'HACKING':      return t.dashboard.lockMessages.hacking
+      case 'JUDGING':      return t.dashboard.lockMessages.judging
+      case 'FINISHED':     return t.dashboard.lockMessages.finished
+      default:             return t.dashboard.lockMessages.upcoming
+    }
+  }
 
   return useMemo(() => {
     if (!hackathon?.stages || hackathon.stages.length === 0) {
@@ -84,5 +86,5 @@ export function useHackathonStage(hackathon?: Hackathon) {
       canViewResults: type === 'JUDGING' || type === 'FINISHED' || hackathon.status === 'ARCHIVED',
       lockMessage:    getLockMessage(type),
     }
-  }, [hackathon, now])
+  }, [hackathon, now, t])
 }

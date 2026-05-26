@@ -7,22 +7,24 @@ import { useAuthStore } from '@/store/auth.store'
 import { HackathonCard } from '@/components/shared/HackathonCard'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
-
-const TABS = [
-  { id: '', label: 'Всі' },
-  { id: 'active', label: 'Активні' },
-  { id: 'upcoming', label: 'Майбутні' },
-  { id: 'past', label: 'Завершені' },
-]
+import { useI18n } from '@/i18n'
 
 export function HomePage() {
   const { user } = useAuthStore()
   const [activeTab, setActiveTab] = useState('')
   const [search, setSearch] = useState('')
+  const { t } = useI18n()
+
+  const TABS = [
+    { id: '', label: t.homePage.tabAll },
+    { id: 'active', label: t.homePage.tabActive },
+    { id: 'upcoming', label: t.homePage.tabUpcoming },
+    { id: 'past', label: t.homePage.tabPast },
+  ]
 
   const { data, isLoading } = useQuery({
     queryKey: ['public-hackathons', activeTab, search],
-    queryFn: () => hackathonsApi.list({ 
+    queryFn: () => hackathonsApi.list({
       status: activeTab || undefined,
       search: search || undefined,
       publishStatus: 'PUBLISHED',
@@ -38,18 +40,19 @@ export function HomePage() {
       <section className="relative overflow-hidden rounded-3xl bg-primary/5 px-6 py-16 text-center sm:px-12 sm:py-24">
         <div className="mx-auto max-w-3xl space-y-6">
           <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl text-foreground">
-            Відкрийте для себе світ <span className="text-primary">Hack-Flow</span>
+            {t.homePage.heroTitle.split('Hack-Flow')[0]}
+            <span className="text-primary">Hack-Flow</span>
           </h1>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground sm:text-xl">
-            Платформа для організації та участі у хакатонах. Створюйте команди, змагайтеся та перемагайте!
+            {t.homePage.heroSubtitle}
           </p>
           {!user && (
             <div className="flex justify-center gap-4 pt-4">
               <Link to="/register" className="rounded-full bg-primary px-8 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all">
-                Зареєструватись
+                {t.homePage.registerCTA}
               </Link>
               <Link to="/login" className="rounded-full bg-background px-8 py-3.5 text-sm font-semibold text-foreground shadow-sm ring-1 ring-inset ring-border hover:bg-accent transition-all">
-                Увійти
+                {t.nav.login}
               </Link>
             </div>
           )}
@@ -59,20 +62,20 @@ export function HomePage() {
       {/* Filter Bar */}
       <section className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-2xl font-bold">Усі хакатони</h2>
-          
+          <h2 className="text-2xl font-bold">{t.nav.hackathons}</h2>
+
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Пошук за назвою..."
+                placeholder={t.homePage.searchPlaceholder}
                 className="h-10 w-full sm:w-64 rounded-full border border-border bg-background pl-9 pr-4 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            
+
             <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
               {TABS.map((tab) => (
                 <button
@@ -96,8 +99,8 @@ export function HomePage() {
           <div className="py-24"><LoadingSpinner size="lg" /></div>
         ) : hackathons.length === 0 ? (
           <EmptyState
-            title="Нічого не знайдено"
-            description="Спробуйте змінити критерії пошуку або обрати іншу вкладку"
+            title={t.homePage.noHackathons}
+            description={t.homePage.noHackathonsDesc}
           />
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

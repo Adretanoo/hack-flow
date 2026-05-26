@@ -6,6 +6,7 @@ import { teamsApi } from '@/api/teams'
 import api from '@/api/client'
 import { useAuthStore } from '@/store/auth.store'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
+import { useI18n } from '@/i18n'
 
 const SESSION_KEY = 'hackflow_pending_join_token'
 
@@ -13,6 +14,7 @@ export function JoinTeamPage() {
   const { token } = useParams<{ token: string }>()
   const { user } = useAuthStore()
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [status, setStatus] = useState<'idle' | 'joining' | 'success' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -50,13 +52,13 @@ export function JoinTeamPage() {
       setStatus('error')
       const msg = err?.message || err?.error || ''
       if (msg.includes('вже є') || msg.includes('already')) {
-        setErrorMsg('Ви вже є учасником команди в цьому хакатоні')
+        setErrorMsg(t.joinTeamPage.alreadyMember)
       } else if (msg.includes('недійсний') || msg.includes('invalid') || msg.includes('expired')) {
-        setErrorMsg('Це запрошення більше не дійсне. Попросіть капітана надіслати нове.')
+        setErrorMsg(t.joinTeamPage.invalidInvite)
       } else if (msg.includes('Ліміт') || msg.includes('maximum')) {
-        setErrorMsg('Це запрошення більше не дійсне. Попросіть капітана надіслати нове.')
+        setErrorMsg(t.joinTeamPage.invalidInvite)
       } else {
-        setErrorMsg(msg || 'Помилка при приєднанні')
+        setErrorMsg(msg || t.joinTeamPage.joiningError)
       }
     },
   })
@@ -97,8 +99,8 @@ export function JoinTeamPage() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
-          <h2 className="text-2xl font-bold">Ви приєдналися до команди!</h2>
-          <p className="text-muted-foreground">Переходимо до вашого кабінету...</p>
+          <h2 className="text-2xl font-bold">{t.joinTeamPage.successTitle}</h2>
+          <p className="text-muted-foreground">{t.joinTeamPage.redirecting}</p>
         </div>
       </div>
     )
@@ -109,13 +111,13 @@ export function JoinTeamPage() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="max-w-md w-full rounded-2xl border border-border bg-card p-8 shadow-lg text-center space-y-4">
           <XCircle className="h-14 w-14 text-red-500 mx-auto" />
-          <h2 className="text-xl font-bold">Помилка</h2>
+          <h2 className="text-xl font-bold">{t.joinTeamPage.errorTitle}</h2>
           <p className="text-muted-foreground">{errorMsg}</p>
           <Link
             to="/app/hackathons"
             className="inline-block rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
-            До моїх хакатонів
+            {t.joinTeamPage.backToHackathons}
           </Link>
         </div>
       </div>
@@ -129,7 +131,7 @@ export function JoinTeamPage() {
         <div className="max-w-md w-full rounded-2xl border border-border bg-card p-8 shadow-lg space-y-6">
           <div className="text-center space-y-2">
             <Trophy className="h-12 w-12 text-primary mx-auto" />
-            <h1 className="text-2xl font-bold">Вас запрошено до команди</h1>
+            <h1 className="text-2xl font-bold">{t.joinTeamPage.invitedTitle}</h1>
             {teamData ? (
               <div className="text-muted-foreground space-y-0.5">
                 <p className="text-lg font-semibold text-foreground">{teamData.name}</p>
@@ -137,24 +139,24 @@ export function JoinTeamPage() {
                 {teamData.track && <p className="text-xs">{teamData.track.name}</p>}
               </div>
             ) : (
-              <p className="text-muted-foreground text-sm">Щоб побачити деталі, увійдіть або зареєструйтесь</p>
+              <p className="text-muted-foreground text-sm">{t.joinTeamPage.loginToSeeDetails}</p>
             )}
           </div>
           <p className="text-sm text-center text-muted-foreground">
-            Щоб приєднатись, увійдіть або зареєструйтесь
+            {t.joinTeamPage.loginToJoinPrompt}
           </p>
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => handleNotLoggedIn('/login')}
               className="flex items-center justify-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm font-medium hover:bg-accent transition-colors"
             >
-              <LogIn className="h-4 w-4" /> Увійти
+              <LogIn className="h-4 w-4" /> {t.joinTeamPage.loginBtn}
             </button>
             <button
               onClick={() => handleNotLoggedIn('/register')}
               className="flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              Зареєструватись
+              {t.joinTeamPage.registerBtn}
             </button>
           </div>
         </div>
@@ -170,7 +172,7 @@ export function JoinTeamPage() {
           <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
             <Users className="h-8 w-8 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold">Приєднатись до команди?</h1>
+          <h1 className="text-2xl font-bold">{t.joinTeamPage.confirmTitle}</h1>
           {teamData ? (
             <div className="space-y-0.5">
               <p className="text-lg font-semibold">{teamData.name}</p>
@@ -185,7 +187,7 @@ export function JoinTeamPage() {
             onClick={handleDecline}
             className="flex-1 rounded-md border border-border px-4 py-2.5 text-sm font-medium hover:bg-accent transition-colors"
           >
-            Відхилити
+            {t.joinTeamPage.declineBtn}
           </button>
           <button
             onClick={handleJoin}
@@ -193,7 +195,7 @@ export function JoinTeamPage() {
             className="flex-1 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
           >
             {joinMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Приєднатись ✓
+            {t.joinTeamPage.joinBtn}
           </button>
         </div>
       </div>

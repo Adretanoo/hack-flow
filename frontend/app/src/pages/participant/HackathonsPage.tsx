@@ -9,13 +9,15 @@ import { HackathonCard } from '@/components/shared/HackathonCard'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { useI18n } from '@/i18n'
 
 export function HackathonsPage() {
   const [activeTab, setActiveTab] = useState<'my' | 'find'>('my')
+  const { t } = useI18n()
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader title="Хакатони" />
+      <PageHeader title={t.hackathonsPage.title} />
 
       <div className="flex space-x-1 rounded-xl bg-muted/50 p-1 w-full max-w-sm">
         <button
@@ -26,7 +28,7 @@ export function HackathonsPage() {
               : 'text-muted-foreground hover:bg-background/50'
           }`}
         >
-          Мої хакатони
+          {t.hackathonsPage.myHackathons}
         </button>
         <button
           onClick={() => setActiveTab('find')}
@@ -36,7 +38,7 @@ export function HackathonsPage() {
               : 'text-muted-foreground hover:bg-background/50'
           }`}
         >
-          Знайти хакатон
+          {t.hackathonsPage.findHackathon}
         </button>
       </div>
 
@@ -49,6 +51,7 @@ export function HackathonsPage() {
 
 function MyHackathonsList() {
   const { user } = useAuthStore()
+  const { t } = useI18n()
 
   const { data, isLoading } = useQuery({
     queryKey: ['my-teams', user?.id],
@@ -63,8 +66,8 @@ function MyHackathonsList() {
   if (teams.length === 0) {
     return (
       <EmptyState
-        title="Ви ще не берете участь у хакатонах"
-        description="Перейдіть на вкладку 'Знайти хакатон', щоб знайти цікаву подію"
+        title={t.hackathonsPage.noMyHackathons}
+        description={t.hackathonsPage.noMyHackathonsDesc}
       />
     )
   }
@@ -79,10 +82,7 @@ function MyHackathonsList() {
           status === 'REJECTED' ? 'bg-red-100 text-red-700' :
           status === 'DISQUALIFIED' ? 'bg-orange-100 text-orange-700' :
           'bg-amber-100 text-amber-700'
-        const statusLabel =
-          status === 'APPROVED' ? 'Схвалено' :
-          status === 'REJECTED' ? 'Відхилено' :
-          status === 'DISQUALIFIED' ? 'Дискваліфіковано' : 'Очікує'
+        const statusLabel = t.hackathonsPage.status[status as keyof typeof t.hackathonsPage.status] ?? status
 
         return (
           <div key={team.id} className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-all hover:shadow-md hover:-translate-y-1">
@@ -99,11 +99,11 @@ function MyHackathonsList() {
                 </Link>
               </h3>
               <p className="text-sm font-medium text-muted-foreground mt-2 border-t border-border pt-2">
-                Команда: <span className="text-foreground">{team.name}</span>
+                {t.hackathonsPage.teamLabel}: <span className="text-foreground">{team.name}</span>
               </p>
               {(team.track as any)?.name && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  Трек: {(team.track as any).name}
+                  {t.hackathonsPage.trackLabel}: {(team.track as any).name}
                 </p>
               )}
               {latestApproval?.comment && (status === 'REJECTED' || status === 'DISQUALIFIED') && (
@@ -121,11 +121,11 @@ function MyHackathonsList() {
 
 function FindHackathonList() {
   const [search, setSearch] = useState('')
+  const { t } = useI18n()
 
-  // We only show PUBLISHED hackathons here
   const { data, isLoading } = useQuery({
     queryKey: ['public-hackathons', search],
-    queryFn: () => hackathonsApi.list({ 
+    queryFn: () => hackathonsApi.list({
       publishStatus: 'PUBLISHED',
       search: search || undefined,
       limit: 20
@@ -140,7 +140,7 @@ function FindHackathonList() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
           type="text"
-          placeholder="Пошук..."
+          placeholder={t.hackathonsPage.searchPlaceholder}
           className="h-10 w-full rounded-md border border-border bg-background pl-9 pr-4 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -151,8 +151,8 @@ function FindHackathonList() {
         <div className="py-24"><LoadingSpinner /></div>
       ) : hackathons.length === 0 ? (
         <EmptyState
-          title="Немає доступних хакатонів"
-          description="Зараз немає хакатонів, відкритих для реєстрації"
+          title={t.hackathonsPage.noAvailableHackathons}
+          description={t.hackathonsPage.noAvailableHackathonsDesc}
         />
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -161,7 +161,7 @@ function FindHackathonList() {
               <HackathonCard hackathon={hackathon} />
               <div className="absolute top-3 right-3 z-10">
                 <Link to={`/hackathons/${hackathon.id}`} className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-semibold rounded-md shadow-sm hover:bg-primary/90 transition-colors pointer-events-auto">
-                  Приєднатись
+                  {t.hackathonsPage.join}
                 </Link>
               </div>
             </div>

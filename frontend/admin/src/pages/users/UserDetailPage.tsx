@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usersApi } from '@/api/users'
@@ -8,14 +8,10 @@ import { formatDate, formatDateTime } from '@/utils/format'
 import { ArrowLeft, Link, MessageCircle, Hash } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { UserProfile, AuditLogEntry } from '@/types/api.types'
+import { useI18n } from '@/i18n'
+import { usePageTitle } from '@/hooks/usePageTitle'
 
 type Tab = 'profile' | 'roles' | 'activity' | 'teams'
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'profile',  label: 'Профіль' },
-  { key: 'roles',    label: 'Ролі' },
-  { key: 'activity', label: 'Активність' },
-  { key: 'teams',    label: 'Команди' },
-]
 
 const ROLE_COLORS: Record<string, string> = {
   admin:       'bg-red-100 text-red-700',
@@ -31,13 +27,19 @@ const SOCIAL_ICONS: Record<string, React.ElementType> = {
   viber:    MessageCircle,
 }
 
-import { usePageTitle } from '@/hooks/usePageTitle'
-
 export function UserDetailPage() {
-  usePageTitle('Користувач')
+  const { t, lang } = useI18n()
+  usePageTitle(lang === 'uk' ? 'Користувач' : 'User Details')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<Tab>('profile')
+
+  const TABS = useMemo<{ key: Tab; label: string }[]>(() => [
+    { key: 'profile',  label: lang === 'uk' ? 'Профіль' : 'Profile' },
+    { key: 'roles',    label: lang === 'uk' ? 'Ролі' : 'Roles' },
+    { key: 'activity', label: t.adminUsers.activity },
+    { key: 'teams',    label: t.adminUsers.teams },
+  ], [t, lang])
 
   const { data: userData, isLoading } = useQuery({
     queryKey: ['user', id],
@@ -69,7 +71,7 @@ export function UserDetailPage() {
     student?: { groupName?: string; specialty?: string } | null
   }) | undefined
 
-  if (!user) return <div className="py-10 text-center text-muted-foreground">Користувача не знайдено</div>
+  if (!user) return <div className="py-10 text-center text-muted-foreground">{t.states.notFound}</div>
 
   const activity = (activityData?.data.data ?? []) as AuditLogEntry[]
 
@@ -96,12 +98,14 @@ export function UserDetailPage() {
               </span>
               {user.isLookingForTeam && (
                 <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
-                  Шукає команду
+                  {lang === 'uk' ? 'Шукає команду' : 'Looking for team'}
                 </span>
               )}
             </div>
             <p className="text-sm text-muted-foreground">{user.email} · @{user.username}</p>
-            <p className="text-xs text-muted-foreground">Зареєстровано: {formatDate(user.createdAt)}</p>
+            <p className="text-xs text-muted-foreground">
+              {lang === 'uk' ? 'Зареєстровано' : 'Registered'}: {formatDate(user.createdAt, lang)}
+            </p>
           </div>
         </div>
       </div>
@@ -123,11 +127,11 @@ export function UserDetailPage() {
       {activeTab === 'profile' && (
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-            <h4 className="font-semibold">Загальна інформація</h4>
+            <h4 className="font-semibold">{lang === 'uk' ? 'Загальна інформація' : 'General Information'}</h4>
             {user.description && <p className="text-sm text-muted-foreground">{user.description}</p>}
             {user.skills && user.skills.length > 0 && (
               <div>
-                <p className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">Навички</p>
+                <p className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">{t.profile.skills}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {user.skills.map((s) => (
                     <span key={s} className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{s}</span>
@@ -137,16 +141,16 @@ export function UserDetailPage() {
             )}
             {user.student && (
               <div className="rounded-lg bg-muted/30 px-4 py-3 text-sm space-y-1">
-                <p className="font-medium">Студентська інформація</p>
-                {user.student.groupName && <p className="text-muted-foreground">Група: {user.student.groupName}</p>}
-                {user.student.specialty && <p className="text-muted-foreground">Спеціальність: {user.student.specialty}</p>}
+                <p className="font-medium">{lang === 'uk' ? 'Студентська інформація' : 'Student Information'}</p>
+                {user.student.groupName && <p className="text-muted-foreground">{lang === 'uk' ? 'Група' : 'Group'}: {user.student.groupName}</p>}
+                {user.student.specialty && <p className="text-muted-foreground">{lang === 'uk' ? 'Спеціальність' : 'Specialty'}: {user.student.specialty}</p>}
               </div>
             )}
           </div>
 
           {user.socials && user.socials.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-              <h4 className="font-semibold">Соціальні мережі</h4>
+              <h4 className="font-semibold">{t.profile.socials}</h4>
               {user.socials.map((s) => {
                 const Icon = SOCIAL_ICONS[s.typeSocial] ?? Hash
                 return (
@@ -166,7 +170,7 @@ export function UserDetailPage() {
       {/* Roles tab */}
       {activeTab === 'roles' && (
         <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-          <h4 className="font-semibold">Глобальна роль</h4>
+          <h4 className="font-semibold">{lang === 'uk' ? 'Глобальна роль' : 'Global Role'}</h4>
           <div className="max-w-xs">
             <select
               value={user.role}
@@ -177,14 +181,16 @@ export function UserDetailPage() {
                 ROLE_COLORS[user.role] ?? 'bg-muted text-muted-foreground'
               )}
             >
-              <option value="participant">Participant</option>
-              <option value="mentor">Mentor</option>
-              <option value="judge">Judge</option>
-              <option value="admin">Admin</option>
+              <option value="participant">{t.adminUsers.roles.participant}</option>
+              <option value="mentor">{t.adminUsers.roles.mentor}</option>
+              <option value="judge">{t.adminUsers.roles.judge}</option>
+              <option value="admin">{t.adminUsers.roles.admin}</option>
             </select>
           </div>
           <p className="text-xs text-muted-foreground">
-            Глобальна роль визначає основні права доступу користувача до платформи.
+            {lang === 'uk' 
+              ? 'Глобальна роль визначає основні права доступу користувача до платформи.' 
+              : 'Global role determines the user\'s primary access permissions to the platform.'}
           </p>
         </div>
       )}
@@ -193,7 +199,10 @@ export function UserDetailPage() {
       {activeTab === 'activity' && (
         <div className="space-y-2">
           {activity.length === 0 ? (
-            <EmptyState title="Активності немає" description="Дій ще не зафіксовано." />
+            <EmptyState 
+              title={lang === 'uk' ? 'Активності немає' : 'No Activity'} 
+              description={lang === 'uk' ? 'Дій ще не зафіксовано.' : 'No actions recorded yet.'} 
+            />
           ) : activity.map((entry) => (
             <div key={entry.id} className="flex items-start gap-3 rounded-lg border border-border bg-card px-4 py-3">
               <div className="h-2 w-2 rounded-full bg-primary mt-2 shrink-0" />
@@ -203,7 +212,7 @@ export function UserDetailPage() {
                   <p className="text-xs text-muted-foreground">{entry.entityType} · {entry.entityId}</p>
                 )}
               </div>
-              <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDateTime(entry.createdAt)}</span>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDateTime(entry.createdAt, lang)}</span>
             </div>
           ))}
         </div>
@@ -213,18 +222,21 @@ export function UserDetailPage() {
       {activeTab === 'teams' && (
         <div>
           {!user.teams || user.teams.length === 0 ? (
-            <EmptyState title="Немає команд" description="Цей користувач не є учасником жодної команди." />
+            <EmptyState 
+              title={lang === 'uk' ? 'Немає команд' : 'No Teams'} 
+              description={lang === 'uk' ? 'Цей користувач не є учасником жодної команди.' : 'This user is not a member of any teams.'} 
+            />
           ) : (
             <div className="space-y-2">
-              {user.teams.map((t) => (
-                <div key={t.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
+              {user.teams.map((teamItem) => (
+                <div key={teamItem.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
                   <div>
-                    <p className="font-medium">{t.name}</p>
-                    <p className="text-sm text-muted-foreground">{t.hackathon?.title ?? '—'}</p>
+                    <p className="font-medium">{teamItem.name}</p>
+                    <p className="text-sm text-muted-foreground">{teamItem.hackathon?.title ?? '—'}</p>
                   </div>
                   <span className={clsx('rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                    t.role === 'captain' ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground')}>
-                    {t.role === 'captain' ? 'Капітан' : 'Учасник'}
+                    teamItem.role === 'captain' ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground')}>
+                    {teamItem.role === 'captain' ? t.teamTab.captain : t.teamTab.member}
                   </span>
                 </div>
               ))}

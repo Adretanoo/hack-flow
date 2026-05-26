@@ -6,22 +6,24 @@ import { z } from 'zod'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/store/auth.store'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
-
-const loginSchema = z.object({
-  email: z.string().email('Невірний формат email'),
-  password: z.string().min(1, 'Введіть пароль'),
-})
-
-type LoginForm = z.infer<typeof loginSchema>
+import { useI18n } from '@/i18n'
 
 export function LoginPage() {
   const navigate = useNavigate()
   const { setTokens, setUser } = useAuthStore()
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const { t } = useI18n()
+
+  const loginSchema = z.object({
+    email: z.string().email(t.auth.invalidEmail),
+    password: z.string().min(1, t.auth.enterPassword),
+  })
+
+  type LoginForm = z.infer<typeof loginSchema>
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema)
+    resolver: zodResolver(loginSchema),
   })
 
   const onSubmit = async (data: LoginForm) => {
@@ -32,7 +34,6 @@ export function LoginPage() {
       const { accessToken, refreshToken, user } = response.data.data
       setTokens(accessToken, refreshToken)
       setUser(user)
-      // Auto-join if user came via invite link
       const pendingToken = sessionStorage.getItem('hackflow_pending_join_token')
       if (pendingToken) {
         navigate(`/join/${pendingToken}`)
@@ -40,19 +41,24 @@ export function LoginPage() {
         navigate('/app')
       }
     } catch (err: any) {
-      setError(err.message || 'Помилка авторизації')
+      setError(err.message || t.auth.loginError)
     } finally {
       setIsLoading(false)
     }
   }
 
+  const inputCls = 'block w-full rounded-md border-0 py-2 text-foreground shadow-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm sm:leading-6 px-3 bg-background'
+
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8 rounded-2xl border border-border bg-card p-8 shadow-sm">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">Вхід в систему</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">{t.auth.loginTitle}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Або <Link to="/register" className="font-medium text-primary hover:text-primary/80 transition-colors">створіть новий акаунт</Link>
+            {t.auth.orCreateAccount}{' '}
+            <Link to="/register" className="font-medium text-primary hover:text-primary/80 transition-colors">
+              {t.auth.loginSubtitle}
+            </Link>
           </p>
         </div>
 
@@ -65,25 +71,16 @@ export function LoginPage() {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium leading-6 text-foreground">Email адреса</label>
+              <label className="block text-sm font-medium leading-6 text-foreground">{t.auth.emailLabel}</label>
               <div className="mt-2">
-                <input
-                  {...register('email')}
-                  type="email"
-                  className="block w-full rounded-md border-0 py-2 text-foreground shadow-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm sm:leading-6 px-3 bg-background"
-                />
+                <input {...register('email')} type="email" placeholder={t.auth.emailPlaceholder} className={inputCls} />
                 {errors.email && <p className="mt-1 text-sm text-destructive">{errors.email.message}</p>}
               </div>
             </div>
-
             <div>
-              <label className="block text-sm font-medium leading-6 text-foreground">Пароль</label>
+              <label className="block text-sm font-medium leading-6 text-foreground">{t.auth.passwordLabel}</label>
               <div className="mt-2">
-                <input
-                  {...register('password')}
-                  type="password"
-                  className="block w-full rounded-md border-0 py-2 text-foreground shadow-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm sm:leading-6 px-3 bg-background"
-                />
+                <input {...register('password')} type="password" className={inputCls} />
                 {errors.password && <p className="mt-1 text-sm text-destructive">{errors.password.message}</p>}
               </div>
             </div>
@@ -95,7 +92,7 @@ export function LoginPage() {
               disabled={isLoading}
               className="flex w-full justify-center rounded-md bg-primary px-3 py-2.5 text-sm font-semibold leading-6 text-primary-foreground shadow-sm hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50"
             >
-              {isLoading ? <LoadingSpinner size="sm" /> : 'Увійти'}
+              {isLoading ? <LoadingSpinner size="sm" /> : t.auth.loginBtn}
             </button>
           </div>
         </form>

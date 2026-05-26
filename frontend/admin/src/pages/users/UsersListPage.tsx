@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usersApi } from '@/api/users'
@@ -10,14 +10,8 @@ import { Eye, Search } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { UserProfile } from '@/types/api.types'
 import type { Column } from '@/components/shared/DataTable'
-
-const ROLE_TABS = [
-  { value: '',            label: 'Всі' },
-  { value: 'admin',       label: 'Адміни' },
-  { value: 'judge',       label: 'Судді' },
-  { value: 'mentor',      label: 'Ментори' },
-  { value: 'participant', label: 'Учасники' },
-]
+import { useI18n } from '@/i18n'
+import { usePageTitle } from '@/hooks/usePageTitle'
 
 const ROLE_COLORS: Record<string, string> = {
   admin:       'bg-red-100 text-red-700',
@@ -26,10 +20,9 @@ const ROLE_COLORS: Record<string, string> = {
   participant: 'bg-muted text-muted-foreground',
 }
 
-import { usePageTitle } from '@/hooks/usePageTitle'
-
 export function UsersListPage() {
-  usePageTitle('Користувачі')
+  const { t, lang } = useI18n()
+  usePageTitle(t.adminUsers.title)
   const navigate = useNavigate()
   const { page, limit, setPage } = usePagination(20)
 
@@ -60,6 +53,14 @@ export function UsersListPage() {
   const users = (data?.data.data ?? []) as UserProfile[]
   const total = data?.data.total ?? 0
 
+  const roleTabs = useMemo(() => [
+    { value: '',            label: t.states.all },
+    { value: 'admin',       label: t.adminUsers.roles.admin },
+    { value: 'judge',       label: t.adminUsers.roles.judge },
+    { value: 'mentor',      label: t.adminUsers.roles.mentor },
+    { value: 'participant', label: t.adminUsers.roles.participant },
+  ], [t])
+
   const columns: Column<UserProfile>[] = [
     {
       key: 'avatar',
@@ -73,7 +74,7 @@ export function UsersListPage() {
     },
     {
       key: 'fullName',
-      header: "Ім'я",
+      header: t.adminUsers.fullName,
       render: (u) => (
         <div>
           <p className="font-medium">{u.fullName}</p>
@@ -83,12 +84,12 @@ export function UsersListPage() {
     },
     {
       key: 'email',
-      header: 'Email',
+      header: t.adminUsers.email,
       render: (u) => <span className="text-sm text-muted-foreground">{u.email}</span>,
     },
     {
       key: 'role',
-      header: 'Роль',
+      header: t.adminUsers.role,
       render: (u) => (
         <select
           value={u.role}
@@ -99,31 +100,31 @@ export function UsersListPage() {
             ROLE_COLORS[u.role] ?? 'bg-muted text-muted-foreground'
           )}
         >
-          <option value="participant">Participant</option>
-          <option value="mentor">Mentor</option>
-          <option value="judge">Judge</option>
-          <option value="admin">Admin</option>
+          <option value="participant">{t.adminUsers.roles.participant}</option>
+          <option value="mentor">{t.adminUsers.roles.mentor}</option>
+          <option value="judge">{t.adminUsers.roles.judge}</option>
+          <option value="admin">{t.adminUsers.roles.admin}</option>
         </select>
       ),
     },
     {
       key: 'lookingForTeam',
-      header: 'Шукає команду',
+      header: lang === 'uk' ? 'Шукає команду' : 'Looking for team',
       render: (u) => u.isLookingForTeam
-        ? <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">Так</span>
+        ? <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">{t.actions.yes}</span>
         : <span className="text-xs text-muted-foreground">—</span>,
     },
     {
       key: 'createdAt',
-      header: 'Реєстрація',
-      render: (u) => <span className="text-xs text-muted-foreground">{formatDate(u.createdAt)}</span>,
+      header: lang === 'uk' ? 'Реєстрація' : 'Registered',
+      render: (u) => <span className="text-xs text-muted-foreground">{formatDate(u.createdAt, lang)}</span>,
     },
     {
       key: 'actions',
       header: '',
       className: 'w-12',
       render: (u) => (
-        <button title="Переглянути" className="rounded-md p-1.5 hover:bg-accent transition-colors"
+        <button title={t.adminUsers.view} className="rounded-md p-1.5 hover:bg-accent transition-colors"
           onClick={() => navigate(`/users/${u.id}`)}>
           <Eye className="h-4 w-4 text-muted-foreground" />
         </button>
@@ -134,8 +135,8 @@ export function UsersListPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       <div>
-        <h2 className="text-2xl font-bold">Користувачі</h2>
-        <p className="text-sm text-muted-foreground">Всі зареєстровані акаунти</p>
+        <h2 className="text-2xl font-bold">{t.adminUsers.title}</h2>
+        <p className="text-sm text-muted-foreground">{lang === 'uk' ? 'Всі зареєстровані акаунти' : 'All registered accounts'}</p>
       </div>
 
       {/* Toolbar */}
@@ -143,12 +144,12 @@ export function UsersListPage() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-            placeholder="Пошук за ім'ям або email…"
+            placeholder={t.adminUsers.searchPlaceholder}
             className="pl-9 pr-3 py-2 text-sm rounded-lg border border-input bg-background outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 w-64" />
         </div>
 
         <div className="flex rounded-lg border border-border overflow-hidden">
-          {ROLE_TABS.map((tab) => (
+          {roleTabs.map((tab) => (
             <button key={tab.value} onClick={() => { setRoleFilter(tab.value); setPage(1) }}
               className={clsx('px-3 py-2 text-sm font-medium transition-colors',
                 roleFilter === tab.value ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-accent')}>
@@ -160,7 +161,7 @@ export function UsersListPage() {
         <label className="flex cursor-pointer items-center gap-2 text-sm">
           <input type="checkbox" checked={lookingForTeam} onChange={(e) => { setLookingForTeam(e.target.checked); setPage(1) }}
             className="h-4 w-4 accent-primary" />
-          Шукають команду
+          {lang === 'uk' ? 'Шукають команду' : 'Looking for team'}
         </label>
       </div>
 
@@ -172,8 +173,8 @@ export function UsersListPage() {
         page={page}
         limit={limit}
         onPageChange={setPage}
-        emptyTitle="Користувачів не знайдено"
-        emptyDescription="Спробуйте змінити фільтри."
+        emptyTitle={t.adminUsers.noUsers}
+        emptyDescription={t.shared.emptyState.defaultDesc}
       />
     </div>
   )

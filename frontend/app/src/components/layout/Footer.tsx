@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Mail, Heart, Zap, Users, BookOpen, ExternalLink } from 'lucide-react'
+import { useI18n } from '@/i18n'
 
 const Github = (props: React.SVGProps<SVGSVGElement>) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -9,6 +10,7 @@ const Github = (props: React.SVGProps<SVGSVGElement>) => (
 )
 
 export function Footer() {
+  const { t } = useI18n()
   return (
     <footer className="border-t border-border bg-card/50 backdrop-blur-md">
       <div className="container mx-auto px-4 py-12 md:px-8">
@@ -23,33 +25,19 @@ export function Footer() {
               <span className="text-xl font-bold tracking-tight">Hack-Flow</span>
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
-              Платформа для організації та участі у хакатонах. Розроблено у Коледжі УжНУ.
+              {t.footer.desc}
             </p>
-            {/* Social links */}
             <div className="flex items-center gap-3">
-              <a
-                href="https://github.com/Adretanoo/hack-flow"
-                target="_blank"
-                rel="noreferrer"
-                title="GitHub репозиторій"
-                className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-primary-foreground transition-all"
-              >
+              <a href="https://github.com/Adretanoo/hack-flow" target="_blank" rel="noreferrer" title="GitHub"
+                className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-primary-foreground transition-all">
                 <Github className="h-4 w-4" />
               </a>
-              <a
-                href="https://www.college.uzhnu.edu.ua/"
-                target="_blank"
-                rel="noreferrer"
-                title="Коледж УжНУ"
-                className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-primary-foreground transition-all"
-              >
+              <a href="https://www.college.uzhnu.edu.ua/" target="_blank" rel="noreferrer" title={t.footer.college}
+                className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-primary-foreground transition-all">
                 <ExternalLink className="h-4 w-4" />
               </a>
-              <a
-                href="mailto:c.tehza.adrian@student.uzhnu.edu.ua"
-                title="Написати нам"
-                className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-primary-foreground transition-all"
-              >
+              <a href="mailto:c.tehza.adrian@student.uzhnu.edu.ua" title="Email"
+                className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-primary-foreground transition-all">
                 <Mail className="h-4 w-4" />
               </a>
             </div>
@@ -57,52 +45,45 @@ export function Footer() {
 
           {/* Platform */}
           <div className="space-y-5">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-foreground/50">Платформа</h4>
+            <h4 className="text-xs font-bold uppercase tracking-widest text-foreground/50">{t.footer.platform}</h4>
             <nav className="flex flex-col gap-3 text-sm font-medium">
               <Link to="/" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
-                <Zap className="h-4 w-4 shrink-0" /> Хакатони
+                <Zap className="h-4 w-4 shrink-0" /> {t.footer.hackathons}
               </Link>
               <Link to="/mentors" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
-                <Users className="h-4 w-4 shrink-0" /> Ментори
+                <Users className="h-4 w-4 shrink-0" /> {t.footer.mentors}
               </Link>
               <Link to="/guide" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
-                <BookOpen className="h-4 w-4 shrink-0" /> Посібник
+                <BookOpen className="h-4 w-4 shrink-0" /> {t.footer.guide}
               </Link>
             </nav>
           </div>
 
           {/* About */}
           <div className="space-y-5">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-foreground/50">Про проєкт</h4>
+            <h4 className="text-xs font-bold uppercase tracking-widest text-foreground/50">{t.footer.aboutProject}</h4>
             <nav className="flex flex-col gap-3 text-sm font-medium">
               <Link to="/about" className="text-muted-foreground hover:text-primary transition-colors">
-                Про нас
+                {t.footer.about}
               </Link>
-              <a
-                href="https://www.college.uzhnu.edu.ua/"
-                target="_blank"
-                rel="noreferrer"
-                className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
-              >
-                Коледж УжНУ <ExternalLink className="h-3 w-3" />
+              <a href="https://www.college.uzhnu.edu.ua/" target="_blank" rel="noreferrer"
+                className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1">
+                {t.footer.college} <ExternalLink className="h-3 w-3" />
               </a>
-              <a
-                href="mailto:c.tehza.adrian@student.uzhnu.edu.ua"
-                className="text-muted-foreground hover:text-primary transition-colors break-all"
-              >
+              <a href="mailto:c.tehza.adrian@student.uzhnu.edu.ua"
+                className="text-muted-foreground hover:text-primary transition-colors break-all">
                 c.tehza.adrian@student.uzhnu.edu.ua
               </a>
             </nav>
           </div>
         </div>
 
-        {/* Bottom bar */}
         <div className="mt-10 pt-6 border-t border-border flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Hack-Flow. Коледж УжНУ.
+            © {new Date().getFullYear()} Hack-Flow. {t.footer.rights}
           </p>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            Зроблено з <Heart className="h-3.5 w-3.5 text-red-500 fill-current" /> в Україні
+            {t.footer.madeIn} <Heart className="h-3.5 w-3.5 text-red-500 fill-current" /> {t.footer.inUkraine}
           </div>
         </div>
       </div>

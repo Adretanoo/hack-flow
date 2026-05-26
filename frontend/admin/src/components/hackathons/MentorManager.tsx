@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { UserPlus, Trash2 } from 'lucide-react'
 import type { Track, UserProfile } from '@/types/api.types'
 import { clsx } from 'clsx'
+import { useI18n } from '@/i18n'
 
 interface MentorAssignment {
   id: string
@@ -22,6 +23,7 @@ interface MentorManagerProps {
 
 export function MentorManager({ hackathonId }: MentorManagerProps) {
   const qc = useQueryClient()
+  const { t, lang } = useI18n()
   const [selectedUserId, setSelectedUserId] = useState('')
   const [selectedTrackId, setSelectedTrackId] = useState('')
   const [showAssignForm, setShowAssignForm] = useState(false)
@@ -59,12 +61,12 @@ export function MentorManager({ hackathonId }: MentorManagerProps) {
     mutationFn: (data: { userId: string; trackId: string }) =>
       mentorTrackApi.assign(hackathonId, data),
     onSuccess: () => {
-      toast.success('Ментора призначено')
+      toast.success(lang === 'uk' ? 'Ментора призначено' : 'Mentor assigned')
       qc.invalidateQueries({ queryKey: ['mentorAssignments', hackathonId] })
     },
     onError: (err: unknown) => {
       const e = err as { response?: { data?: { error?: { message?: string }; message?: string } } }
-      const msg = e.response?.data?.error?.message || e.response?.data?.message || 'Помилка при призначенні'
+      const msg = e.response?.data?.error?.message || e.response?.data?.message || (lang === 'uk' ? 'Помилка при призначенні' : 'Error assigning mentor')
       toast.error(msg)
     },
   })
@@ -79,19 +81,19 @@ export function MentorManager({ hackathonId }: MentorManagerProps) {
       }
     },
     onSuccess: () => {
-      toast.success('Ментора призначено на всі треки')
+      toast.success(lang === 'uk' ? 'Ментора призначено на всі треки' : 'Mentor assigned to all tracks')
       qc.invalidateQueries({ queryKey: ['mentorAssignments', hackathonId] })
     },
-    onError: () => toast.error('Помилка при масовому призначенні'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при масовому призначенні' : 'Error bulk assigning mentor'),
   })
 
   const removeMut = useMutation({
     mutationFn: (id: string) => mentorTrackApi.unassign(hackathonId, id),
     onSuccess: () => {
-      toast.success('Ментора знято')
+      toast.success(lang === 'uk' ? 'Ментора знято' : 'Mentor unassigned')
       qc.invalidateQueries({ queryKey: ['mentorAssignments', hackathonId] })
     },
-    onError: () => toast.error('Помилка при знятті'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при знятті' : 'Error unassigning mentor'),
   })
 
   const removeAllMut = useMutation({
@@ -102,10 +104,10 @@ export function MentorManager({ hackathonId }: MentorManagerProps) {
       }
     },
     onSuccess: () => {
-      toast.success('Ментора знято з усіх треків')
+      toast.success(lang === 'uk' ? 'Ментора знято з усіх треків' : 'Mentor unassigned from all tracks')
       qc.invalidateQueries({ queryKey: ['mentorAssignments', hackathonId] })
     },
-    onError: () => toast.error('Помилка при видаленні'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при видаленні' : 'Error deleting assignment'),
   })
 
   const handleCellClick = (userId: string, trackId: string) => {
@@ -124,17 +126,17 @@ export function MentorManager({ hackathonId }: MentorManagerProps) {
       {/* Matrix table */}
       {tracks.length === 0 ? (
         <p className="text-sm text-muted-foreground italic">
-          Треків ще немає. Додайте треки в налаштуваннях хакатону.
+          {lang === 'uk' ? 'Треків ще немає. Додайте треки в налаштуваннях хакатону.' : 'No tracks yet. Add tracks in hackathon settings.'}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Ментор</th>
-                {tracks.map((t) => (
-                  <th key={t.id} className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">
-                    {t.name}
+                <th className="px-4 py-3 text-left font-semibold text-muted-foreground">{lang === 'uk' ? 'Ментор' : 'Mentor'}</th>
+                {tracks.map((tItem) => (
+                  <th key={tItem.id} className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">
+                    {tItem.name}
                   </th>
                 ))}
                 <th className="px-4 py-3 w-10" />
@@ -144,7 +146,7 @@ export function MentorManager({ hackathonId }: MentorManagerProps) {
               {mentors.length === 0 ? (
                 <tr>
                   <td colSpan={tracks.length + 2} className="px-4 py-6 text-center text-sm text-muted-foreground">
-                    Менторів не призначено. Спочатку призначте роль ментора користувачам.
+                    {lang === 'uk' ? 'Менторів не призначено. Спочатку призначте роль ментора користувачам.' : 'No mentors assigned yet. First assign the mentor role to users.'}
                   </td>
                 </tr>
               ) : (
@@ -160,9 +162,9 @@ export function MentorManager({ hackathonId }: MentorManagerProps) {
                             <p className="text-xs text-muted-foreground">{m.email}</p>
                           </div>
                           <button
-                            title="Видалити ментора з усіх треків"
+                            title={lang === 'uk' ? 'Видалити ментора з усіх треків' : 'Remove mentor from all tracks'}
                             onClick={() => {
-                              if (confirm(`Зняти ментора ${m.fullName} з усіх треків?`)) {
+                              if (confirm(lang === 'uk' ? `Зняти ментора ${m.fullName} з усіх треків?` : `Unassign mentor ${m.fullName} from all tracks?`)) {
                                 removeAllMut.mutate(m.id)
                               }
                             }}
@@ -180,7 +182,7 @@ export function MentorManager({ hackathonId }: MentorManagerProps) {
                             <div className="flex flex-col items-center gap-1">
                               <button
                                 onClick={() => handleCellClick(m.id, track.id)}
-                                title={assigned ? 'Зняти' : 'Призначити'}
+                                title={assigned ? (lang === 'uk' ? 'Зняти' : 'Unassign') : (lang === 'uk' ? 'Призначити' : 'Assign')}
                                 className={clsx(
                                   'h-7 w-7 rounded-md border-2 transition-all',
                                   assigned
@@ -212,7 +214,7 @@ export function MentorManager({ hackathonId }: MentorManagerProps) {
             onChange={(e) => setSelectedUserId(e.target.value)}
             className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring"
           >
-            <option value="">Обрати ментора…</option>
+            <option value="">{lang === 'uk' ? 'Обрати ментора…' : 'Select mentor...'}</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>{u.fullName} ({u.email})</option>
             ))}
@@ -222,10 +224,10 @@ export function MentorManager({ hackathonId }: MentorManagerProps) {
             onChange={(e) => setSelectedTrackId(e.target.value)}
             className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring"
           >
-            <option value="">Обрати трек…</option>
-            <option value="ALL" className="font-semibold text-primary">Всі треки</option>
-            {tracks.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
+            <option value="">{lang === 'uk' ? 'Обрати трек…' : 'Select track...'}</option>
+            <option value="ALL" className="font-semibold text-primary">{lang === 'uk' ? 'Всі треки' : 'All tracks'}</option>
+            {tracks.map((tItem) => (
+              <option key={tItem.id} value={tItem.id}>{tItem.name}</option>
             ))}
           </select>
           <button
@@ -241,13 +243,13 @@ export function MentorManager({ hackathonId }: MentorManagerProps) {
             disabled={!selectedUserId || !selectedTrackId}
             className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
-            Призначити
+            {lang === 'uk' ? 'Призначити' : 'Assign'}
           </button>
           <button
             onClick={() => setShowAssignForm(false)}
             className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent"
           >
-            Скасувати
+            {t.actions.cancel}
           </button>
         </div>
       ) : (
@@ -255,7 +257,7 @@ export function MentorManager({ hackathonId }: MentorManagerProps) {
           onClick={() => setShowAssignForm(true)}
           className="flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
         >
-          <UserPlus className="h-4 w-4" /> Призначити ментора
+          <UserPlus className="h-4 w-4" /> {lang === 'uk' ? 'Призначити ментора' : 'Assign mentor'}
         </button>
       )}
     </div>

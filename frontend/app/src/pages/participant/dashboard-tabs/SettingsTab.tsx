@@ -4,6 +4,7 @@ import { useQueryClient, useMutation } from '@tanstack/react-query'
 import { Settings, Pencil, XCircle, AlertTriangle, Save, ChevronDown, ChevronUp } from 'lucide-react'
 import { teamsApi } from '@/api/teams'
 import type { Hackathon, Team } from '@/types/api.types'
+import { useI18n } from '@/i18n'
 
 interface SettingsTabProps {
   hackathon: Hackathon
@@ -14,6 +15,7 @@ type EditForm = { name: string; description?: string; trackId?: string }
 
 export function SettingsTab({ hackathon, myTeam }: SettingsTabProps) {
   const queryClient = useQueryClient()
+  const { t } = useI18n()
 
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -30,8 +32,8 @@ export function SettingsTab({ hackathon, myTeam }: SettingsTabProps) {
     return (
       <div className="mt-6 rounded-xl border border-border bg-card p-10 text-center text-muted-foreground">
         <Settings className="mx-auto mb-3 h-8 w-8 opacity-40" />
-        <p className="font-medium">Ти ще не в команді</p>
-        <p className="text-sm mt-1">Спочатку приєднайся або створи команду на вкладці «Моя команда».</p>
+        <p className="font-medium">{t.teamTab.noTeam}</p>
+        <p className="text-sm mt-1">{t.teamTab.noTeamDesc}</p>
       </div>
     )
   }
@@ -41,8 +43,8 @@ export function SettingsTab({ hackathon, myTeam }: SettingsTabProps) {
     return (
       <div className="mt-6 rounded-xl border border-border bg-card p-10 text-center text-muted-foreground">
         <Settings className="mx-auto mb-3 h-8 w-8 opacity-40" />
-        <p className="font-medium">Налаштування команди</p>
-        <p className="text-sm mt-1">Тільки капітан команди може змінювати налаштування.</p>
+        <p className="font-medium">{t.teamTab.teamSettings}</p>
+        <p className="text-sm mt-1">{t.settingsTab.onlyCaptain}</p>
       </div>
     )
   }
@@ -67,6 +69,7 @@ function CaptainSettings({
   deleteOpen: boolean; setDeleteOpen: (v: boolean) => void
   deleteConfirmName: string; setDeleteConfirmName: (v: string) => void
 }) {
+  const { t } = useI18n()
   const { register, handleSubmit, reset, formState: { errors } } = useForm<EditForm>({
     defaultValues: {
       name: myTeam.name,
@@ -100,8 +103,8 @@ function CaptainSettings({
           <Settings className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold">Налаштування команди</h2>
-          <p className="text-sm text-muted-foreground">Керуй командою — редагуй або видаляй</p>
+          <h2 className="text-lg font-semibold">{t.teamTab.teamSettings}</h2>
+          <p className="text-sm text-muted-foreground">{t.settingsTab.manageTeam}</p>
         </div>
       </div>
 
@@ -120,8 +123,8 @@ function CaptainSettings({
             <Pencil className="h-4 w-4 text-blue-600" />
           </div>
           <div>
-            <p className="font-semibold">Редагувати команду</p>
-            <p className="text-xs text-muted-foreground">Назва, опис, трек</p>
+            <p className="font-semibold">{t.settingsTab.editTeam}</p>
+            <p className="text-xs text-muted-foreground">{t.settingsTab.nameDescTrack}</p>
           </div>
           <span className="ml-auto">
             {editOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -133,22 +136,22 @@ function CaptainSettings({
             {/* Warning */}
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-              <span>Після збереження статус команди буде змінено на <strong>«Очікує перегляду»</strong> — організатор повинен повторно затвердити зміни.</span>
+              <span>{t.settingsTab.editWarning}</span>
             </div>
 
             {/* Name */}
             <div>
-              <label className="block text-sm font-medium mb-1">Назва команди *</label>
+              <label className="block text-sm font-medium mb-1">{t.teamTab.teamName} *</label>
               <input
                 {...register('name', { required: true, minLength: 2 })}
                 className="w-full rounded-md border border-border px-3 py-2 text-sm bg-background focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
-              {errors.name && <p className="text-xs text-destructive mt-1">Мінімум 2 символи</p>}
+              {errors.name && <p className="text-xs text-destructive mt-1">{t.settingsTab.min2Chars}</p>}
             </div>
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium mb-1">Опис</label>
+              <label className="block text-sm font-medium mb-1">{t.projectTab.description}</label>
               <textarea
                 {...register('description')}
                 rows={3}
@@ -159,26 +162,26 @@ function CaptainSettings({
             {/* Track */}
             {tracks.length > 0 && (
               <div>
-                <label className="block text-sm font-medium mb-1">Напрямок (трек)</label>
+                <label className="block text-sm font-medium mb-1">{t.teamTab.track}</label>
                 <select
                   {...register('trackId')}
                   className="w-full rounded-md border border-border px-3 py-2 text-sm bg-background focus:border-primary focus:outline-none"
                 >
-                  <option value="">— Без треку —</option>
+                  <option value="">{t.settingsTab.noTrack}</option>
                   {tracks.map((t: any) => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>
-                <p className="text-xs text-muted-foreground mt-1">Зміна треку потребує затвердження організатора.</p>
+                <p className="text-xs text-muted-foreground mt-1">{t.settingsTab.trackChangeWarning}</p>
               </div>
             )}
 
             {/* Feedback */}
             {updateMut.isError && (
-              <p className="text-xs text-destructive">{(updateMut.error as any)?.message || 'Помилка збереження'}</p>
+              <p className="text-xs text-destructive">{(updateMut.error as any)?.message || t.states.error}</p>
             )}
             {updateMut.isSuccess && (
-              <p className="text-xs text-green-600">✅ Зміни збережено. Очікуйте затвердження організатора.</p>
+              <p className="text-xs text-green-600">✅ {t.settingsTab.saveSuccess}</p>
             )}
 
             <div className="flex gap-3 pt-1">
@@ -187,7 +190,7 @@ function CaptainSettings({
                 onClick={() => setEditOpen(false)}
                 className="flex-1 rounded-md border border-border px-4 py-2 text-sm hover:bg-accent transition-colors"
               >
-                Скасувати
+                {t.actions.cancel}
               </button>
               <button
                 type="submit"
@@ -195,7 +198,7 @@ function CaptainSettings({
                 className="flex-1 flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
               >
                 <Save className="h-4 w-4" />
-                {updateMut.isPending ? 'Збереження...' : 'Зберегти зміни'}
+                {updateMut.isPending ? t.profile.saving : t.profile.saveChanges}
               </button>
             </div>
           </form>
@@ -213,8 +216,8 @@ function CaptainSettings({
             <XCircle className="h-4 w-4 text-destructive" />
           </div>
           <div>
-            <p className="font-semibold text-destructive">Видалити команду</p>
-            <p className="text-xs text-muted-foreground">Незворотня дія — всі дані будуть видалені</p>
+            <p className="font-semibold text-destructive">{t.teamTab.disbandTeam}</p>
+            <p className="text-xs text-muted-foreground">{t.settingsTab.irreversible}</p>
           </div>
           <span className="ml-auto">
             {deleteOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -226,14 +229,14 @@ function CaptainSettings({
             <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-100 px-4 py-3">
               <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
               <div className="text-sm text-red-800">
-                <p className="font-semibold">Незворотня дія!</p>
-                <p className="mt-1">Команда буде розпущена. Всі учасники, запрошення та дані команди будуть видалені. Відновити неможливо.</p>
+                <p className="font-semibold">{t.shared.thisActionCannotBeUndone}</p>
+                <p className="mt-1">{t.settingsTab.disbandWarning}</p>
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">
-                Введіть назву команди <strong>{myTeam.name}</strong> для підтвердження:
+                {t.settingsTab.enterNameToConfirm.replace('{name}', myTeam.name)}
               </label>
               <input
                 type="text"
@@ -245,7 +248,7 @@ function CaptainSettings({
             </div>
 
             {deleteMut.isError && (
-              <p className="text-xs text-destructive">{(deleteMut.error as any)?.message || 'Помилка видалення'}</p>
+              <p className="text-xs text-destructive">{(deleteMut.error as any)?.message || t.states.error}</p>
             )}
 
             <button
@@ -253,7 +256,7 @@ function CaptainSettings({
               disabled={deleteConfirmName !== myTeam.name || deleteMut.isPending}
               className="w-full rounded-md bg-destructive px-4 py-2 text-sm font-semibold text-white hover:bg-destructive/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              {deleteMut.isPending ? 'Видалення...' : '🗑 Видалити команду назавжди'}
+              {deleteMut.isPending ? t.settingsTab.deleting : t.settingsTab.deletePermanentlyBtn}
             </button>
           </div>
         )}

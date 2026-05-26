@@ -3,12 +3,14 @@ import { MapPin, Calendar, Users, Trophy } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { formatDate, getStatusLabel } from '@/utils/format'
 import type { Hackathon } from '@/types/api.types'
+import { useI18n } from '@/i18n'
 
 interface HackathonCardProps {
   hackathon: Hackathon
 }
 
 export function HackathonCard({ hackathon }: HackathonCardProps) {
+  const { t, lang } = useI18n()
   // Determine gradient based on status if no banner
   const gradientClass = 
     hackathon.status === 'PUBLISHED' ? 'from-green-500 to-emerald-400' :
@@ -24,7 +26,7 @@ export function HackathonCard({ hackathon }: HackathonCardProps) {
       ? (now > new Date(hackathon.endDate) || activeStage?.type === 'FINISHED' ? 'past' : (now < new Date(hackathon.startDate) ? 'upcoming' : 'active'))
       : hackathon.status;
 
-  const statusLabel = getStatusLabel(logicalStatus);
+  const statusLabel = getStatusLabel(logicalStatus, lang);
 
   const dotColor = 
     logicalStatus === 'active' ? 'bg-green-500' :
@@ -52,7 +54,7 @@ export function HackathonCard({ hackathon }: HackathonCardProps) {
           <StatusBadge status={logicalStatus} />
           {activeStage && (
             <span className="text-xs font-medium text-primary">
-              Етап: {activeStage.type === 'CUSTOM' ? activeStage.name : activeStage.type}
+              {t.dashboard.stageLabel}: {activeStage.type === 'CUSTOM' ? activeStage.name : activeStage.type}
             </span>
           )}
         </div>
@@ -74,27 +76,27 @@ export function HackathonCard({ hackathon }: HackathonCardProps) {
           <div className="flex flex-col gap-2.5 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 shrink-0" />
-              <span>{formatDate(hackathon.startDate)} - {formatDate(hackathon.endDate)}</span>
+              <span>{formatDate(hackathon.startDate, lang)} - {formatDate(hackathon.endDate, lang)}</span>
             </div>
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 shrink-0" />
-              <span>{hackathon.online ? 'Online' : hackathon.location || 'TBA'}</span>
+              <span>{hackathon.online ? t.publicHackathon.onlineFormat : hackathon.location || 'TBA'}</span>
             </div>
           </div>
 
           <div className="flex items-center justify-between border-t border-border pt-3">
             <div className="flex gap-4">
-              <div className="flex items-center gap-1.5" title="Нагороди">
+              <div className="flex items-center gap-1.5" title={t.adminHackathons.awards}>
                 <Trophy className="h-4 w-4 text-amber-500" />
                 <span className="font-medium text-foreground">{hackathon._count?.awards || 0}</span>
               </div>
-              <div className="flex items-center gap-1.5" title="Учасників">
+              <div className="flex items-center gap-1.5" title={t.shared.hackathonCard.participants}>
                 <Users className="h-4 w-4 text-blue-500" />
                 <span className="font-medium text-foreground">{hackathon._count?.participants || 0}</span>
               </div>
             </div>
-            <div className="flex items-center gap-1.5" title="Команди">
-              <span className="text-xs text-muted-foreground">Команд:</span>
+            <div className="flex items-center gap-1.5" title={t.shared.hackathonCard.teams}>
+              <span className="text-xs text-muted-foreground">{t.shared.hackathonCard.teams}:</span>
               <span className="font-medium text-foreground">{hackathon._count?.teams || 0}</span>
             </div>
           </div>

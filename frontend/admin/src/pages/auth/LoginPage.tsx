@@ -4,16 +4,18 @@ import { z } from 'zod'
 import { useAuth } from '@/hooks/useAuth'
 import { Zap, Loader2, AlertCircle } from 'lucide-react'
 import { isAxiosError } from 'axios'
-
-const schema = z.object({
-  email: z.string().email('Невірний формат email'),
-  password: z.string().min(1, 'Введіть пароль'),
-})
-
-type FormData = z.infer<typeof schema>
+import { useI18n } from '@/i18n'
 
 export function LoginPage() {
   const { login, loginPending, loginError } = useAuth()
+  const { t, lang } = useI18n()
+
+  const schema = z.object({
+    email: z.string().email(t.auth.invalidEmail),
+    password: z.string().min(1, t.auth.enterPassword),
+  })
+
+  type FormData = z.infer<typeof schema>
 
   const {
     register,
@@ -27,9 +29,9 @@ export function LoginPage() {
 
   const errorMessage =
     isAxiosError(loginError) && loginError.response?.status === 401
-      ? 'Невірний email або пароль'
+      ? (lang === 'uk' ? 'Невірний email або пароль' : 'Invalid email or password')
       : loginError
-      ? 'Сталась помилка. Спробуйте пізніше.'
+      ? (lang === 'uk' ? 'Сталась помилка. Спробуйте пізніше.' : 'An error occurred. Please try again later.')
       : null
 
   return (
@@ -44,7 +46,7 @@ export function LoginPage() {
             </div>
             <div className="text-center">
               <h1 className="text-2xl font-bold tracking-tight">Hack-Flow</h1>
-              <p className="text-sm text-muted-foreground">Адмін-панель</p>
+              <p className="text-sm text-muted-foreground">{t.adminDashboard.title}</p>
             </div>
           </div>
 
@@ -78,7 +80,7 @@ export function LoginPage() {
             {/* Password */}
             <div>
               <label htmlFor="password" className="mb-1.5 block text-sm font-medium">
-                Пароль
+                {t.auth.passwordLabel}
               </label>
               <input
                 id="password"
@@ -100,7 +102,7 @@ export function LoginPage() {
               className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 disabled:opacity-60"
             >
               {loginPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {loginPending ? 'Вхід…' : 'Увійти'}
+              {loginPending ? `${t.actions.loading}...` : t.auth.loginBtn}
             </button>
           </form>
         </div>

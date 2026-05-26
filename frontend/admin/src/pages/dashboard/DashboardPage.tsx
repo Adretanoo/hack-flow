@@ -13,9 +13,11 @@ import { PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, Tooltip as Recharts
 import { Plus, Users, Trophy, ClipboardCheck, Activity, ArrowUpRight, ArrowRight } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { Hackathon, UserProfile, Team } from '@/types/api.types'
+import { useI18n } from '@/i18n'
 
 export function DashboardPage() {
-  usePageTitle('Дашборд')
+  const { t, lang } = useI18n()
+  usePageTitle(lang === 'uk' ? 'Дашборд' : 'Dashboard')
   const navigate = useNavigate()
   const [pickerOpen, setPickerOpen] = useState(false)
 
@@ -46,9 +48,9 @@ export function DashboardPage() {
   const pendingTeams = teams.filter(t => t.approvalStatus === 'PENDING').length
 
   const pieData = [
-    { name: 'Чернетки', value: hackathons.filter(h => h.status === 'DRAFT').length, color: '#94a3b8' },
-    { name: 'Опубліковані', value: activeHackathons, color: '#3b82f6' },
-    { name: 'Архівні', value: hackathons.filter(h => h.status === 'ARCHIVED').length, color: '#a855f7' },
+    { name: t.states.draft, value: hackathons.filter(h => h.status === 'DRAFT').length, color: '#94a3b8' },
+    { name: t.states.published, value: activeHackathons, color: '#3b82f6' },
+    { name: lang === 'uk' ? 'Архів' : 'Archived', value: hackathons.filter(h => h.status === 'ARCHIVED').length, color: '#a855f7' },
   ].filter(d => d.value > 0)
 
   // Registrations over time (last 7 days) - with base demo data for visual presentation
@@ -74,10 +76,10 @@ export function DashboardPage() {
       // Combine real data with base curve so it always looks "WOW"
       const count = realCount + baseCurve[6 - i]
       
-      data.push({ date: d.toLocaleDateString('uk-UA', { weekday: 'short' }), count })
+      data.push({ date: d.toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US', { weekday: 'short' }), count })
     }
     return data
-  }, [users])
+  }, [users, lang])
 
   // Simulated Activity Feed (Combining recent users, teams, hackathons)
   const activityFeed = useMemo(() => {
@@ -87,7 +89,7 @@ export function DashboardPage() {
       id: `u-${u.id}`,
       type: 'user',
       title: u.fullName,
-      action: 'зареєструвався',
+      action: lang === 'uk' ? 'зареєструвався' : 'signed up',
       date: new Date(u.createdAt || Date.now()),
       initials: u.fullName[0]?.toUpperCase(),
     }))
@@ -96,7 +98,7 @@ export function DashboardPage() {
       id: `t-${t.id}`,
       type: 'team',
       title: t.name,
-      action: 'створив команду',
+      action: lang === 'uk' ? 'створив команду' : 'created a team',
       date: new Date(t.createdAt),
       initials: t.name[0]?.toUpperCase(),
     }))
@@ -105,36 +107,36 @@ export function DashboardPage() {
       id: `h-${h.id}`,
       type: 'hackathon',
       title: h.title,
-      action: 'створено хакатон',
+      action: lang === 'uk' ? 'створено хакатон' : 'created a hackathon',
       date: new Date(h.createdAt || Date.now()),
       initials: h.title[0]?.toUpperCase(),
     }))
 
     return feed.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 15)
-  }, [users, teams, hackathons])
+  }, [users, teams, hackathons, lang])
 
   if (isLoading) return <LoadingSpinner className="py-20" />
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h2 className="text-2xl font-bold">Огляд платформи</h2>
-        <p className="text-sm text-muted-foreground">Аналітика та останні дії в системі</p>
+        <h2 className="text-2xl font-bold">{lang === 'uk' ? 'Огляд платформи' : 'Platform Overview'}</h2>
+        <p className="text-sm text-muted-foreground">{lang === 'uk' ? 'Аналітика та останні дії в системі' : 'Analytics and recent activities in the system'}</p>
       </div>
 
       {/* Row 1: Stats */}
       <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
-        <StatCard title="Всього хакатонів" value={hackathons.length} icon={Trophy} />
-        <StatCard title="Активні" value={activeHackathons} icon={Activity} trend="+1" />
-        <StatCard title="Користувачі" value={users.length} icon={Users} trend="+12" />
-        <StatCard title="Очікують схвалення" value={pendingTeams} icon={ClipboardCheck} 
+        <StatCard title={t.adminDashboard.totalHackathons} value={hackathons.length} icon={Trophy} />
+        <StatCard title={t.states.active} value={activeHackathons} icon={Activity} trend="+1" />
+        <StatCard title={t.adminDashboard.totalUsers} value={users.length} icon={Users} trend="+12" />
+        <StatCard title={lang === 'uk' ? 'Очікують схвалення' : 'Pending Approval'} value={pendingTeams} icon={ClipboardCheck} 
           className={pendingTeams > 0 ? "border-amber-200 bg-amber-50" : ""} />
       </div>
 
       {/* Row 2: Charts */}
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="font-semibold mb-4">Статус хакатонів</h3>
+          <h3 className="font-semibold mb-4">{lang === 'uk' ? 'Статус хакатонів' : 'Hackathon Statuses'}</h3>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -156,7 +158,7 @@ export function DashboardPage() {
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="font-semibold mb-4">Реєстрації (останні 7 днів)</h3>
+          <h3 className="font-semibold mb-4">{lang === 'uk' ? 'Реєстрації (останні 7 днів)' : 'Registrations (last 7 days)'}</h3>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={areaData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -180,10 +182,10 @@ export function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Activity Feed */}
         <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5 flex flex-col max-h-[400px]">
-          <h3 className="font-semibold mb-4">Стрічка активності</h3>
+          <h3 className="font-semibold mb-4">{t.adminDashboard.recentActivity}</h3>
           <div className="flex-1 overflow-y-auto pr-2 space-y-4">
             {activityFeed.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic py-10 text-center">Активності немає</p>
+              <p className="text-sm text-muted-foreground italic py-10 text-center">{t.states.noData}</p>
             ) : (
               activityFeed.map((item) => (
                 <div key={item.id} className="flex items-start gap-3">
@@ -195,7 +197,7 @@ export function DashboardPage() {
                     <p className="text-sm">
                       <span className="font-medium">{item.title}</span> <span className="text-muted-foreground">{item.action}</span>
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{formatRelative(item.date.toISOString())}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{formatRelative(item.date.toISOString(), lang)}</p>
                   </div>
                 </div>
               ))
@@ -205,28 +207,28 @@ export function DashboardPage() {
 
         {/* Quick Actions */}
         <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-          <h3 className="font-semibold mb-2">Швидкі дії</h3>
+          <h3 className="font-semibold mb-2">{t.adminDashboard.quickActions}</h3>
           
           <button onClick={() => navigate('/hackathons/new')}
             className="w-full flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3 text-sm font-medium text-primary hover:bg-primary/20 transition-colors">
-            <span className="flex items-center gap-2"><Plus className="h-4 w-4" /> Створити хакатон</span>
+            <span className="flex items-center gap-2"><Plus className="h-4 w-4" /> {t.adminDashboard.createHackathon}</span>
             <ArrowRight className="h-4 w-4" />
           </button>
           
           <button onClick={() => navigate('/teams?status=PENDING')}
             className="w-full flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3 text-sm font-medium hover:bg-accent transition-colors">
-            <span className="flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-amber-500" /> Очікуючі команди</span>
+            <span className="flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-amber-500" /> {lang === 'uk' ? 'Очікують схвалення' : 'Pending Approval'}</span>
             <ArrowRight className="h-4 w-4" />
           </button>
           
           <button onClick={() => setPickerOpen(true)}
             className="w-full flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3 text-sm font-medium hover:bg-accent transition-colors">
-            <span className="flex items-center gap-2"><Trophy className="h-4 w-4 text-purple-500" /> Лідборд</span>
+            <span className="flex items-center gap-2"><Trophy className="h-4 w-4 text-purple-500" /> {lang === 'uk' ? 'Лідборд' : 'Leaderboard'}</span>
             <ArrowRight className="h-4 w-4" />
           </button>
 
           <div className="pt-4 border-t border-border mt-2 space-y-3">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Останні хакатони</h4>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{lang === 'uk' ? 'Останні хакатони' : 'Recent Hackathons'}</h4>
             {hackathons.slice(0, 3).map(h => (
               <div key={h.id} className="flex justify-between items-center cursor-pointer hover:underline" onClick={() => navigate(`/hackathons/${h.id}`)}>
                 <span className="text-sm truncate font-medium max-w-[140px]">{h.title}</span>
@@ -241,7 +243,7 @@ export function DashboardPage() {
         open={pickerOpen} 
         onClose={() => setPickerOpen(false)} 
         onSelect={(id) => navigate(`/judging/${id}`)} 
-        title="Оберіть хакатон для лідборду"
+        title={lang === 'uk' ? 'Оберіть хакатон для лідборду' : 'Select hackathon for leaderboard'}
       />
     </div>
   )

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { hackathonsApi } from '@/api/hackathons'
 import { Plus, Trash2, Trophy, Check, X, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
+import { useI18n } from '@/i18n'
 import type { Award } from '@/types/api.types'
 import { inputCls } from './FormSection'
 
@@ -21,6 +22,7 @@ const PLACE_COLORS: Record<number, string> = {
 
 export function AwardsSection({ hackathonId, awards: initialAwards = [], mode = 'edit', onChange }: AwardsSectionProps) {
   const qc = useQueryClient()
+  const { t, lang } = useI18n()
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState({ name: '', place: '1', description: '', certificate: '' })
@@ -45,13 +47,13 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [], mode = 
         certificate: form.certificate || undefined,
       }),
     onSuccess: () => {
-      toast.success('Нагороду додано')
+      toast.success(lang === 'uk' ? 'Нагороду додано' : 'Award added')
       qc.invalidateQueries({ queryKey: ['awards', hackathonId] })
       qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
       setAdding(false)
       setForm({ name: '', place: '1', description: '', certificate: '' })
     },
-    onError: () => toast.error('Помилка при створенні нагороди'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при створенні нагороди' : 'Error creating award'),
   })
 
   const updateMut = useMutation({
@@ -63,22 +65,22 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [], mode = 
         certificate: data.certificate || undefined,
       }),
     onSuccess: () => {
-      toast.success('Нагороду оновлено')
+      toast.success(lang === 'uk' ? 'Нагороду оновлено' : 'Award updated')
       qc.invalidateQueries({ queryKey: ['awards', hackathonId] })
       qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
       setEditingId(null)
     },
-    onError: () => toast.error('Помилка при оновленні нагороди'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при оновленні нагороди' : 'Error updating award'),
   })
 
   const deleteMut = useMutation({
     mutationFn: (awardId: string) => hackathonsApi.deleteAward(hackathonId!, awardId),
     onSuccess: () => {
-      toast.success('Нагороду видалено')
+      toast.success(lang === 'uk' ? 'Нагороду видалено' : 'Award deleted')
       qc.invalidateQueries({ queryKey: ['awards', hackathonId] })
       qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
     },
-    onError: () => toast.error('Помилка при видаленні'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при видаленні' : 'Error deleting award'),
   })
 
   const sorted = [...awards].sort((a, b) => a.place - b.place)
@@ -132,7 +134,9 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [], mode = 
   return (
     <div className="space-y-3">
       {sorted.length === 0 && !adding && (
-        <p className="text-sm text-muted-foreground italic">Нагород ще немає.</p>
+        <p className="text-sm text-muted-foreground italic">
+          {lang === 'uk' ? 'Нагород ще немає.' : 'No awards yet.'}
+        </p>
       )}
 
       {sorted.map((award) => (
@@ -140,23 +144,23 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [], mode = 
           {editingId === award.id ? (
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
-                <input placeholder="Назва нагороди *" value={form.name}
+                <input placeholder={lang === 'uk' ? 'Назва нагороди *' : 'Award name *'} value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} />
-                <input type="number" min="1" max="100" placeholder="Місце *" value={form.place}
+                <input type="number" min="1" max="100" placeholder={lang === 'uk' ? 'Місце *' : 'Place *'} value={form.place}
                   onChange={(e) => setForm({ ...form, place: e.target.value })} className={inputCls} />
               </div>
-              <input placeholder="Опис нагороди (необов'язково)" value={form.description}
+              <input placeholder={lang === 'uk' ? "Опис нагороди (необов'язково)" : 'Award description (optional)'} value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })} className={inputCls} />
-              <input placeholder="Посилання на сертифікат (необов'язково)" value={form.certificate}
+              <input placeholder={lang === 'uk' ? "Посилання на сертифікат (необов'язково)" : 'Certificate link (optional)'} value={form.certificate}
                 onChange={(e) => setForm({ ...form, certificate: e.target.value })} className={inputCls} />
               <div className="flex gap-2">
                 <button type="button" onClick={() => handleSaveEdit(award.id)} disabled={!form.name || !form.place || updateMut.isPending}
                   className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
-                  <Check className="h-3.5 w-3.5" /> Зберегти
+                  <Check className="h-3.5 w-3.5" /> {t.actions.save}
                 </button>
                 <button type="button" onClick={handleCancel}
                   className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent">
-                  <X className="h-3.5 w-3.5" /> Скасувати
+                  <X className="h-3.5 w-3.5" /> {t.actions.cancel}
                 </button>
               </div>
             </div>
@@ -174,7 +178,7 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [], mode = 
                 {award.certificate && (
                   <a href={award.certificate} target="_blank" rel="noreferrer"
                     className="text-xs text-primary hover:underline mt-0.5 block">
-                    🎖 Сертифікат
+                    🎖 {lang === 'uk' ? 'Сертифікат' : 'Certificate'}
                   </a>
                 )}
               </div>
@@ -205,24 +209,24 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [], mode = 
       {adding ? (
         <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
           <div className="grid grid-cols-2 gap-2">
-            <input placeholder="Назва нагороди *" value={form.name}
+            <input placeholder={lang === 'uk' ? 'Назва нагороди *' : 'Award name *'} value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} />
-            <input type="number" min="1" max="100" placeholder="Місце *" value={form.place}
+            <input type="number" min="1" max="100" placeholder={lang === 'uk' ? 'Місце *' : 'Place *'} value={form.place}
               onChange={(e) => setForm({ ...form, place: e.target.value })} className={inputCls} />
           </div>
-          <input placeholder="Опис (необов'язково)" value={form.description}
+          <input placeholder={lang === 'uk' ? "Опис (необов'язково)" : 'Description (optional)'} value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })} className={inputCls} />
-          <input placeholder="URL сертифіката (необов'язково)" value={form.certificate}
+          <input placeholder={lang === 'uk' ? "URL сертифіката (необов'язково)" : 'Certificate URL (optional)'} value={form.certificate}
             onChange={(e) => setForm({ ...form, certificate: e.target.value })} className={inputCls} />
           <div className="flex gap-2">
             <button type="button" onClick={handleSaveAdd}
               disabled={!form.name.trim() || !form.place || createMut.isPending}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
-              <Check className="h-3.5 w-3.5" /> Додати
+              <Check className="h-3.5 w-3.5" /> {lang === 'uk' ? 'Додати' : 'Add'}
             </button>
             <button type="button" onClick={handleCancel}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent">
-              <X className="h-3.5 w-3.5" /> Скасувати
+              <X className="h-3.5 w-3.5" /> {t.actions.cancel}
             </button>
           </div>
         </div>
@@ -233,7 +237,7 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [], mode = 
           setForm({ name: '', place: String(sorted.length + 1), description: '', certificate: '' });
         }}
           className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors w-full">
-          <Plus className="h-4 w-4" /> Додати нагороду
+          <Plus className="h-4 w-4" /> {lang === 'uk' ? 'Додати нагороду' : 'Add award'}
         </button>
       )}
     </div>

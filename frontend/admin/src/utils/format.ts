@@ -1,25 +1,25 @@
 import { format, formatDistanceToNow, parseISO } from 'date-fns'
-import { uk } from 'date-fns/locale'
+import { uk, enUS } from 'date-fns/locale'
 
-export function formatDate(dateStr: string): string {
+export function formatDate(dateStr: string, lang = 'uk'): string {
   try {
-    return format(parseISO(dateStr), 'dd MMM yyyy', { locale: uk })
+    return format(parseISO(dateStr), 'dd MMM yyyy', { locale: lang === 'uk' ? uk : enUS })
   } catch {
     return dateStr
   }
 }
 
-export function formatDateTime(dateStr: string): string {
+export function formatDateTime(dateStr: string, lang = 'uk'): string {
   try {
-    return format(parseISO(dateStr), 'dd MMM yyyy, HH:mm', { locale: uk })
+    return format(parseISO(dateStr), 'dd MMM yyyy, HH:mm', { locale: lang === 'uk' ? uk : enUS })
   } catch {
     return dateStr
   }
 }
 
-export function formatRelative(dateStr: string): string {
+export function formatRelative(dateStr: string, lang = 'uk'): string {
   try {
-    return formatDistanceToNow(parseISO(dateStr), { addSuffix: true, locale: uk })
+    return formatDistanceToNow(parseISO(dateStr), { addSuffix: true, locale: lang === 'uk' ? uk : enUS })
   } catch {
     return dateStr
   }

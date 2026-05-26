@@ -10,11 +10,13 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { formatRelativeTime } from '@/utils/format'
 import { useAuthStore } from '@/store/auth.store'
 import { useHackathonStage } from '@/hooks/useHackathonStage'
+import { useI18n } from '@/i18n'
 
 export function JudgeScorePage() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { t } = useI18n()
   const { user } = useAuthStore()
   const isAdmin = user?.role === 'admin'
   const [tab, setTab] = useState<'project' | 'team'>('project')
@@ -47,7 +49,7 @@ export function JudgeScorePage() {
   })
   const { data: myScoresData } = useQuery({
     queryKey: ['my-scores'],
-    queryFn: () => judgingApi.getMyScores().then(r => r.data.data),
+    queryFn: () => judgingApi.getMyScores().then(res => res.data.data),
   })
 
   const { data: allScoresData } = useQuery({
@@ -101,7 +103,7 @@ export function JudgeScorePage() {
   const submitMut = useMutation({
     mutationFn: async () => { for (const c of criteria) await judgingApi.submitScore({ projectId: projectId!, criteriaId: c.id, assessment: assessments[c.id] ?? 0, comment }) },
     onSuccess: () => { localStorage.removeItem(draftKey); qc.invalidateQueries({ queryKey: ['my-scores'] }); setDone(true); setTimeout(() => navigate('/app/judge/projects'), 1500) },
-    onError: (e: any) => alert(e.message || 'Помилка'),
+    onError: (e: any) => alert(e.message || t.states.error),
   })
 
   useEffect(() => {
@@ -138,12 +140,12 @@ export function JudgeScorePage() {
   return (
     <div className="animate-fade-in max-w-6xl mx-auto space-y-4 pb-24">
       <Link to="/app/judge/projects" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
-        <ChevronLeft className="mr-1 h-4 w-4" /> Повернутись до списку
+        <ChevronLeft className="mr-1 h-4 w-4" /> {t.judge.backToList}
       </Link>
 
       {done && (
         <div className="rounded-xl bg-green-50 border border-green-200 p-4 flex items-center gap-3 text-green-800">
-          <CheckCircle className="h-5 w-5" /><span className="font-semibold">Оцінку збережено!</span>
+          <CheckCircle className="h-5 w-5" /><span className="font-semibold">{t.judge.scoreUpdated}</span>
         </div>
       )}
 
@@ -151,8 +153,8 @@ export function JudgeScorePage() {
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 flex items-center gap-3">
           <Lock className="h-5 w-5 text-blue-600 shrink-0" />
           <div>
-            <p className="font-semibold text-blue-900">Хакатон завершено — оцінювання закрито</p>
-            <p className="text-sm text-blue-700">Ви переглядаєте оцінки у режимі читання.</p>
+            <p className="font-semibold text-blue-900">{t.judge.hackathonFinishedJudgingClosed}</p>
+            <p className="text-sm text-blue-700">{t.judge.canViewCannotEditScores}</p>
           </div>
         </div>
       )}
@@ -161,7 +163,7 @@ export function JudgeScorePage() {
         {/* LEFT */}
         <div className="lg:w-3/5 space-y-4">
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-3">
-            <h1 className="text-2xl font-bold">{proj.title || 'Проєкт'}</h1>
+            <h1 className="text-2xl font-bold">{proj.title || t.resultsTab.project}</h1>
             <div className="flex flex-wrap gap-2">
               {teamData && <span className="px-3 py-1 rounded-full bg-accent text-sm font-medium">{(teamData as any).name}</span>}
               {(teamData as any)?.track?.name && <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">{(teamData as any).track.name}</span>}
@@ -169,7 +171,7 @@ export function JudgeScorePage() {
           </div>
 
           <div className="flex gap-1 border-b border-border">
-            {([{ k: 'project', Icon: BookOpen, label: 'Проєкт' }, { k: 'team', Icon: Users, label: 'Команда' }] as const).map(({ k, Icon, label }) => (
+            {([{ k: 'project', Icon: BookOpen, label: t.resultsTab.project }, { k: 'team', Icon: Users, label: t.resultsTab.team }] as const).map(({ k, Icon, label }) => (
               <button key={k} onClick={() => setTab(k)} className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${tab === k ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
                 <Icon className="h-4 w-4" />{label}
               </button>
@@ -179,12 +181,12 @@ export function JudgeScorePage() {
           {tab === 'project' && (
             <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-5">
               <div>
-                <h3 className="font-semibold mb-2">Опис</h3>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{proj.description || 'Опис відсутній.'}</p>
+                <h3 className="font-semibold mb-2">{t.projectTab.description}</h3>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{proj.description || t.judge.descriptionMissing}</p>
               </div>
               <div>
-                <h3 className="font-semibold mb-3">Ресурси</h3>
-                {!proj.resources?.length ? <p className="text-sm text-muted-foreground">Команда не додала ресурси.</p> : (
+                <h3 className="font-semibold mb-3">{t.projectTab.resourcesTitle}</h3>
+                {!proj.resources?.length ? <p className="text-sm text-muted-foreground">{t.judge.noResourcesSubmitted}</p> : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {proj.resources.map((r: any) => {
                       const type = r.type?.name || r.projectType?.name || ''
@@ -194,7 +196,7 @@ export function JudgeScorePage() {
                       return (
                         <a key={r.id} href={r.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary transition-colors bg-muted/20">
                           <div className="shrink-0 p-2 bg-background rounded-md"><Icon className="h-5 w-5 text-primary" /></div>
-                          <div className="min-w-0 flex-1"><p className="text-sm font-medium truncate">{isGh ? 'Репозиторій' : isDm ? 'Демо' : 'Презентація'}</p><p className="text-xs text-muted-foreground truncate">{r.url}</p></div>
+                          <div className="min-w-0 flex-1"><p className="text-sm font-medium truncate">{isGh ? t.projectTab.repoUrl : isDm ? t.projectTab.demoUrl : t.judge.presentationLabel}</p><p className="text-xs text-muted-foreground truncate">{r.url}</p></div>
                           <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
                         </a>
                       )
@@ -207,7 +209,7 @@ export function JudgeScorePage() {
 
           {tab === 'team' && (
             <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-              <h3 className="font-semibold mb-4">Учасники</h3>
+              <h3 className="font-semibold mb-4">{t.teamTab.members}</h3>
               <ul className="divide-y divide-border">
                 {members.map((m: any) => (
                   <li key={m.id} className="py-3 flex items-center gap-3">
@@ -215,11 +217,11 @@ export function JudgeScorePage() {
                       {(m.user?.fullName || 'U')[0].toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{m.user?.fullName || 'Учасник'}</p>
+                      <p className="text-sm font-medium truncate">{m.user?.fullName || t.teamTab.member}</p>
                       <p className="text-xs text-muted-foreground truncate">{m.user?.email}</p>
                     </div>
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${m.role === 'captain' ? 'bg-amber-100 text-amber-800' : 'bg-muted text-muted-foreground'}`}>
-                      {m.role === 'captain' ? 'Капітан' : 'Учасник'}
+                      {m.role === 'captain' ? t.teamTab.captain : t.teamTab.member}
                     </span>
                   </li>
                 ))}
@@ -229,7 +231,7 @@ export function JudgeScorePage() {
 
           {isAdmin && (
             <div className="space-y-6">
-               <h3 className="text-lg font-bold">Оцінки суддів ({scoresByJudge.length})</h3>
+               <h3 className="text-lg font-bold">{t.judge.judgesScores(scoresByJudge.length)}</h3>
                <div className="grid gap-6 sm:grid-cols-1">
                  {scoresByJudge.map((sj, idx) => (
                    <div key={idx} className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
@@ -245,7 +247,7 @@ export function JudgeScorePage() {
                          </div>
                          <div className="text-right">
                            <p className="text-xl font-black text-primary">{sj.total.toFixed(2)}</p>
-                           <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Загальний бал</p>
+                           <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">{t.judge.totalScore}</p>
                          </div>
                       </div>
                       <div className="p-5 space-y-6">
@@ -294,11 +296,11 @@ export function JudgeScorePage() {
 
                         {sj.assessments[0]?.comment && (
                           <div className="bg-muted/50 rounded-lg p-3 border border-border/50">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Коментар судді</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">{t.judge.judgeComment}</p>
                             <p className="text-sm italic text-muted-foreground">"{sj.assessments[0].comment}"</p>
                           </div>
                         )}
-                     </div>
+                      </div>
                    </div>
                  ))}
                </div>
@@ -312,21 +314,21 @@ export function JudgeScorePage() {
             <div className="sticky top-6 space-y-4">
               {hasExisting && !done && (
                 <div className="rounded-lg bg-blue-50 border border-blue-200 text-blue-800 p-4 text-sm">
-                  <p className="font-semibold">Ви вже оцінили цей проєкт</p>
-                  {existing[0]?.updatedAt && <p className="text-xs mt-0.5 opacity-80">{formatRelativeTime(existing[0].updatedAt)} тому. Змінити можна до закінчення суддівства.</p>}
+                  <p className="font-semibold">{t.judge.alreadyScored}</p>
+                  {existing[0]?.updatedAt && <p className="text-xs mt-0.5 opacity-80">{t.judge.alreadyScoredDesc(formatRelativeTime(existing[0].updatedAt))}</p>}
                 </div>
               )}
 
               {draftBanner !== null && !hasExisting && (
                 <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 p-4 text-sm">
-                  <p className="font-semibold">Знайдено незбережену чернетку</p>
-                  {draftBanner && <p className="text-xs mt-0.5 opacity-80">Збережено {formatRelativeTime(draftBanner)} тому</p>}
+                  <p className="font-semibold">{t.judge.draftFound}</p>
+                  {draftBanner && <p className="text-xs mt-0.5 opacity-80">{t.judge.draftSavedAgo(formatRelativeTime(draftBanner))}</p>}
                   <div className="flex gap-2 mt-3">
                     <button onClick={() => { const r = localStorage.getItem(draftKey); if (r) { const p = JSON.parse(r); if (p.assessments) setAssessments(p.assessments); if (p.comment) setComment(p.comment) }; setDraftBanner(null) }} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-700">
-                      <RotateCcw className="h-3.5 w-3.5" />Відновити
+                      <RotateCcw className="h-3.5 w-3.5" /> {t.judge.restore}
                     </button>
                     <button onClick={() => { localStorage.removeItem(draftKey); setDraftBanner(null) }} className="text-xs px-3 py-1.5 rounded-md border border-amber-300 text-amber-700 hover:bg-amber-100">
-                      Ігнорувати
+                      {t.judge.ignore}
                     </button>
                   </div>
                 </div>
@@ -334,7 +336,7 @@ export function JudgeScorePage() {
 
               <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-border bg-muted/20 flex items-center gap-2">
-                  <Save className="h-5 w-5 text-primary" /><h3 className="font-bold text-lg">Моя оцінка</h3>
+                  <Save className="h-5 w-5 text-primary" /><h3 className="font-bold text-lg">{t.judge.myAssessment}</h3>
                 </div>
 
                 <div className="p-6 space-y-6 max-h-[52vh] overflow-y-auto">
@@ -345,7 +347,7 @@ export function JudgeScorePage() {
                       <div key={c.id} className="space-y-2">
                         <div className="flex items-start justify-between gap-2">
                           <div><h4 className="text-sm font-semibold">{c.name}</h4>{c.description && <p className="text-xs text-muted-foreground mt-0.5">{c.description}</p>}</div>
-                          <span className="shrink-0 text-xs bg-accent px-2 py-0.5 rounded font-medium">вага: {Math.round(Number(c.weight) * 100)}%</span>
+                          <span className="shrink-0 text-xs bg-accent px-2 py-0.5 rounded font-medium">{t.judge.weightLabel(Math.round(Number(c.weight) * 100))}</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <input
@@ -365,17 +367,17 @@ export function JudgeScorePage() {
 
                   <div className="space-y-2 pt-2 border-t border-border">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-semibold">Коментар (необов'язково)</label>
+                      <label className="text-sm font-semibold">{t.judge.commentOptional}</label>
                       <span className={`text-xs ${comment.length > 450 ? 'text-destructive' : 'text-muted-foreground'}`}>{comment.length}/500</span>
                     </div>
-                    <textarea value={comment} onChange={e => handleComment(e.target.value.slice(0, 500))} placeholder="Що сподобалось, що варто покращити..." rows={3} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none focus:border-primary focus:outline-none" />
+                    <textarea value={comment} onChange={e => handleComment(e.target.value.slice(0, 500))} placeholder={t.judge.commentPlaceholder} rows={3} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none focus:border-primary focus:outline-none" />
                   </div>
                 </div>
 
                 {/* Score preview */}
                 {criteria.length > 0 && (
                   <div className="px-6 py-4 border-t border-border bg-muted/10 space-y-1.5">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Підсумкова оцінка</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t.judge.summaryScore}</p>
                     {criteria.map((c: any) => {
                       const val = assessments[c.id] ?? 0
                       const w = Number(c.weight)
@@ -387,7 +389,7 @@ export function JudgeScorePage() {
                       )
                     })}
                     <div className="border-t border-border pt-2 flex justify-between font-bold text-sm">
-                      <span>Загалом:</span>
+                      <span>{t.judge.totalLabel}</span>
                       <span className="text-lg text-primary">{total.toFixed(2)}<span className="text-sm font-normal text-muted-foreground">/10</span></span>
                     </div>
                   </div>
@@ -396,11 +398,11 @@ export function JudgeScorePage() {
                 <div className="px-6 pb-6 pt-4 space-y-3">
                   {isFinished ? (
                     <div className="w-full rounded-md bg-muted border border-border px-4 py-3 text-sm font-medium text-muted-foreground text-center flex items-center justify-center gap-2">
-                      <Lock className="h-4 w-4" /> Оцінювання закрито
+                      <Lock className="h-4 w-4" /> {t.judge.judgingClosed}
                     </div>
                   ) : (
                     <button onClick={() => submitMut.mutate()} disabled={submitMut.isPending || criteria.length === 0 || done} className="w-full rounded-md bg-primary px-4 py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">
-                      {submitMut.isPending ? 'Збереження...' : hasExisting ? 'Оновити оцінку' : 'Зберегти оцінку'}
+                      {submitMut.isPending ? t.states.loading : hasExisting ? t.judge.updateScore : t.judge.submitScore}
                     </button>
                   )}
                   <p className="text-center text-xs text-muted-foreground">

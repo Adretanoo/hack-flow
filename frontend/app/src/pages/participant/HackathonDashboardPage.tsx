@@ -11,6 +11,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
 import { formatDateTime } from '@/utils/format'
+import { useI18n } from '@/i18n'
 
 import { TeamTab } from '@/pages/participant/dashboard-tabs/TeamTab'
 import { ProjectTab } from '@/pages/participant/dashboard-tabs/ProjectTab'
@@ -22,6 +23,7 @@ export function HackathonDashboardPage() {
   const { hackathonId } = useParams<{ hackathonId: string }>()
   const { user } = useAuthStore()
   const [activeTab, setActiveTab] = useState<'team' | 'project' | 'mentors' | 'results' | 'settings'>('team')
+  const { t } = useI18n()
 
   const { data: hackathonData, isLoading: hackathonLoading } = useQuery({
     queryKey: ['hackathon', hackathonId],
@@ -47,15 +49,15 @@ export function HackathonDashboardPage() {
   }
 
   if (!hackathon) {
-    return <div className="py-24 text-center">Хакатон не знайдено</div>
+    return <div className="py-24 text-center">{t.dashboard.notFound}</div>
   }
 
   const tabs = [
-    { id: 'team',     label: 'Моя команда', icon: Users },
-    { id: 'project',  label: 'Проєкт',      icon: FolderKanban },
-    { id: 'mentors',  label: 'Ментори',     icon: GraduationCap },
-    { id: 'results',  label: 'Результати',  icon: Trophy },
-    { id: 'settings', label: 'Налаштування', icon: Settings },
+    { id: 'team',     label: t.dashboard.tabTeam,     icon: Users },
+    { id: 'project',  label: t.dashboard.tabProject,   icon: FolderKanban },
+    { id: 'mentors',  label: t.dashboard.tabMentors,   icon: GraduationCap },
+    { id: 'results',  label: t.dashboard.tabResults,   icon: Trophy },
+    { id: 'settings', label: t.dashboard.tabSettings,  icon: Settings },
   ] as const
 
   return (
@@ -63,7 +65,7 @@ export function HackathonDashboardPage() {
       <div>
         <Link to="/app/hackathons" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-4">
           <ChevronLeft className="mr-1 h-4 w-4" />
-          До списку хакатонів
+          {t.dashboard.backToList}
         </Link>
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
@@ -76,17 +78,17 @@ export function HackathonDashboardPage() {
               } />
               {stageInfo.activeStage && stageInfo.activeStageType && (() => {
                 const STAGE_LABELS: Record<string, string> = {
-                  REGISTRATION: '📋 Реєстрація',
-                  HACKING:      '💻 Хакінг',
-                  PRESENTATION: '🎤 Презентація',
-                  JUDGING:      '⚖️ Оцінювання',
-                  FINISHED:     '🏁 Завершено',
+                  REGISTRATION: t.dashboard.stages.REGISTRATION,
+                  HACKING:      t.dashboard.stages.HACKING,
+                  PRESENTATION: '🎤 Presentation',
+                  JUDGING:      t.dashboard.stages.JUDGING,
+                  FINISHED:     t.dashboard.stages.FINISHED,
                   CUSTOM:       stageInfo.activeStage.name,
                 }
                 const label = STAGE_LABELS[stageInfo.activeStageType] ?? stageInfo.activeStage.name
                 return (
                   <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                    Етап: {label}
+                    {t.dashboard.stageLabel}: {label}
                   </span>
                 )
               })()}
@@ -103,7 +105,7 @@ export function HackathonDashboardPage() {
             <div className="flex flex-wrap items-center gap-2 px-5 py-3 bg-amber-100/60 dark:bg-amber-900/20 border-b border-amber-200/60 dark:border-amber-700/30">
               <ClipboardList className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
               <h2 className="font-bold text-sm text-amber-800 dark:text-amber-300">
-                Завдання етапу: {(stageInfo.activeStage as any).name}
+                {t.dashboard.stageTask}: {(stageInfo.activeStage as any).name}
               </h2>
             </div>
 
@@ -112,14 +114,14 @@ export function HackathonDashboardPage() {
               <Calendar className="h-4 w-4 text-amber-500 dark:text-amber-400 shrink-0" />
               <div className="flex flex-wrap items-center gap-1.5 text-xs">
                 <div className="flex flex-col items-center bg-white dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/40 rounded-lg px-3 py-1.5 text-center">
-                  <span className="text-amber-500 dark:text-amber-400 font-medium uppercase tracking-wide" style={{fontSize:'9px'}}>ПОЧАТОК</span>
+                  <span className="text-amber-500 dark:text-amber-400 font-medium uppercase tracking-wide" style={{fontSize:'9px'}}>{t.publicHackathon.startDate.toUpperCase()}</span>
                   <span className="font-bold text-amber-900 dark:text-amber-200 tabular-nums">
                     {formatDateTime((stageInfo.activeStage as any).startDate)}
                   </span>
                 </div>
                 <ArrowRight className="h-3.5 w-3.5 text-amber-400 shrink-0" />
                 <div className="flex flex-col items-center bg-white dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/40 rounded-lg px-3 py-1.5 text-center">
-                  <span className="text-amber-500 dark:text-amber-400 font-medium uppercase tracking-wide" style={{fontSize:'9px'}}>КІНЕЦЬ</span>
+                  <span className="text-amber-500 dark:text-amber-400 font-medium uppercase tracking-wide" style={{fontSize:'9px'}}>{t.publicHackathon.endDate.toUpperCase()}</span>
                   <span className="font-bold text-amber-900 dark:text-amber-200 tabular-nums">
                     {formatDateTime((stageInfo.activeStage as any).endDate)}
                   </span>

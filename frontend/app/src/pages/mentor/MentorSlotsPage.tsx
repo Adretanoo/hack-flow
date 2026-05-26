@@ -6,31 +6,30 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { mentorshipApi } from '@/api/mentorship'
 import { formatRelativeTime } from '@/utils/format'
-
-const UK_MONTHS = ['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня']
-const UK_DAYS   = ['Неділя','Понеділок','Вівторок','Середа','Четвер','П\'ятниця','Субота']
+import { useI18n } from '@/i18n'
 
 function fmtTime(d: Date) { return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
-function fmtDayLabel(d: Date) { return `${UK_DAYS[d.getDay()]}, ${d.getDate()} ${UK_MONTHS[d.getMonth()]}` }
+function fmtDayLabel(d: Date, t: any) { return `${t.mentor.daysFull[d.getDay()]}, ${d.getDate()} ${t.mentor.monthsFull[d.getMonth()]}` }
 function minutesUntil(d: Date) { return Math.floor((d.getTime() - Date.now()) / 60000) }
 
 type FilterType = 'all' | 'accepted' | 'completed' | 'cancelled'
 
-const EMPTY_MESSAGES: Record<FilterType, string> = {
-  all:       'У вас ще немає заброньованих сесій',
-  accepted:  'Немає запланованих сесій',
-  completed: 'Ще немає завершених сесій',
-  cancelled: 'Скасованих сесій немає',
-}
-
 export function MentorSlotsPage() {
   const qc = useQueryClient()
+  const { t } = useI18n()
   const [filter, setFilter] = useState<FilterType>('all')
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [confirmTimer, setConfirmTimer] = useState(0)
   const [alertDismissed, setAlertDismissed] = useState<string | null>(null)
   const [now, setNow] = useState(() => new Date())
   const timerRef  = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+
+  const EMPTY_MESSAGES: Record<FilterType, string> = {
+    all:       t.mentor.noBookedSessions,
+    accepted:  t.mentor.noUpcomingSessions,
+    completed: t.mentor.noCompletedSessions,
+    cancelled: t.mentor.noCancelledSessions,
+  }
 
   // Poll time every 60s for upcoming session detection
   useEffect(() => {
@@ -47,18 +46,18 @@ export function MentorSlotsPage() {
   const allSlots: any[] = useMemo(() => {
     if (!availData) return []
     return (availData as any[]).flatMap((av: any) =>
-      (av.slots || []).map((s: any) => ({ ...s, trackName: av.track?.name || 'Всі треки' }))
+      (av.slots || []).map((s: any) => ({ ...s, trackName: av.track?.name || t.judge.noTrack }))
     ).sort((a: any, b: any) => new Date(a.startDatetime).getTime() - new Date(b.startDatetime).getTime())
-  }, [availData])
+  }, [availData, t])
 
   const acceptedSlots = allSlots.filter(s => s.status === 'accepted')
 
   // Stats
   const stats = [
-    { label: 'Всього',    value: allSlots.length,                                         icon: CalendarIcon, color: 'text-primary' },
-    { label: 'Завершено', value: allSlots.filter(s => s.status === 'completed').length,    icon: CheckCircle,  color: 'text-green-600' },
-    { label: 'Заплановано', value: acceptedSlots.length,                                   icon: Clock,        color: 'text-blue-600' },
-    { label: 'Скасовано', value: allSlots.filter(s => s.status === 'cancelled').length,   icon: XCircle,      color: 'text-muted-foreground' },
+    { label: t.mentor.allStats, value: allSlots.length,                                         icon: CalendarIcon, color: 'text-primary' },
+    { label: t.mentor.completed, value: allSlots.filter(s => s.status === 'completed').length,    icon: CheckCircle,  color: 'text-green-600' },
+    { label: t.mentor.accepted, value: acceptedSlots.length,                                   icon: Clock,        color: 'text-blue-600' },
+    { label: t.mentor.cancelled, value: allSlots.filter(s => s.status === 'cancelled').length,   icon: XCircle,      color: 'text-muted-foreground' },
   ]
 
   // Today panel
@@ -110,7 +109,7 @@ export function MentorSlotsPage() {
     },
     onError: (_err, _id, ctx: any) => {
       qc.setQueryData(['my-availabilities'], ctx.prev)
-      alert('Помилка при оновленні статусу')
+      alert(t.states.error)
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ['my-availabilities'] }),
   })
@@ -137,7 +136,7 @@ export function MentorSlotsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl mx-auto pb-24">
-      <PageHeader title="Мої сесії" subtitle="Управління заброньованими сесіями" />
+      <PageHeader title={t.mentor.sessionsTitle} subtitle={t.mentor.sessionsSubtitle} />
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -152,18 +151,19 @@ export function MentorSlotsPage() {
       {/* Today panel */}
       {todaySlots.length > 0 && (
         <div className="rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-5 space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-100 dark:bg-blue-800 rounded-full">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-blue-100 dark:bg-blue-800 rounded-full mt-0.5">
               <Clock className="h-5 w-5 text-blue-600 dark:text-blue-300" />
             </div>
             <div>
               <h3 className="font-bold text-blue-900 dark:text-blue-100">
-                📅 Сьогодні у вас {todaySlots.length} {todaySlots.length === 1 ? 'сесія' : 'сесії'}
+                📅 {t.mentor.todaySessionsCount(todaySlots.length)}
               </h3>
               {nextSlot && minsToNext !== null && (
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  Наступна: {nextSlot.team?.name || 'Команда'} о {fmtTime(new Date(nextSlot.startDatetime))}
-                  {minsToNext > 0 ? ` (через ${minsToNext} хв)` : ' (зараз)'}
+                  {minsToNext > 0
+                    ? t.mentor.nextSessionInfo(nextSlot.team?.name || t.resultsTab.team, fmtTime(new Date(nextSlot.startDatetime)), String(minsToNext))
+                    : t.mentor.nextSessionInfoNow(nextSlot.team?.name || t.resultsTab.team, fmtTime(new Date(nextSlot.startDatetime)))}
                 </p>
               )}
             </div>
@@ -180,7 +180,7 @@ export function MentorSlotsPage() {
               }`}
             >
               <Video className="h-4 w-4" />
-              {isImminent ? '🟢 Приєднатись зараз' : 'Відкрити посилання на зустріч'}
+              {isImminent ? t.mentor.joinNow : t.mentor.openMeetingLink}
             </a>
           )}
         </div>
@@ -189,10 +189,10 @@ export function MentorSlotsPage() {
       {/* Filter tabs */}
       <div className="flex gap-1 border-b border-border pb-1">
         {([
-          { key: 'all',       label: 'Всі' },
-          { key: 'accepted',  label: 'Заплановані' },
-          { key: 'completed', label: 'Завершені' },
-          { key: 'cancelled', label: 'Скасовані / Відхилені' },
+          { key: 'all',       label: t.states.all },
+          { key: 'accepted',  label: t.mentor.filterScheduled },
+          { key: 'completed', label: t.mentor.filterCompleted },
+          { key: 'cancelled', label: t.mentor.filterCancelled },
         ] as const).map(f => (
           <button
             key={f.key}
@@ -206,7 +206,7 @@ export function MentorSlotsPage() {
 
       {/* Sessions grouped by date */}
       {grouped.size === 0 ? (
-        <EmptyState title={EMPTY_MESSAGES[filter]} description="Коли з'являться сесії — вони відобразяться тут" />
+        <EmptyState title={EMPTY_MESSAGES[filter]} description={t.shared.emptyState.defaultDesc} />
       ) : (
         <div className="space-y-6">
           {Array.from(grouped.entries()).map(([dateKey, slots]) => (
@@ -214,7 +214,7 @@ export function MentorSlotsPage() {
               <div className="flex items-center gap-3 mb-3">
                 <div className="h-px flex-1 bg-border" />
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  {fmtDayLabel(new Date(slots[0].startDatetime))}
+                  {fmtDayLabel(new Date(slots[0].startDatetime), t)}
                 </span>
                 <div className="h-px flex-1 bg-border" />
               </div>
@@ -237,32 +237,32 @@ export function MentorSlotsPage() {
                     }`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
-                          <p className="font-semibold">{fmtTime(start)} – {fmtTime(end)} <span className="text-xs text-muted-foreground font-normal">({durMins} хв)</span></p>
-                          <p className="text-sm">👥 Команда: <span className="font-medium">{slot.team?.name || 'Невідома'}</span></p>
-                          <p className="text-sm text-muted-foreground">🎯 Трек: {slot.trackName}</p>
+                          <p className="font-semibold">{fmtTime(start)} – {fmtTime(end)} <span className="text-xs text-muted-foreground font-normal">({durMins} {t.mentorsTab.minutes})</span></p>
+                          <p className="text-sm">{t.mentor.teamLabel}<span className="font-medium">{slot.team?.name || t.adminDashboardPage.notSpecified}</span></p>
+                          <p className="text-sm text-muted-foreground">{t.mentor.trackLabel}{slot.trackName}</p>
                           {slot.meetingLink && (
                             <p className="text-sm text-muted-foreground flex items-center gap-2">
                               🔗 <span className="font-mono text-xs truncate max-w-[200px]">{slot.meetingLink}</span>
-                              <a href={slot.meetingLink} target="_blank" rel="noreferrer" className="text-primary text-xs hover:underline">Відкрити</a>
+                              <a href={slot.meetingLink} target="_blank" rel="noreferrer" className="text-primary text-xs hover:underline">{t.mentor.openLink}</a>
                             </p>
                           )}
                         </div>
                         <div className="shrink-0">
                           {isCompleted && (
                             <span className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
-                              <CheckCircle className="h-3.5 w-3.5" /> Завершено · {formatRelativeTime(slot.updatedAt)} тому
+                              <CheckCircle className="h-3.5 w-3.5" /> {t.mentor.completedAgo(formatRelativeTime(slot.updatedAt))}
                             </span>
                           )}
                           {isCancelled && (
                             <span className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-muted text-muted-foreground text-xs font-semibold">
-                              <XCircle className="h-3.5 w-3.5" /> Скасовано
+                              <XCircle className="h-3.5 w-3.5" /> {t.mentor.cancelled}
                             </span>
                           )}
                           {!isCompleted && !isCancelled && (
                             <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
                               end < now ? 'bg-muted text-muted-foreground' : 'bg-blue-100 text-blue-700'
                             }`}>
-                              {end < now ? '🕒 Час минув' : '● Заброньовано'}
+                              {end < now ? t.mentor.timePassed : t.mentor.bookedStatus}
                             </span>
                           )}
                         </div>
@@ -273,21 +273,21 @@ export function MentorSlotsPage() {
                         <div className="flex items-center gap-2 pt-1 border-t border-border">
                           {slot.meetingLink && slotImminent && (
                             <a href={slot.meetingLink} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 animate-pulse">
-                              <Video className="h-4 w-4" /> 🟢 Приєднатись зараз
+                              <Video className="h-4 w-4" /> {t.mentor.joinNow}
                             </a>
                           )}
                           {confirmId === slot.id ? (
                             <div className="flex items-center gap-2">
                               <button onClick={() => handleConfirmComplete(slot.id)} className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors">
-                                Підтвердити? ({confirmTimer}с)
+                                {t.mentor.confirmBtn(confirmTimer)}
                               </button>
                               <button onClick={() => { setConfirmId(null); clearInterval(timerRef.current) }} className="px-3 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted">
-                                Скасувати
+                                {t.actions.cancel}
                               </button>
                             </div>
                           ) : (
                             <button onClick={() => startConfirm(slot.id)} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-green-50 hover:text-green-700 hover:border-green-300 transition-colors">
-                              ✓ Позначити як завершено
+                              {t.mentor.markCompleted}
                             </button>
                           )}
                         </div>
@@ -307,11 +307,11 @@ export function MentorSlotsPage() {
           <div className="bg-card border border-primary/40 rounded-xl shadow-2xl p-4 flex items-center gap-4 max-w-lg w-full pointer-events-auto">
             <Bell className="h-5 w-5 text-primary shrink-0 animate-bounce" />
             <p className="flex-1 text-sm font-semibold">
-              ⏰ Сесія з <span className="text-primary">{alertSlot.team?.name || 'команди'}</span> починається через {minutesUntil(new Date(alertSlot.startDatetime))} хв
+              ⏰ {t.mentor.sessionStartsIn(alertSlot.team?.name || t.teamTab.member, minutesUntil(new Date(alertSlot.startDatetime)))}
             </p>
             {alertSlot.meetingLink && (
               <a href={alertSlot.meetingLink} target="_blank" rel="noreferrer" className="shrink-0 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
-                Приєднатись →
+                {t.mentor.joinArrow}
               </a>
             )}
             <button onClick={() => setAlertDismissed(alertKey)} className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted">

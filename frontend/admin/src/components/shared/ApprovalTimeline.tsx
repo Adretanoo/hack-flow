@@ -1,6 +1,7 @@
 import { formatDateTime } from '@/utils/format'
 import type { TeamApproval, TeamStatus } from '@/types/api.types'
 import { clsx } from 'clsx'
+import { useI18n } from '@/i18n'
 
 const STATUS_DOT: Record<TeamStatus, string> = {
   PENDING:      'bg-amber-400',
@@ -14,13 +15,24 @@ interface ApprovalTimelineProps {
 }
 
 export function ApprovalTimeline({ entries }: ApprovalTimelineProps) {
+  const { t, lang } = useI18n()
+
   if (entries.length === 0) {
-    return <p className="text-sm text-muted-foreground italic">Записів про затвердження ще немає.</p>
+    return <p className="text-sm text-muted-foreground italic">{t.adminHackathons.noApprovalRecords}</p>
   }
 
   const sorted = [...entries].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   )
+
+  const getStatusLabel = (status: TeamStatus) => {
+    switch (status) {
+      case 'APPROVED': return t.states.approved
+      case 'REJECTED': return t.states.rejected
+      case 'DISQUALIFIED': return t.states.disqualified
+      default: return t.states.pending
+    }
+  }
 
   return (
     <div className="relative space-y-0">
@@ -49,9 +61,9 @@ export function ApprovalTimeline({ entries }: ApprovalTimelineProps) {
                 entry.status === 'DISQUALIFIED' ? 'bg-gray-100 text-gray-600' :
                                                   'bg-amber-100 text-amber-700',
               )}>
-                {entry.status}
+                {getStatusLabel(entry.status)}
               </span>
-              <span className="text-xs text-muted-foreground">{formatDateTime(entry.createdAt)}</span>
+              <span className="text-xs text-muted-foreground">{formatDateTime(entry.createdAt, lang)}</span>
             </div>
             {entry.comment && (
               <p className="mt-1.5 text-sm text-foreground">{entry.comment}</p>

@@ -4,6 +4,7 @@ import { Lock, ChevronDown, ChevronRight, AlertCircle, XCircle, Clock } from 'lu
 import { judgingApi } from '@/api/judging'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import type { Hackathon, Team } from '@/types/api.types'
+import { useI18n } from '@/i18n'
 
 interface ResultsTabProps {
   hackathon: Hackathon
@@ -38,10 +39,16 @@ function PositionBadge({ pos }: { pos: number }) {
 function StageProgressBar({ currentType }: { currentType: string }) {
   const ORDER = ['REGISTRATION', 'HACKING', 'JUDGING', 'FINISHED']
   const currentIdx = ORDER.indexOf(currentType)
+  const { t } = useI18n()
   return (
     <div className="flex items-center gap-0 w-full max-w-lg mx-auto">
       {ORDER.map((s, i) => {
-        const labels: Record<string, string> = { REGISTRATION: 'Реєстрація', HACKING: 'Хакінг', JUDGING: 'Суддівство', FINISHED: 'Завершення' }
+        const labels: Record<string, string> = { 
+          REGISTRATION: t.dashboard.stages.REGISTRATION, 
+          HACKING: t.dashboard.stages.HACKING, 
+          JUDGING: t.dashboard.stages.JUDGING, 
+          FINISHED: t.dashboard.stages.FINISHED 
+        }
         const done = i < currentIdx
         const active = i === currentIdx
         return (
@@ -65,6 +72,7 @@ function StageProgressBar({ currentType }: { currentType: string }) {
 
 function ExpandableTeamRow({ entry, isMe, pos }: { entry: any; isMe: boolean; pos: number }) {
   const [open, setOpen] = useState(false)
+  const { t } = useI18n()
 
   return (
     <>
@@ -78,14 +86,14 @@ function ExpandableTeamRow({ entry, isMe, pos }: { entry: any; isMe: boolean; po
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-foreground">{entry.teamName}</span>
-            {isMe && <span className="px-2 py-0.5 text-[10px] uppercase font-bold bg-primary text-primary-foreground rounded">Ваша команда</span>}
+            {isMe && <span className="px-2 py-0.5 text-[10px] uppercase font-bold bg-primary text-primary-foreground rounded">{t.resultsTab.yourTeam}</span>}
             {entry.award && <span className="px-2 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-800 rounded-full">🏅 {entry.award.name}</span>}
           </div>
-          <div className="text-xs text-muted-foreground mt-0.5">{entry.members?.length ?? 0} учасників · {entry.trackName}</div>
+          <div className="text-xs text-muted-foreground mt-0.5">{entry.members?.length ?? 0} {t.homePage.participants} · {entry.trackName}</div>
         </td>
         <td className="px-4 py-3 max-w-[200px]">
           <div className="font-medium text-sm truncate">{entry.project?.title ?? '—'}</div>
-          {entry.project?.isLate && <span className="text-[10px] text-orange-600 font-medium">⚠️ Запізнення</span>}
+          {entry.project?.isLate && <span className="text-[10px] text-orange-600 font-medium">⚠️ {t.projectTab.lateBy.split(' ')[0]}</span>}
         </td>
         <td className="px-4 py-3 text-right">
           <span className="text-xl font-black text-foreground">{entry.normalizedTotal.toFixed(1)}</span>
@@ -101,31 +109,31 @@ function ExpandableTeamRow({ entry, isMe, pos }: { entry: any; isMe: boolean; po
             <div className="grid md:grid-cols-2 gap-6">
               {/* Members */}
               <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Учасники</h4>
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{t.teamTab.members}</h4>
                 <div className="space-y-1">
                   {(entry.members ?? []).map((m: any, i: number) => (
                     <div key={i} className="flex items-center gap-2 text-sm">
                       <span className="w-4 h-4 rounded-full bg-primary/10 text-primary text-[10px] flex items-center justify-center font-bold">{m.fullName[0]}</span>
                       <span>{m.fullName}</span>
-                      {m.role === 'captain' && <span className="text-[10px] text-muted-foreground">(капітан)</span>}
+                      {m.role === 'captain' && <span className="text-[10px] text-muted-foreground">({t.teamTab.captain.toLowerCase()})</span>}
                     </div>
                   ))}
                 </div>
               </div>
               {/* Score bars */}
               <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Деталізація оцінок</h4>
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{t.adminJudging.scoreDetail}</h4>
                 <div className="space-y-2">
                   {(entry.perCriteria ?? []).map((c: any) => (
                     <div key={c.criteriaId}>
                       <div className="flex justify-between text-xs mb-1">
                         <span className="text-foreground">{c.criteriaName}</span>
-                        <span className="text-muted-foreground">вага ×{c.weight}</span>
+                        <span className="text-muted-foreground">{t.resultsTab.weight} ×{c.weight}</span>
                       </div>
                       <ScoreBar value={c.avgScore} max={c.maxScore} />
                     </div>
                   ))}
-                  {(entry.perCriteria ?? []).length === 0 && <p className="text-xs text-muted-foreground">Оцінок ще немає</p>}
+                  {(entry.perCriteria ?? []).length === 0 && <p className="text-xs text-muted-foreground">{t.resultsTab.noRankedTeams}</p>}
                 </div>
                 {entry.project && (
                   <div className="flex gap-3 mt-3">
@@ -133,7 +141,7 @@ function ExpandableTeamRow({ entry, isMe, pos }: { entry: any; isMe: boolean; po
                       <a key={i} href={r.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">🔗 GitHub</a>
                     ))}
                     {entry.project.resources?.filter((r: any) => /demo|vercel|netlify|app\./i.test(r.url)).map((r: any, i: number) => (
-                      <a key={i} href={r.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">🌐 Демо</a>
+                      <a key={i} href={r.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">🌐 Demo</a>
                     ))}
                   </div>
                 )}
@@ -149,6 +157,7 @@ function ExpandableTeamRow({ entry, isMe, pos }: { entry: any; isMe: boolean; po
 export function ResultsTab({ hackathon, myTeam, stageInfo }: ResultsTabProps) {
   const [activeTrackIdx, setActiveTrackIdx] = useState(0)
   const [showUnranked, setShowUnranked] = useState(false)
+  const { t } = useI18n()
 
   const { data: resultsData, isLoading } = useQuery({
     queryKey: ['full-results', hackathon.id],
@@ -162,12 +171,12 @@ export function ResultsTab({ hackathon, myTeam, stageInfo }: ResultsTabProps) {
       <div className="mt-8 rounded-xl border border-dashed border-border bg-card p-12 text-center flex flex-col items-center gap-6">
         <Lock className="h-12 w-12 text-muted-foreground/30" />
         <div>
-          <h3 className="text-xl font-semibold mb-1">Результати ще не доступні</h3>
+          <h3 className="text-xl font-semibold mb-1">{t.resultsTab.noResults}</h3>
           <p className="text-muted-foreground text-sm mb-6">
-            Поточний етап: <span className="font-medium text-foreground">{stageInfo.lockMessage}</span>
+            {t.dashboard.stageLabel}: <span className="font-medium text-foreground">{stageInfo.lockMessage}</span>
           </p>
           <StageProgressBar currentType={stageInfo.activeStageType} />
-          <p className="text-xs text-muted-foreground mt-6">Результати з'являться після завершення суддівства.</p>
+          <p className="text-xs text-muted-foreground mt-6">{t.resultsTab.noResultsDesc}</p>
         </div>
       </div>
     )
@@ -199,14 +208,14 @@ export function ResultsTab({ hackathon, myTeam, stageInfo }: ResultsTabProps) {
             <div className={`rounded-xl border-2 p-6 ${MEDALS[myEntry.position]?.bg ?? 'bg-card border-border'}`}>
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">🏆 Ваш результат</p>
+                  <p className="text-sm font-medium text-muted-foreground">🏆 {t.resultsTab.yourTeam}</p>
                   <h3 className="text-xl font-bold mt-1">{myTeam?.name}</h3>
                   <p className="text-sm text-muted-foreground">{myEntry.trackName}</p>
                 </div>
                 <div className="text-right">
                   <div className="flex items-center gap-2 justify-end">
                     <PositionBadge pos={myEntry.position} />
-                    <span className="text-3xl font-black">{myEntry.position} місце</span>
+                    <span className="text-3xl font-black">{myEntry.position} {t.resultsTab.place}</span>
                   </div>
                   <div className="text-2xl font-bold text-primary mt-1">{myEntry.normalizedTotal.toFixed(1)} <span className="text-base font-normal text-muted-foreground">/ 100</span></div>
                 </div>
@@ -218,10 +227,10 @@ export function ResultsTab({ hackathon, myTeam, stageInfo }: ResultsTabProps) {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-xs text-muted-foreground">
-                        <th className="text-left pb-2">Критерій</th>
-                        <th className="text-right pb-2">Оцінка</th>
-                        <th className="text-right pb-2">Вага</th>
-                        <th className="text-right pb-2">Прогрес</th>
+                        <th className="text-left pb-2">{t.resultsTab.criteria}</th>
+                        <th className="text-right pb-2">{t.resultsTab.score}</th>
+                        <th className="text-right pb-2">{t.resultsTab.weight}</th>
+                        <th className="text-right pb-2">{t.resultsTab.progress}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -235,26 +244,26 @@ export function ResultsTab({ hackathon, myTeam, stageInfo }: ResultsTabProps) {
                       ))}
                     </tbody>
                   </table>
-                  <p className="text-xs text-muted-foreground mt-2">Оцінювали: {myEntry.judgeCount} {myEntry.judgeCount === 1 ? 'суддя' : 'судді'}</p>
+                  <p className="text-xs text-muted-foreground mt-2">{t.resultsTab.evaluatedBy} {myEntry.judgeCount} {myEntry.judgeCount === 1 ? t.resultsTab.judgeSingular : t.resultsTab.judgePlural}</p>
                 </div>
               )}
 
               {/* Award */}
               {myEntry.award && (
                 <div className="mt-3 flex items-center gap-2 text-sm font-medium">
-                  🏅 <span>Нагорода: <span className="text-foreground">{myEntry.award.name}</span></span>
+                  🏅 <span>{t.adminHackathons.awards}: <span className="text-foreground">{myEntry.award.name}</span></span>
                 </div>
               )}
             </div>
           ) : myEntry.reason === 'DISQUALIFIED' ? (
             <div className="rounded-xl border-2 border-red-200 bg-red-50 p-6">
-              <p className="font-semibold text-red-700 flex items-center gap-2"><XCircle className="h-5 w-5" /> Команда дискваліфікована</p>
-              <p className="text-sm text-red-600 mt-1">Причина: «{myEntry.reason}»</p>
+              <p className="font-semibold text-red-700 flex items-center gap-2"><XCircle className="h-5 w-5" /> {t.resultsTab.teamDisqualified}</p>
+              <p className="text-sm text-red-600 mt-1">{t.resultsTab.reasonLabel} &quot;{myEntry.reason}&quot;</p>
             </div>
           ) : (
             <div className="rounded-xl border-2 border-dashed border-border bg-muted/20 p-6">
-              <p className="font-semibold text-muted-foreground flex items-center gap-2"><AlertCircle className="h-5 w-5" /> Проєкт не було подано вчасно</p>
-              <p className="text-sm text-muted-foreground mt-1">Ваша команда не потрапила до рейтингу.</p>
+              <p className="font-semibold text-muted-foreground flex items-center gap-2"><AlertCircle className="h-5 w-5" /> {t.resultsTab.notSubmittedInTime}</p>
+              <p className="text-sm text-muted-foreground mt-1">{t.resultsTab.notInLeaderboard}</p>
             </div>
           )}
         </section>
@@ -262,7 +271,7 @@ export function ResultsTab({ hackathon, myTeam, stageInfo }: ResultsTabProps) {
 
       {/* ── Leaderboard ────────────────────────────────────── */}
       <section>
-        <h3 className="text-xl font-semibold mb-4">Лідерборд</h3>
+        <h3 className="text-xl font-semibold mb-4">{t.resultsTab.leaderboardTitle}</h3>
 
         {/* Track tabs */}
         {tracks.length > 1 && (
@@ -283,22 +292,22 @@ export function ResultsTab({ hackathon, myTeam, stageInfo }: ResultsTabProps) {
         {tracks.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-muted-foreground">
             <Clock className="h-8 w-8 mx-auto mb-2 opacity-30" />
-            <p>Результати ще не сформовані</p>
+            <p>{t.resultsTab.noResults}</p>
           </div>
         ) : (
           <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
             <div className="px-6 py-3 bg-muted/50 border-b border-border flex items-center justify-between">
-              <span className="font-semibold text-sm">{activeTrack?.trackName} — Рейтинг</span>
-              <span className="text-xs text-muted-foreground">{activeTrack?.ranked?.length ?? 0} команд</span>
+              <span className="font-semibold text-sm">{activeTrack?.trackName} — {t.resultsTab.ratingLabel}</span>
+              <span className="text-xs text-muted-foreground">{t.resultsTab.teamsCount.replace('{count}', String(activeTrack?.ranked?.length ?? 0))}</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-xs text-muted-foreground bg-muted/20 border-b border-border">
                   <tr>
-                    <th className="px-4 py-3 text-center w-12">#</th>
-                    <th className="px-4 py-3 text-left">Команда</th>
-                    <th className="px-4 py-3 text-left">Проєкт</th>
-                    <th className="px-4 py-3 text-right">Бали</th>
+                    <th className="px-4 py-3 text-center w-12">{t.resultsTab.rank}</th>
+                    <th className="px-4 py-3 text-left">{t.resultsTab.team}</th>
+                    <th className="px-4 py-3 text-left">{t.resultsTab.project}</th>
+                    <th className="px-4 py-3 text-right">{t.resultsTab.score}</th>
                     <th className="px-4 py-3 w-8"></th>
                   </tr>
                 </thead>
@@ -312,7 +321,7 @@ export function ResultsTab({ hackathon, myTeam, stageInfo }: ResultsTabProps) {
                     />
                   ))}
                   {(activeTrack?.ranked ?? []).length === 0 && (
-                    <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-sm">Оцінених команд немає</td></tr>
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-sm">{t.resultsTab.noRankedTeams}</td></tr>
                   )}
                 </tbody>
               </table>
@@ -329,30 +338,30 @@ export function ResultsTab({ hackathon, myTeam, stageInfo }: ResultsTabProps) {
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             {showUnranked ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            Не потрапили до рейтингу ({unrankedCount} команд{unrankedCount > 1 ? 'и' : 'а'})
+            {t.resultsTab.unrankedTitle} ({t.resultsTab.teamsCount.replace('{count}', String(unrankedCount))})
           </button>
 
           {showUnranked && (
             <div className="mt-3 space-y-3">
               {disqualified.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-red-600 mb-2">⛔ Дискваліфіковані</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-red-600 mb-2">⛔ {t.states.disqualified}</p>
                   {disqualified.map((t: any) => (
                     <div key={t.teamId} className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 mb-2">
                       <p className="font-medium text-red-800">{t.teamName}</p>
-                      <p className="text-xs text-red-600 mt-0.5">Причина: «{t.reason}»</p>
+                      <p className="text-xs text-red-600 mt-0.5">{t.resultsTab.reasonLabel} &quot;{t.reason}&quot;</p>
                     </div>
                   ))}
                 </div>
               )}
               {notSubmitted.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">📭 Не подали проєкт</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">📭 {t.resultsTab.teamNotSubmitted}</p>
                   {notSubmitted.map((t: any) => (
                     <div key={t.teamId} className="rounded-lg border border-border bg-muted/30 px-4 py-3 mb-2 flex items-center justify-between">
                       <span className="font-medium text-foreground">{t.teamName}</span>
                       <span className="text-xs text-muted-foreground">
-                        {t.reason === 'NO_PROJECT' ? 'Проєкт не подано' : t.reason === 'REJECTED' ? 'Проєкт відхилено' : 'Не подано'}
+                        {t.reason === 'NO_PROJECT' ? t.resultsTab.noProjectReason : t.reason === 'REJECTED' ? t.resultsTab.rejectedReason : t.states.notFound}
                       </span>
                     </div>
                   ))}

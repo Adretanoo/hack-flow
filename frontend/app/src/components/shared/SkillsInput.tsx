@@ -1,4 +1,5 @@
 import { useState, useRef, KeyboardEvent } from 'react'
+import { useI18n } from '@/i18n'
 
 interface SkillsInputProps {
   value: string[]
@@ -9,6 +10,7 @@ interface SkillsInputProps {
 export function SkillsInput({ value, onChange, disabled }: SkillsInputProps) {
   const [input, setInput] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const { t } = useI18n()
 
   const addSkill = (raw: string) => {
     const skill = raw.trim().toLowerCase()
@@ -46,7 +48,7 @@ export function SkillsInput({ value, onChange, disabled }: SkillsInputProps) {
               type="button"
               onClick={(e) => { e.stopPropagation(); removeSkill(skill) }}
               className="ml-0.5 rounded-full hover:bg-primary/20 transition-colors w-4 h-4 flex items-center justify-center text-primary/60 hover:text-primary"
-              aria-label={`Видалити ${skill}`}
+              aria-label={`${t.actions.remove} ${skill}`}
             >
               ×
             </button>
@@ -60,7 +62,7 @@ export function SkillsInput({ value, onChange, disabled }: SkillsInputProps) {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={() => addSkill(input)}
-          placeholder={value.length === 0 ? 'Введіть навичку та натисніть Enter...' : ''}
+          placeholder={value.length === 0 ? t.profile.skillsPlaceholder : ''}
           className="flex-1 min-w-[140px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           disabled={disabled}
         />

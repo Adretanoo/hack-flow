@@ -13,6 +13,7 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { toast } from 'sonner'
 import { formatDateTime } from '@/utils/format'
 import type { Team } from '@/types/api.types'
+import { useI18n } from '@/i18n'
 
 interface ProjectTabProps {
   myTeam?: Team
@@ -26,6 +27,7 @@ const TYPE_ICONS: Record<string, string> = {
 
 function TrackManual({ track }: { track: any }) {
   const [open, setOpen] = useState(false)
+  const { t } = useI18n()
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       <button type="button" onClick={() => setOpen(v => !v)}
@@ -35,8 +37,8 @@ function TrackManual({ track }: { track: any }) {
             <BookOpen className="h-5 w-5 text-primary" />
           </div>
           <div className="text-left">
-            <p className="font-semibold">Мануал треку: {track.name}</p>
-            <p className="text-xs text-muted-foreground">{track.guidelines ? 'Натисніть щоб переглянути' : 'Мануал ще не заповнено'}</p>
+            <p className="font-semibold">{t.projectTab.trackManual.replace('{name}', track.name)}</p>
+            <p className="text-xs text-muted-foreground">{track.guidelines ? t.projectTab.clickToView : t.projectTab.manualEmpty}</p>
           </div>
         </div>
         {open ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
@@ -54,21 +56,23 @@ function TrackManual({ track }: { track: any }) {
 
 function Countdown({ endDate }: { endDate: string }) {
   const [diff, setDiff] = useState(0)
+  const { t } = useI18n()
   useEffect(() => {
     const update = () => setDiff(Math.max(0, new Date(endDate).getTime() - Date.now()))
     update()
     const t = setInterval(update, 1000)
     return () => clearInterval(t)
   }, [endDate])
-  if (diff <= 0) return <span className="text-red-500 font-semibold text-xs">Час вийшов</span>
+  if (diff <= 0) return <span className="text-red-500 font-semibold text-xs">{t.projectTab.timeExpired}</span>
   const h = Math.floor(diff / 3600000)
   const m = Math.floor((diff % 3600000) / 60000)
   const s = Math.floor((diff % 60000) / 1000)
-  return <span className="font-mono text-xs tabular-nums">{h}г {m}хв {s}с</span>
+  return <span className="font-mono text-xs tabular-nums">{h}{t.projectTab.timeHours} {m}{t.projectTab.timeMinutes} {s}{t.projectTab.timeSeconds}</span>
 }
 
 export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
   const qc = useQueryClient()
+  const { t } = useI18n()
   const { register, handleSubmit, reset, watch } = useForm<{ title: string; description: string }>()
   const resForm = useForm<{ projectTypeId: string; url: string; description: string }>()
   const [showResForm, setShowResForm] = useState(false)
@@ -119,63 +123,62 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
     mutationFn: (d: { title: string; description: string }) => projectsApi.create({
       teamId: myTeam!.id, stageId: stageInfo.activeStage?.id ?? '', title: d.title, description: d.description,
     }),
-    onSuccess: () => { toast.success('Проєкт створено'); invalidate() },
-    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Помилка'),
+    onSuccess: () => { toast.success(t.states.success); invalidate() },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? t.states.error),
   })
 
   const updateMut = useMutation({
     mutationFn: (d: { title: string; description: string }) => projectsApi.update(project!.id, d),
-    onSuccess: () => { toast.success('Збережено'); setEditMode(false); invalidate() },
-    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Помилка збереження'),
+    onSuccess: () => { toast.success(t.states.success); setEditMode(false); invalidate() },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? t.states.error),
   })
 
   const reopenMut = useMutation({
     mutationFn: () => projectsApi.reopen(project!.id),
-    onSuccess: () => { toast.success('Проєкт повернуто до чернетки'); setEditMode(true); invalidate() },
-    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Помилка'),
+    onSuccess: () => { toast.success(t.states.success); setEditMode(true); invalidate() },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? t.states.error),
   })
 
   const submitMut = useMutation({
     mutationFn: () => projectsApi.submit(project!.id),
-    onSuccess: () => { toast.success('🎉 Проєкт подано!'); setShowConfirm(false); invalidate() },
-    onError: (e: any) => { toast.error(e?.response?.data?.message ?? 'Помилка подачі'); setShowConfirm(false) },
+    onSuccess: () => { toast.success(t.states.success); setShowConfirm(false); invalidate() },
+    onError: (e: any) => { toast.error(e?.response?.data?.message ?? t.states.error); setShowConfirm(false) },
   })
 
   const addResMut = useMutation({
     mutationFn: (d: any) => projectsApi.addResource(project!.id, d),
-    onSuccess: () => { toast.success('Посилання додано'); setShowResForm(false); resForm.reset(); invalidate() },
-    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Помилка'),
+    onSuccess: () => { toast.success(t.states.success); setShowResForm(false); resForm.reset(); invalidate() },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? t.states.error),
   })
 
   const delResMut = useMutation({
     mutationFn: (id: string) => projectsApi.removeResource(project!.id, id),
-    onSuccess: () => { toast.success('Видалено'); setDeleteConfirm(null); invalidate() },
-    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Помилка'),
+    onSuccess: () => { toast.success(t.states.success); setDeleteConfirm(null); invalidate() },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? t.states.error),
   })
 
   if (!myTeam) return (
-    <div className="mt-6 text-center py-24 text-muted-foreground">Спершу приєднайтесь до команди</div>
+    <div className="mt-6 text-center py-24 text-muted-foreground">{t.projectTab.joinTeamFirst}</div>
   )
 
   const isBlocked = myTeam.approvalStatus === 'REJECTED' || myTeam.approvalStatus === 'DISQUALIFIED'
   if (isBlocked) return (
     <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-8 text-center space-y-2">
-    <div className="text-4xl">❌</div>
-    <h3 className="text-xl font-bold text-red-800">Команду відхилено / дискваліфіковано</h3>
+      <div className="text-4xl">❌</div>
+      <h3 className="text-xl font-bold text-red-800">{t.projectTab.teamBlocked}</h3>
     </div>
   )
 
   if (isLoading) return <div className="py-24"><LoadingSpinner /></div>
 
-      {/* No project */}
   if (!project) {
     if (!isHackingActive) return (
       <div className="mt-6 space-y-4">
         {track && <TrackManual track={track} />}
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center space-y-3">
           <Lock className="h-10 w-10 mx-auto text-muted-foreground/40" />
-        <p className="font-semibold text-lg">Проєкт можна подати під час етапу Hacking</p>
-          <p className="text-sm text-muted-foreground">Зачекайте початку хакінгу</p>
+          <p className="font-semibold text-lg">{t.projectTab.noProject}</p>
+          <p className="text-sm text-muted-foreground">{t.projectTab.noProjectDesc}</p>
         </div>
       </div>
     )
@@ -186,24 +189,24 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-6">
             <FileText className="h-5 w-5 text-primary" />
-          <h3 className="font-bold text-lg">Новий проєкт</h3>
+            <h3 className="font-bold text-lg">{t.projectTab.newProject}</h3>
           </div>
           <form onSubmit={handleSubmit(d => createMut.mutate(d))} className="space-y-4">
             <div>
-          <label className="block text-sm font-medium mb-1.5">Назва *</label>
-          <input {...register('title', { required: true })} placeholder="Введіть назву проєкту..."
+              <label className="block text-sm font-medium mb-1.5">{t.projectTab.titleLabel}</label>
+              <input {...register('title', { required: true })} placeholder={t.projectTab.titlePlaceholder}
                 className="w-full rounded-lg border border-border px-3 py-2 text-sm bg-background outline-none focus:border-ring focus:ring-2 focus:ring-ring/20" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Опис *</label>
+              <label className="block text-sm font-medium mb-1.5">{t.projectTab.descLabel}</label>
               <textarea {...register('description', { required: true })} rows={5}
-                placeholder="Розкажіть про ідею та технологічний стек..."
+                placeholder={t.projectTab.descPlaceholder}
                 className="w-full rounded-lg border border-border px-3 py-2 text-sm bg-background resize-none outline-none focus:border-ring focus:ring-2 focus:ring-ring/20" />
             </div>
             <div className="flex justify-end pt-2">
               <button type="submit" disabled={createMut.isPending}
                 className="flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
-                {createMut.isPending ? 'Створення...' : 'Створити чернетку →'}
+                {createMut.isPending ? t.projectTab.creating : t.projectTab.createDraft}
               </button>
             </div>
           </form>
@@ -212,13 +215,12 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
     )
   }
 
-  {/* Status config */}
   const STATUS: Record<string, { icon: string; label: string; cls: string }> = {
-    DRAFT:     { icon: '✏️', label: 'Чернетка',       cls: 'border-amber-200 bg-amber-50 text-amber-900' },
-    SUBMITTED: { icon: '✅', label: 'Проєкт подано',   cls: 'border-blue-200 bg-blue-50 text-blue-900' },
-    REVIEWED:  { icon: '👁️', label: 'Переглянуто',     cls: 'border-purple-200 bg-purple-50 text-purple-900' },
-    APPROVED:  { icon: '🏆', label: 'Схвалено!',       cls: 'border-green-200 bg-green-50 text-green-900' },
-    REJECTED:  { icon: '❌', label: 'Відхимлено',       cls: 'border-red-200 bg-red-50 text-red-900' },
+    DRAFT:     { icon: '✏️', label: t.states.draft,       cls: 'border-amber-200 bg-amber-50 text-amber-900' },
+    SUBMITTED: { icon: '✅', label: t.states.pending,     cls: 'border-blue-200 bg-blue-50 text-blue-900' },
+    REVIEWED:  { icon: '👁️', label: t.dashboard.stages.REVIEW, cls: 'border-purple-200 bg-purple-50 text-purple-900' },
+    APPROVED:  { icon: '🏆', label: t.states.approved,    cls: 'border-green-200 bg-green-50 text-green-900' },
+    REJECTED:  { icon: '❌', label: t.states.rejected,    cls: 'border-red-200 bg-red-50 text-red-900' },
   }
   const st = STATUS[status] ?? STATUS.DRAFT
 
@@ -232,18 +234,18 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
                 <Send className="h-5 w-5 text-primary" />
               </div>
               <div>
-          <h3 className="font-bold text-lg">Подати проєкт?</h3>
-                <p className="text-sm text-muted-foreground">Після подачі редагування буде недоступне</p>
+                <h3 className="font-bold text-lg">{t.projectTab.submitConfirmTitle}</h3>
+                <p className="text-sm text-muted-foreground">{t.projectTab.submitConfirmDesc}</p>
               </div>
             </div>
             <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-              Переконайтесь що всі посилання активні та опис заповнено.
+              {t.projectTab.submitWarning}
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setShowConfirm(false)} className="flex-1 rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent">Скасувати</button>
+              <button onClick={() => setShowConfirm(false)} className="flex-1 rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent">{t.actions.cancel}</button>
               <button onClick={() => submitMut.mutate()} disabled={submitMut.isPending}
                 className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
-              {submitMut.isPending ? 'Подаємо...' : 'Так, подати'}
+                {submitMut.isPending ? t.projectTab.submitting : t.projectTab.confirmSubmitBtn}
               </button>
             </div>
           </div>
@@ -260,28 +262,28 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
               <p className="font-bold flex items-center gap-2">{st.icon} {st.label}</p>
               {status === 'DRAFT' && isHackingActive && hackingEndDate && (
                 <p className="text-xs flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5" /> До кінця хакінгу: <Countdown endDate={hackingEndDate!} />
+                  <Clock className="h-3.5 w-3.5" /> {t.projectTab.timeRemaining} <Countdown endDate={hackingEndDate!} />
                 </p>
               )}
               {status === 'SUBMITTED' && project.submittedAt && (
-                <p className="text-xs">Подано: {formatDateTime(project.submittedAt)}
-                  {project.isLate && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-xs font-medium"><AlertTriangle className="h-3 w-3" /> Запізнення +{project.submittedLateByMinutes} хв</span>}
+                <p className="text-xs">{t.projectTab.submittedAt} {formatDateTime(project.submittedAt)}
+                  {project.isLate && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-xs font-medium"><AlertTriangle className="h-3 w-3" /> {t.projectTab.lateBy.replace('{minutes}', String(project.submittedLateByMinutes))}</span>}
                 </p>
               )}
               {status === 'REJECTED' && project.comment && (
-          <p className="text-xs">Коментар: &quot;{project.comment}&quot;</p>
+                <p className="text-xs">{t.projectTab.commentLabel} &quot;{project.comment}&quot;</p>
               )}
             </div>
             {status === 'DRAFT' && !isEditing && (
               <button onClick={() => setEditMode(true)}
                 className="flex items-center gap-1.5 rounded-lg border border-current px-3 py-1.5 text-xs font-medium hover:opacity-80">
-                <Pencil className="h-3.5 w-3.5" /> Редагувати
+                <Pencil className="h-3.5 w-3.5" /> {t.projectTab.editBtn}
               </button>
             )}
             {status === 'REJECTED' && (
               <button onClick={() => reopenMut.mutate()} disabled={reopenMut.isPending}
                 className="flex items-center gap-1.5 rounded-lg border border-red-400 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-60">
-                <RotateCcw className="h-3.5 w-3.5" /> {reopenMut.isPending ? 'Відкриваємо...' : 'Редагувати і переподати'}
+                <RotateCcw className="h-3.5 w-3.5" /> {reopenMut.isPending ? t.projectTab.reopening : t.projectTab.reopenBtn}
               </button>
             )}
           </div>
@@ -292,33 +294,33 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
           {isEditing ? (
             <form onSubmit={handleSubmit(d => updateMut.mutate(d))}>
               <div className="px-6 py-4 border-b border-border bg-muted/20 flex items-center justify-between">
-                <h3 className="font-semibold">Редагування</h3>
+                <h3 className="font-semibold">{t.projectTab.editing}</h3>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => { setEditMode(false); reset() }}
-                    className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent">Скасувати</button>
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent">{t.actions.cancel}</button>
                   <button type="submit" disabled={updateMut.isPending}
                     className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
-                    {updateMut.isPending ? 'Збереження...' : 'Зберегти'}
+                    {updateMut.isPending ? t.projectTab.saving : t.actions.save}
                   </button>
                 </div>
               </div>
               <div className="p-6 space-y-4">
                 <div>
-          <label className="block text-sm font-medium mb-1.5">Назва *</label>
+                  <label className="block text-sm font-medium mb-1.5">{t.projectTab.titleLabel}</label>
                   <input {...register('title', { required: true })} className="w-full rounded-lg border border-border px-3 py-2 text-sm bg-background outline-none focus:border-ring focus:ring-2 focus:ring-ring/20" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">Опис</label>
+                  <label className="block text-sm font-medium mb-1.5">{t.projectTab.descLabel}</label>
                   <textarea {...register('description')} rows={6} className="w-full rounded-lg border border-border px-3 py-2 text-sm bg-background resize-none outline-none focus:border-ring focus:ring-2 focus:ring-ring/20" />
                 </div>
               </div>
             </form>
           ) : (
             <div className="p-6 space-y-3">
-              <h2 className="text-xl font-bold">{project.title || <span className="text-muted-foreground italic text-base">РќР���� н�µ вк��зано</span>}</h2>
+              <h2 className="text-xl font-bold">{project.title || <span className="text-muted-foreground italic text-base">{t.projectTab.titleNotSpecified}</span>}</h2>
               {project.description
                 ? <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{project.description}</p>
-                : <p className="text-sm text-muted-foreground/60 italic">Опис не заповнено</p>}
+                : <p className="text-sm text-muted-foreground/60 italic">{t.projectTab.descNotSpecified}</p>}
             </div>
           )}
         </div>
@@ -326,11 +328,11 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
         {/* Resources */}
         <div className="rounded-xl border border-border bg-card shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold flex items-center gap-2"><LinkIcon className="h-4 w-4 text-primary" /> Ресурси проєкту</h3>
+            <h3 className="font-semibold flex items-center gap-2"><LinkIcon className="h-4 w-4 text-primary" /> {t.projectTab.resourcesTitle}</h3>
             {(status === 'DRAFT' || status === 'REJECTED') && !showResForm && (
               <button onClick={() => setShowResForm(true)}
                 className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-secondary/80">
-              <Plus className="h-3.5 w-3.5" /> Додати ресурс
+                <Plus className="h-3.5 w-3.5" /> {t.projectTab.addResourceBtn}
               </button>
             )}
           </div>
@@ -338,7 +340,7 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
           {resources.length === 0 && !showResForm && (
             <div className="text-center py-8 text-muted-foreground text-sm">
               <LinkIcon className="h-8 w-8 mx-auto mb-2 opacity-30" />
-            <p>Ресурсів ще немає. Додайте посилання на репозиторій.</p>
+              <p>{t.projectTab.noResourcesDesc}</p>
             </div>
           )}
 
@@ -346,9 +348,9 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
             {resources.map((res: any) => (
               <div key={res.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/10">
                 <div className="flex items-center gap-3 overflow-hidden">
-              <span className="text-lg shrink-0">{TYPE_ICONS[(res.type?.name ?? '')] ?? '🔗'}</span>
+                  <span className="text-lg shrink-0">{TYPE_ICONS[(res.type?.name ?? '')] ?? '🔗'}</span>
                   <div className="overflow-hidden">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{res.type?.name ?? 'Посилання'}</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{res.type?.name ?? t.projectTab.resourceLabel}</p>
                     {res.description && <p className="text-xs text-muted-foreground truncate">{res.description}</p>}
                     <a href={res.url} target="_blank" rel="noreferrer"
                       className="text-sm text-primary hover:underline flex items-center gap-1 truncate">
@@ -359,9 +361,9 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
                 {(status === 'DRAFT' || status === 'REJECTED') && (
                   deleteConfirm === res.id ? (
                     <div className="flex items-center gap-1 shrink-0 ml-2">
-                      <span className="text-xs text-muted-foreground">Видалити?</span>
-                      <button onClick={() => delResMut.mutate(res.id)} className="text-xs text-destructive font-medium px-1.5 hover:underline">Так</button>
-                      <button onClick={() => setDeleteConfirm(null)} className="text-xs text-muted-foreground px-1.5 hover:underline">Рќі</button>
+                      <span className="text-xs text-muted-foreground">{t.projectTab.deleteConfirm}</span>
+                      <button onClick={() => delResMut.mutate(res.id)} className="text-xs text-destructive font-medium px-1.5 hover:underline">{t.actions.yes}</button>
+                      <button onClick={() => setDeleteConfirm(null)} className="text-xs text-muted-foreground px-1.5 hover:underline">{t.actions.no}</button>
                     </div>
                   ) : (
                     <button onClick={() => setDeleteConfirm(res.id)}
@@ -377,36 +379,36 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
           {showResForm && (
             <div className="mt-4 rounded-xl border border-border p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Новий ресурс</p>
+                <p className="text-sm font-medium">{t.projectTab.newResourceTitle}</p>
                 <button onClick={() => { setShowResForm(false); resForm.reset() }} className="p-1 hover:text-destructive"><X className="h-4 w-4" /></button>
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1">Тип ресурсу</label>
+                <label className="block text-xs font-medium mb-1">{t.projectTab.resourceTypeLabel}</label>
                 <select {...resForm.register('projectTypeId', { required: true })}
                   className="w-full rounded-lg border border-border px-3 py-2 text-sm bg-background outline-none focus:border-ring">
-                  <option value="">Оберіть тип...</option>
+                  <option value="">{t.projectTab.selectTypePlaceholder}</option>
                   {resourceTypes.map((t: any) => (
                     <option key={t.id} value={t.id}>{TYPE_ICONS[t.name] ?? '🔗'} {t.description ?? t.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1">URL *</label>
+                <label className="block text-xs font-medium mb-1">{t.projectTab.urlLabel}</label>
                 <input {...resForm.register('url', { required: true })} placeholder="https://..."
                   className="w-full rounded-lg border border-border px-3 py-2 text-sm bg-background outline-none focus:border-ring" />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1">Опис (необовʼязково)</label>
-                <input {...resForm.register('description')} placeholder="Короткий опис..."
+                <label className="block text-xs font-medium mb-1">{t.projectTab.optionalDescLabel}</label>
+                <input {...resForm.register('description')} placeholder={t.projectTab.optionalDescPlaceholder}
                   className="w-full rounded-lg border border-border px-3 py-2 text-sm bg-background outline-none focus:border-ring" />
               </div>
               <div className="flex gap-2 justify-end">
                 <button type="button" onClick={() => { setShowResForm(false); resForm.reset() }}
-                  className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent">Скасувати</button>
+                  className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent">{t.actions.cancel}</button>
                 <button type="button" disabled={addResMut.isPending || !resUrl}
                   onClick={() => resForm.handleSubmit(d => addResMut.mutate(d))()}
                   className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
-                  {addResMut.isPending ? 'Додавання...' : <><Plus className="h-4 w-4" /> Додати ресурс</>}
+                  {addResMut.isPending ? t.projectTab.addingResource : <><Plus className="h-4 w-4" /> {t.projectTab.addResourceBtn}</>}
                 </button>
               </div>
             </div>
@@ -418,27 +420,27 @@ export function ProjectTab({ myTeam, stageInfo }: ProjectTabProps) {
           <div className={`rounded-xl border p-5 space-y-3 ${canSubmit ? 'border-primary/30 bg-primary/5' : 'border-border bg-muted/20'}`}>
             {!canSubmit && (
               <div className="space-y-1">
-                <p className="text-sm font-medium flex items-center gap-2"><AlertCircle className="h-4 w-4 text-amber-500" /> Перед подачею заповніть:</p>
+                <p className="text-sm font-medium flex items-center gap-2"><AlertCircle className="h-4 w-4 text-amber-500" /> {t.projectTab.validationTitle}</p>
                 <ul className="text-xs text-muted-foreground space-y-0.5 ml-6 list-disc">
-                  {!titleVal.trim() && <li>Назва проєкту</li>}
+                  {!titleVal.trim() && <li>{t.projectTab.titleLabel.replace(' *', '')}</li>}
                 </ul>
               </div>
             )}
             {canSubmit && (
               <div>
-                <p className="text-sm font-medium flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" /> Все готово? Подайте проєкт на розгляд.</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Після подачі редагування буде недоступне.</p>
+                <p className="text-sm font-medium flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" /> {t.projectTab.submitPrompt}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t.projectTab.submitBannerDesc}</p>
               </div>
             )}
             <button onClick={() => setShowConfirm(true)} disabled={!canSubmit}
               className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
-              <Send className="h-4 w-4" /> Подати проєкт на розгляд
+              <Send className="h-4 w-4" /> {t.projectTab.submitBtn}
             </button>
           </div>
         )}
 
         {status === 'SUBMITTED' && (
-          <p className="text-xs text-muted-foreground text-center">Проєкт передано на перевірку. Очікуйте рішення.</p>
+          <p className="text-xs text-muted-foreground text-center">{t.projectTab.submittedSuccessFooter}</p>
         )}
       </div>
     </>

@@ -5,8 +5,10 @@ import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import type { UserProfile } from '@/types/api.types'
+import { useI18n } from '@/i18n'
 
 function MentorCard({ mentor }: { mentor: UserProfile & { skills?: string[]; description?: string; bio?: string; socials?: { typeSocial: string; url: string }[] } }) {
+  const { t } = useI18n()
   const initials = mentor.fullName
     .split(' ')
     .map(w => w[0])
@@ -41,7 +43,7 @@ function MentorCard({ mentor }: { mentor: UserProfile & { skills?: string[]; des
             )}
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-2 py-0.5 text-xs font-semibold mt-1">
               <GraduationCap className="h-3 w-3" />
-              Ментор
+              {t.mentorsPage.mentor}
             </span>
           </div>
         </div>
@@ -93,6 +95,7 @@ function MentorCard({ mentor }: { mentor: UserProfile & { skills?: string[]; des
 
 export function MentorsPage() {
   const [search, setSearch] = useState('')
+  const { t } = useI18n()
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['mentors-public'],
@@ -117,13 +120,13 @@ export function MentorsPage() {
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
             <GraduationCap className="h-4 w-4" />
-            Наші ментори
+            {t.mentorsPage.mentor}
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
-            Ментори <span className="text-primary">Hack-Flow</span>
+            {t.mentorsPage.title.split('Hack-Flow')[0]}<span className="text-primary">Hack-Flow</span>
           </h1>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Досвідчені фахівці, готові допомогти вашій команді під час хакатону.
+            {t.mentorsPage.subtitle}
           </p>
         </div>
 
@@ -133,7 +136,7 @@ export function MentorsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Пошук за ім'ям, навичками..."
+              placeholder={t.mentorsPage.searchPlaceholder}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="w-full h-11 rounded-lg border border-border bg-background pl-10 pr-4 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all"
@@ -148,27 +151,27 @@ export function MentorsPage() {
           </div>
         ) : isError ? (
           <div className="py-16 text-center space-y-4">
-            <p className="text-muted-foreground">Не вдалось завантажити список менторів.</p>
+            <p className="text-muted-foreground">{t.mentorsPage.loadError}</p>
             <Link to="/login" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
-              Увійдіть для перегляду <ArrowRight className="h-4 w-4" />
+              {t.mentorsPage.loginToView} <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         ) : mentors.length === 0 ? (
           <div className="py-20 text-center space-y-3">
             <GraduationCap className="h-12 w-12 text-muted-foreground/30 mx-auto" />
             <p className="text-muted-foreground font-medium">
-              {search ? 'Нікого не знайдено за вашим запитом' : 'Менторів поки немає'}
+              {search ? t.mentorsPage.noResults : t.mentorsPage.noMentors}
             </p>
             {search && (
               <button onClick={() => setSearch('')} className="text-sm text-primary hover:underline">
-                Очистити пошук
+                {t.mentorsPage.clearSearch}
               </button>
             )}
           </div>
         ) : (
           <>
             <p className="text-sm text-muted-foreground text-center">
-              {mentors.length} {mentors.length === 1 ? 'ментор' : mentors.length < 5 ? 'ментори' : 'менторів'}
+              {mentors.length} {t.mentorsPage.count(mentors.length)}
             </p>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {mentors.map(mentor => (
@@ -182,17 +185,17 @@ export function MentorsPage() {
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-8 text-center space-y-4">
           <div className="flex items-center justify-center gap-2">
             <Zap className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-lg">Хочете стати ментором?</h2>
+            <h2 className="font-bold text-lg">{t.mentorsPage.wantMentor}</h2>
           </div>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Якщо маєте досвід у розробці, дизайні або стартапах — напишіть адміністратору.
+            {t.mentorsPage.wantMentorDesc}
           </p>
           <a
             href="mailto:c.tehza.adrian@student.uzhnu.edu.ua"
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             <Mail className="h-4 w-4" />
-            Написати адміністратору
+            {t.mentorsPage.contactAdmin}
           </a>
         </div>
 

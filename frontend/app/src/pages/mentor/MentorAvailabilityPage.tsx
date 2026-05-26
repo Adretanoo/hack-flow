@@ -7,10 +7,7 @@ import { mentorshipApi } from '@/api/mentorship'
 import { hackathonsApi } from '@/api/hackathons'
 import { tracksApi } from '@/api/tracks'
 import { AvailabilityCard, AvailDetailPanel } from './MentorCalendarCard'
-
-const UK_DAYS = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб']
-const UK_MONTHS_SHORT = ['січ','лют','бер','кві','тра','чер','лип','сер','вер','жов','лис','гру']
-const UK_MONTHS_FULL = ['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня']
+import { useI18n } from '@/i18n'
 
 function getWeekDates(offset: number): Date[] {
   const today = new Date()
@@ -25,10 +22,17 @@ function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
-function fmtRange(dates: Date[]) {
+function fmtRange(dates: Date[], lang: string) {
   const f = dates[0], l = dates[6]
-  if (f.getMonth() === l.getMonth()) return `${f.getDate()}–${l.getDate()} ${UK_MONTHS_FULL[f.getMonth()]} ${f.getFullYear()}`
-  return `${f.getDate()} ${UK_MONTHS_SHORT[f.getMonth()]} – ${l.getDate()} ${UK_MONTHS_SHORT[l.getMonth()]} ${l.getFullYear()}`
+  const monthFormat = { month: 'short' } as const
+  const fullMonthFormat = { month: 'long' } as const
+  if (f.getMonth() === l.getMonth()) {
+    const m = f.toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US', fullMonthFormat)
+    return `${f.getDate()}–${l.getDate()} ${m} ${f.getFullYear()}`
+  }
+  const m1 = f.toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US', monthFormat)
+  const m2 = l.toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US', monthFormat)
+  return `${f.getDate()} ${m1} – ${l.getDate()} ${m2} ${l.getFullYear()}`
 }
 
 const LS_KEY = 'mentor_hackathon'
@@ -37,6 +41,7 @@ const TODAY_STR = TODAY.toISOString().split('T')[0]
 
 export function MentorAvailabilityPage() {
   const qc = useQueryClient()
+  const { t, lang } = useI18n()
   const [hackathonId, setHackathonId] = useState(() => localStorage.getItem(LS_KEY) || '')
   const [weekOffset, setWeekOffset] = useState(0)
   const [showForm, setShowForm] = useState(false)
@@ -89,19 +94,19 @@ export function MentorAvailabilityPage() {
     const list: string[] = []
     let cur = new Date(s)
     for (let i = 0; i < Math.min(count, 24); i++) {
-      list.push(cur.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', hour12: false }))
+      list.push(cur.toLocaleTimeString(lang === 'uk' ? 'uk-UA' : 'en-US', { hour: '2-digit', minute: '2-digit', hour12: false }))
       cur = new Date(cur.getTime() + slotDur * 60000)
     }
     return list
-  }, [formDate, formStart, formEnd, slotDur])
+  }, [formDate, formStart, formEnd, slotDur, lang])
 
   const createMut = useMutation({
     mutationFn: (data: any) => mentorshipApi.createAvailability(data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['my-availabilities'] }); setFormDate(''); setFormStart('10:00'); setFormEnd('12:00'); setFormTrackId(''); setErrs({}); setShowForm(false) },
     onError: (e: any) => {
-      const msg = e?.response?.data?.message || e?.message || 'Помилка'
+      const msg = e?.response?.data?.message || e?.message || t.states.error
       if (msg.toLowerCase().includes('overlap') || msg.toLowerCase().includes('conflict')) {
-        setErrs(p => ({ ...p, range: 'Цей час перетинається з іншим вашим блоком доступності. Оберіть інший час.' }))
+        setErrs(p => ({ ...p, range: t.mentor.overlapError }))
       } else {
         setErrs(p => ({ ...p, range: msg }))
       }
@@ -110,20 +115,20 @@ export function MentorAvailabilityPage() {
 
   const validate = () => {
     const e: Record<string, string> = {}
-    if (!formDate) e.date = 'Оберіть дату'
-    else if (formDate < TODAY_STR) e.date = 'Оберіть майбутню дату'
+    if (!formDate) e.date = t.mentor.selectDateError
+    else if (formDate < TODAY_STR) e.date = t.mentor.futureDateOnly
     
     // Check if time is in the past for today
     if (formDate === TODAY_STR) {
       const now = new Date()
       const startTime = new Date(`${formDate}T${formStart}:00`)
       if (startTime < now) {
-        e.range = 'Час початку вже минув. Оберіть час у майбутньому.'
+        e.range = t.mentor.startTimePassed
       }
     }
 
-    if (formEnd <= formStart) e.end = 'Кінець має бути пізніше початку'
-    if (preview.length === 0 && !e.end) e.range = 'Збільшіть діапазон або зменшіть тривалість'
+    if (formEnd <= formStart) e.end = t.mentor.endTimeLater
+    if (preview.length === 0 && !e.end) e.range = t.mentor.increaseRange
     setErrs(e); return Object.keys(e).length === 0
   }
 
@@ -144,17 +149,17 @@ export function MentorAvailabilityPage() {
     <div className="space-y-5 animate-fade-in max-w-7xl mx-auto">
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <PageHeader title="Мій розклад" subtitle="Календар менторських сесій" />
+        <PageHeader title={t.mentor.mySchedule} subtitle={t.mentor.calendarSubtitle} />
         <div className="flex items-center gap-3 flex-wrap">
           {hackathons.length > 1 && (
             <select value={hackathonId} onChange={e => changeHackathon(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-sm">
-              <option value="">Всі хакатони</option>
+              <option value="">{t.mentor.allHackathonsSelector}</option>
               {hackathons.map((h: any) => <option key={h.id} value={h.id}>{h.title}</option>)}
             </select>
           )}
           {hackathons.length === 1 && <span className="px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium">{hackathons[0].title}</span>}
           <button onClick={() => setShowForm(v => !v)} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm">
-            <Plus className="h-4 w-4" /> Додати слот
+            <Plus className="h-4 w-4" /> {t.mentor.createSlot}
           </button>
         </div>
       </div>
@@ -162,9 +167,9 @@ export function MentorAvailabilityPage() {
       {/* ── Stats ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
-          { label: 'Блоків доступності', value: totalAvails, color: 'text-primary' },
-          { label: 'Вільних слотів', value: totalFree, color: 'text-teal-600' },
-          { label: 'Цього тижня', value: weekDates.reduce((s, d) => s + (byDate.get(d.toDateString())?.length || 0), 0), color: 'text-blue-600' },
+          { label: t.mentor.statsAvailBlocks, value: totalAvails, color: 'text-primary' },
+          { label: t.mentor.statsFreeSlots, value: totalFree, color: 'text-teal-600' },
+          { label: t.mentor.statsThisWeek, value: weekDates.reduce((s, d) => s + (byDate.get(d.toDateString())?.length || 0), 0), color: 'text-blue-600' },
         ].map(stat => (
           <div key={stat.label} className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
@@ -176,7 +181,7 @@ export function MentorAvailabilityPage() {
       {/* ── Info banner ── */}
       <div className="rounded-lg bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 p-3 flex items-start gap-3">
         <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-        <p className="text-xs text-blue-800 dark:text-blue-300">Ваші слоти бачать лише команди хакатонів, на які вас призначив адміністратор. При видаленні слоту з активними бронюваннями — команди отримають сповіщення.</p>
+        <p className="text-xs text-blue-800 dark:text-blue-300">{t.mentor.availabilityHint}</p>
       </div>
 
       <div className="flex gap-5 items-start">
@@ -186,8 +191,8 @@ export function MentorAvailabilityPage() {
           <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
             <button onClick={() => setWeekOffset(w => w - 1)} className="p-2 rounded-lg hover:bg-accent transition-colors"><ChevronLeft className="h-5 w-5" /></button>
             <div className="flex-1 text-center">
-              <p className="font-semibold text-sm"><CalendarDays className="h-4 w-4 inline mr-1.5 text-primary" />{fmtRange(weekDates)}</p>
-              {weekOffset !== 0 && <button onClick={() => setWeekOffset(0)} className="text-xs text-primary hover:underline">← Сьогодні</button>}
+              <p className="font-semibold text-sm"><CalendarDays className="h-4 w-4 inline mr-1.5 text-primary" />{fmtRange(weekDates, lang)}</p>
+              {weekOffset !== 0 && <button onClick={() => setWeekOffset(0)} className="text-xs text-primary hover:underline">{t.mentor.todayNav}</button>}
             </div>
             <button onClick={() => setWeekOffset(w => w + 1)} className="p-2 rounded-lg hover:bg-accent transition-colors"><ChevronRight className="h-5 w-5" /></button>
           </div>
@@ -203,14 +208,18 @@ export function MentorAvailabilityPage() {
                   <div key={date.toDateString()} className="flex flex-col gap-1.5 min-w-0">
                     {/* Day header */}
                     <div className={`rounded-xl p-2 text-center transition-all ${isToday ? 'bg-primary shadow-md shadow-primary/20' : 'bg-card border border-border'}`}>
-                      <p className={`text-[10px] font-semibold uppercase tracking-widest ${isToday ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{UK_DAYS[date.getDay()]}</p>
+                      <p className={`text-[10px] font-semibold uppercase tracking-widest ${isToday ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                        {date.toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US', { weekday: 'short' })}
+                      </p>
                       <p className={`text-base font-bold leading-tight ${isToday ? 'text-primary-foreground' : isPast ? 'text-muted-foreground/40' : ''}`}>{date.getDate()}</p>
-                      <p className={`text-[9px] ${isToday ? 'text-primary-foreground/60' : 'text-muted-foreground/60'}`}>{UK_MONTHS_SHORT[date.getMonth()]}</p>
+                      <p className={`text-[9px] ${isToday ? 'text-primary-foreground/60' : 'text-muted-foreground/60'}`}>
+                        {date.toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US', { month: 'short' })}
+                      </p>
                     </div>
 
                     {dayAvails.length === 0 ? (
                       <div className={`flex-1 rounded-xl border-2 border-dashed min-h-[90px] flex items-center justify-center transition-all ${isPast ? 'border-border/20 opacity-40' : 'border-border/40 hover:border-primary/20 hover:bg-primary/[0.02]'}`}>
-                        <span className="text-[9px] text-muted-foreground/30 text-center leading-tight hidden md:block">{!isPast ? 'Немає\nслотів' : ''}</span>
+                        <span className="text-[9px] text-muted-foreground/30 text-center leading-tight hidden md:block">{!isPast ? t.states.noData : ''}</span>
                       </div>
                     ) : (
                       <div className="space-y-1.5">
@@ -227,10 +236,10 @@ export function MentorAvailabilityPage() {
           {/* Legend */}
           <div className="flex flex-wrap gap-3 px-2 pt-1">
             {[
-              { color: 'bg-teal-100 border-teal-300', label: 'Вільний' },
-              { color: 'bg-amber-100 border-amber-300', label: 'Очікує запит' },
-              { color: 'bg-blue-100 border-blue-300', label: 'Підтверджений' },
-              { color: 'bg-muted border-border', label: 'Заблокований' },
+              { color: 'bg-teal-100 border-teal-300', label: t.mentor.legendFree },
+              { color: 'bg-amber-100 border-amber-300', label: t.mentor.legendPending },
+              { color: 'bg-blue-100 border-blue-300', label: t.mentor.legendConfirmed },
+              { color: 'bg-muted border-border', label: t.mentor.legendBlocked },
             ].map(l => (
               <div key={l.label} className="flex items-center gap-1.5">
                 <span className={`w-3 h-3 rounded border-2 ${l.color}`} />
@@ -244,44 +253,44 @@ export function MentorAvailabilityPage() {
         {showForm && (
           <div className="w-80 shrink-0 rounded-xl border border-border bg-card shadow-lg overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-4 py-3 bg-muted/30">
-              <h3 className="font-semibold text-sm">Додати доступність</h3>
+              <h3 className="font-semibold text-sm">{t.mentor.addAvailabilityTitle}</h3>
               <button onClick={() => setShowForm(false)} className="p-1 rounded hover:bg-accent"><X className="h-4 w-4" /></button>
             </div>
             <div className="p-4 space-y-4">
               {/* Show track selector only when mentor has multiple specific tracks */}
               {!hasGlobal && allowedTracks.length > 1 && (
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">Трек</label>
+                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">{t.adminTeams.track}</label>
                   <select value={formTrackId} onChange={e => setFormTrackId(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none">
-                    <option value="">🌐 Всі треки</option>
+                    <option value="">{t.mentor.allTracks}</option>
                     {allowedTracks.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">Дата</label>
+                <label className="block text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">{t.mentor.slotDate}</label>
                 <input type="date" value={formDate} min={TODAY_STR} onChange={e => { setFormDate(e.target.value); setErrs(p => ({ ...p, date: '' })) }} className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:border-primary bg-background ${errs.date ? 'border-destructive' : 'border-border'}`} />
                 {errs.date && <p className="text-xs text-destructive mt-1">{errs.date}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">Початок</label>
+                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">{t.mentor.startTime}</label>
                   <input type="time" step="900" value={formStart} onChange={e => { setFormStart(e.target.value); setErrs(p => ({ ...p, end: '', range: '' })) }} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">Кінець</label>
+                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">{t.mentor.endTime}</label>
                   <input type="time" step="900" value={formEnd} onChange={e => { setFormEnd(e.target.value); setErrs(p => ({ ...p, end: '', range: '' })) }} className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:border-primary bg-background ${errs.end ? 'border-destructive' : 'border-border'}`} />
                   {errs.end && <p className="text-xs text-destructive mt-1">{errs.end}</p>}
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Тривалість слоту</label>
+                <label className="block text-xs font-semibold mb-2 text-muted-foreground uppercase tracking-wide">{t.mentor.slotDuration}</label>
                 <div className="flex gap-1.5">
                   {[15, 30, 45, 60].map(d => (
-                    <button key={d} type="button" onClick={() => setSlotDur(d)} className={`flex-1 py-2 rounded-lg text-xs font-bold border-2 transition-all ${slotDur === d ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-primary/40'}`}>{d}хв</button>
+                    <button key={d} type="button" onClick={() => setSlotDur(d)} className={`flex-1 py-2 rounded-lg text-xs font-bold border-2 transition-all ${slotDur === d ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-primary/40'}`}>{d}{t.mentorsTab.minutes}</button>
                   ))}
                 </div>
               </div>
@@ -289,12 +298,12 @@ export function MentorAvailabilityPage() {
               {/* Preview */}
               <div className={`rounded-lg border p-3 ${errs.range ? 'border-destructive/40 bg-destructive/5' : 'border-border bg-muted/20'}`}>
                 {preview.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center">{errs.range || 'Оберіть дату та час'}</p>
+                  <p className="text-xs text-muted-foreground text-center">{errs.range || t.mentor.selectDateTime}</p>
                 ) : (
                   <>
-                    <p className="text-xs font-bold text-teal-700 dark:text-teal-400 mb-2">📅 {preview.length} слотів по {slotDur} хв</p>
+                    <p className="text-xs font-bold text-teal-700 dark:text-teal-400 mb-2">{t.mentor.slotsOf(preview.length, slotDur)}</p>
                     <div className="flex flex-wrap gap-1">
-                      {preview.map((t, i) => <span key={i} className="px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-700 dark:text-teal-400 border border-teal-500/30 text-[10px] font-mono font-bold">{t}</span>)}
+                      {preview.map((timeText, idx) => <span key={idx} className="px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-700 dark:text-teal-400 border border-teal-500/30 text-[10px] font-mono font-bold">{timeText}</span>)}
                     </div>
                   </>
                 )}
@@ -302,7 +311,7 @@ export function MentorAvailabilityPage() {
               </div>
 
               <button onClick={handleCreate} disabled={preview.length === 0 || createMut.isPending} className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">
-                {createMut.isPending ? 'Збереження...' : 'Додати до розкладу'}
+                {createMut.isPending ? t.states.loading : t.mentor.addToScheduleBtn}
               </button>
             </div>
           </div>

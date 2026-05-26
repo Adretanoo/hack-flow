@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { AlertTriangle, X } from 'lucide-react'
+import { useI18n } from '@/i18n'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -12,7 +13,21 @@ interface ConfirmDialogProps {
   onCancel: () => void
 }
 
-export function ConfirmDialog({ open, title, message, confirmLabel = 'Підтвердити', cancelLabel = 'Скасувати', danger = false, onConfirm, onCancel }: ConfirmDialogProps) {
+export function ConfirmDialog({
+  open,
+  title,
+  message,
+  confirmLabel,
+  cancelLabel,
+  danger = false,
+  onConfirm,
+  onCancel,
+}: ConfirmDialogProps) {
+  const { t } = useI18n()
+
+  const displayConfirmLabel = confirmLabel ?? t.actions.confirm
+  const displayCancelLabel = cancelLabel ?? t.actions.cancel
+
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel() }
@@ -40,10 +55,10 @@ export function ConfirmDialog({ open, title, message, confirmLabel = 'Підтв
         </div>
         <div className="flex gap-2 px-5 pb-5">
           <button onClick={onCancel} className="flex-1 rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-semibold hover:bg-accent transition-colors">
-            {cancelLabel}
+            {displayCancelLabel}
           </button>
           <button onClick={() => { onConfirm(); }} className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-colors ${danger ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}>
-            {confirmLabel}
+            {displayConfirmLabel}
           </button>
         </div>
       </div>

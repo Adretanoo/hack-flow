@@ -8,6 +8,7 @@ import { Avatar } from '@/components/shared/Avatar'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { SkillsInput } from '@/components/shared/SkillsInput'
 import { SocialsSection } from '@/components/shared/SocialsSection'
+import { useI18n } from '@/i18n'
 
 type FormValues = {
   fullName: string
@@ -18,6 +19,7 @@ type FormValues = {
 export function ProfilePage() {
   const { user, setUser } = useAuthStore()
   const queryClient = useQueryClient()
+  const { t } = useI18n()
 
   const [skills, setSkills] = useState<string[]>([])
   const [successMsg, setSuccessMsg] = useState('')
@@ -63,7 +65,7 @@ export function ProfilePage() {
     onSuccess: (res) => {
       setUser(res.data.data)
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] })
-      setSuccessMsg('Профіль успішно оновлено')
+      setSuccessMsg(t.profile.successUpdate)
       setTimeout(() => setSuccessMsg(''), 3000)
     },
   })
@@ -86,10 +88,10 @@ export function ProfilePage() {
   }
 
   const roleLabel: Record<string, string> = {
-    admin: 'Адміністратор',
-    mentor: 'Ментор',
-    judge: 'Суддя',
-    participant: 'Учасник',
+    admin: t.adminUsers.roles.admin,
+    mentor: t.adminUsers.roles.mentor,
+    judge: t.adminUsers.roles.judge,
+    participant: t.adminUsers.roles.participant,
   }
 
   const roleBadgeColor: Record<string, string> = {
@@ -103,9 +105,9 @@ export function ProfilePage() {
     <div className="max-w-3xl mx-auto space-y-6 animate-fade-in pb-12">
       {/* Header */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Мій профіль</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{t.profile.title}</h1>
         <p className="mt-2 text-muted-foreground">
-          Керуйте своїми особистими даними та налаштуваннями.
+          {t.profile.subtitle}
         </p>
       </div>
 
@@ -136,7 +138,7 @@ export function ProfilePage() {
           {/* Fields */}
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">ПІБ</label>
+              <label className="text-sm font-medium">{t.profile.fullNameLabel}</label>
               <input
                 {...register('fullName')}
                 type="text"
@@ -144,7 +146,7 @@ export function ProfilePage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Email (не змінюється)</label>
+              <label className="text-sm font-medium">{t.profile.emailLabel}</label>
               <input
                 type="email"
                 value={user.email}
@@ -155,20 +157,20 @@ export function ProfilePage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Про себе</label>
+            <label className="text-sm font-medium">{t.profile.bio}</label>
             <textarea
               {...register('description')}
               rows={3}
-              placeholder="Розкажіть трохи про свій досвід та інтереси..."
+              placeholder={t.profile.bioPlaceholder}
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all resize-none"
             />
           </div>
 
           {/* Skills (participants and all roles) */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Навички</label>
+            <label className="text-sm font-medium">{t.profile.skills}</label>
             <p className="text-xs text-muted-foreground">
-              Введіть навичку та натисніть Enter або кому щоб додати (макс. 20)
+              {t.profile.skillsDesc}
             </p>
             <SkillsInput value={skills} onChange={setSkills} />
           </div>
@@ -177,9 +179,9 @@ export function ProfilePage() {
           {(isParticipant || user.role === 'admin') && (
             <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 p-4">
               <div className="space-y-0.5">
-                <label className="text-sm font-medium">Шукаю команду</label>
+                <label className="text-sm font-medium">{t.profile.lookingForTeam}</label>
                 <p className="text-xs text-muted-foreground">
-                  Ваш профіль буде видно іншим учасникам при пошуку
+                  {t.profile.lookingForTeamDesc}
                 </p>
               </div>
               <label className="relative inline-flex cursor-pointer items-center">
@@ -204,7 +206,7 @@ export function ProfilePage() {
               disabled={updateMut.isPending}
               className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
-              {updateMut.isPending ? <LoadingSpinner size="sm" /> : 'Зберегти зміни'}
+              {updateMut.isPending ? <LoadingSpinner size="sm" /> : t.profile.saveChanges}
             </button>
           </div>
         </form>
@@ -217,14 +219,14 @@ export function ProfilePage() {
       {isMentor && (
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
           <div>
-            <h3 className="text-lg font-bold">Моя експертиза</h3>
+            <h3 className="text-lg font-bold">{t.profile.myExpertise}</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              Треки, у яких ви зареєстрували доступність для менторства
+              {t.profile.expertiseDesc}
             </p>
           </div>
           {expertiseTracks.length === 0 ? (
             <div className="rounded-lg bg-muted/30 border border-border py-6 text-center text-sm text-muted-foreground">
-              Ви ще не додали жодного специфічного треку до свого розкладу.
+              {t.profile.noExpertise}
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
@@ -245,9 +247,9 @@ export function ProfilePage() {
       {isJudge && (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-6 shadow-sm space-y-4">
           <div>
-            <h3 className="text-lg font-bold text-amber-700 dark:text-amber-400">Роль судді</h3>
+            <h3 className="text-lg font-bold text-amber-700 dark:text-amber-400">{t.profile.judgeRoleTitle}</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              Ви призначені суддею. Переходьте до відповідного розділу для оцінювання проєктів.
+              {t.profile.judgeRoleDesc}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -266,7 +268,7 @@ export function ProfilePage() {
       {/* Teams participated */}
       {user.teams && user.teams.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
-          <h3 className="text-lg font-bold">Мої команди</h3>
+          <h3 className="text-lg font-bold">{t.profile.myTeams}</h3>
           <ul className="space-y-2">
             {user.teams.map((t) => (
               <li

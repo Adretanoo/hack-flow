@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { hackathonsApi } from '@/api/hackathons'
 import { Plus, Trash2, Check, X, Pencil } from 'lucide-react'
 import MDEditor from '@uiw/react-md-editor'
 import { toast } from 'sonner'
+import { useI18n } from '@/i18n'
 import type { Track } from '@/types/api.types'
 import { inputCls } from './FormSection'
 
@@ -23,15 +24,25 @@ interface TrackFormProps {
   onSave: () => void
   onCancel: () => void
   isSaving: boolean
+  lang: string
+  t: any
 }
 
-function TrackForm({ name, setName, guidelines, setGuidelines, onSave, onCancel, isSaving }: TrackFormProps) {
+function TrackForm({ name, setName, guidelines, setGuidelines, onSave, onCancel, isSaving, lang, t }: TrackFormProps) {
+  const mdeditorPlaceholder = useMemo(() => {
+    return lang === 'uk'
+      ? `# Завдання\n\nОпишіть задачу для команд...\n\n## Дозволені технології\n- React, Python, Node.js...\n\n## Зображення\n![Назва](https://example.com/image.png)\n\n## Очікуваний результат\nMVP із демо та презентацією.`
+      : `# Task\n\nDescribe the task for teams...\n\n## Allowed Technologies\n- React, Python, Node.js...\n\n## Images\n![Caption](https://example.com/image.png)\n\n## Expected Output\nMVP with demo and presentation.`
+  }, [lang])
+
   return (
     <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4" data-color-mode="light">
       <div>
-        <label className="block text-xs font-medium mb-1">Назва треку *</label>
+        <label className="block text-xs font-medium mb-1">
+          {lang === 'uk' ? 'Назва треку *' : 'Track name *'}
+        </label>
         <input
-          placeholder="Наприклад: AI / Web3 / EdTech"
+          placeholder={lang === 'uk' ? 'Наприклад: AI / Web3 / EdTech' : 'e.g. AI / Web3 / EdTech'}
           value={name}
           onChange={(e) => setName(e.target.value)}
           className={inputCls}
@@ -40,9 +51,11 @@ function TrackForm({ name, setName, guidelines, setGuidelines, onSave, onCancel,
 
       <div>
         <label className="block text-xs font-medium mb-1">
-          Мануал треку{' '}
-          <span className="text-muted-foreground font-normal">
-            — Markdown: **жирний**, *курсив*, ## заголовки, - списки, ![alt](url) зображення
+          {lang === 'uk' ? 'Мануал треку' : 'Track manual'}{' '}
+          <span className="text-muted-foreground font-normal text-[10px]">
+            {lang === 'uk' 
+              ? '— Markdown: **жирний**, *курсив*, ## заголовки, - списки, ![alt](url) зображення' 
+              : '— Markdown: **bold**, *italic*, ## headings, - lists, ![alt](url) images'}
           </span>
         </label>
         <MDEditor
@@ -52,7 +65,7 @@ function TrackForm({ name, setName, guidelines, setGuidelines, onSave, onCancel,
           preview="live"
           style={{ borderRadius: '0.5rem', overflow: 'hidden' }}
           textareaProps={{
-            placeholder: `# Завдання\n\nОпишіть задачу для команд...\n\n## Дозволені технології\n- React, Python, Node.js...\n\n## Зображення\n![Назва](https://example.com/image.png)\n\n## Очікуваний результат\nMVP із демо та презентацією.`,
+            placeholder: mdeditorPlaceholder,
           }}
         />
       </div>
@@ -64,14 +77,14 @@ function TrackForm({ name, setName, guidelines, setGuidelines, onSave, onCancel,
           disabled={!name.trim() || isSaving}
           className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
         >
-          <Check className="h-3.5 w-3.5" /> {isSaving ? 'Збереження...' : 'Зберегти'}
+          <Check className="h-3.5 w-3.5" /> {isSaving ? (lang === 'uk' ? 'Збереження...' : 'Saving...') : t('actions.save')}
         </button>
         <button
           type="button"
           onClick={onCancel}
           className="flex items-center gap-1.5 rounded-lg border border-border px-4 py-1.5 text-xs hover:bg-accent"
         >
-          <X className="h-3.5 w-3.5" /> Скасувати
+          <X className="h-3.5 w-3.5" /> {t('actions.cancel')}
         </button>
       </div>
     </div>
@@ -80,6 +93,7 @@ function TrackForm({ name, setName, guidelines, setGuidelines, onSave, onCancel,
 
 export function TracksSection({ hackathonId, tracks: initialTracks = [], mode = 'edit', onChange }: TracksSectionProps) {
   const qc = useQueryClient()
+  const { t, lang } = useI18n()
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -102,12 +116,12 @@ export function TracksSection({ hackathonId, tracks: initialTracks = [], mode = 
       guidelines: guidelines?.trim() || undefined,
     }),
     onSuccess: () => {
-      toast.success('Трек додано')
+      toast.success(lang === 'uk' ? 'Трек додано' : 'Track added')
       qc.invalidateQueries({ queryKey: ['tracks', hackathonId] })
       qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
       setAdding(false); resetForm()
     },
-    onError: () => toast.error('Помилка при створенні треку'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при створенні треку' : 'Error creating track'),
   })
 
   const updateMut = useMutation({
@@ -116,22 +130,22 @@ export function TracksSection({ hackathonId, tracks: initialTracks = [], mode = 
       guidelines: guidelines?.trim() || undefined,
     }),
     onSuccess: () => {
-      toast.success('Трек оновлено')
+      toast.success(lang === 'uk' ? 'Трек оновлено' : 'Track updated')
       qc.invalidateQueries({ queryKey: ['tracks', hackathonId] })
       qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
       setEditingId(null)
     },
-    onError: () => toast.error('Помилка при оновленні треку'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при оновленні треку' : 'Error updating track'),
   })
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => hackathonsApi.deleteTrack(id),
     onSuccess: () => {
-      toast.success('Трек видалено')
+      toast.success(lang === 'uk' ? 'Трек видалено' : 'Track deleted')
       qc.invalidateQueries({ queryKey: ['tracks', hackathonId] })
       qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
     },
-    onError: () => toast.error('Помилка при видаленні'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при видаленні' : 'Error deleting track'),
   })
 
   const handleSaveAdd = () => {
@@ -178,38 +192,42 @@ export function TracksSection({ hackathonId, tracks: initialTracks = [], mode = 
   return (
     <div className="space-y-2">
       {tracks.length === 0 && !adding && (
-        <p className="text-sm text-muted-foreground italic">Треків ще немає.</p>
+        <p className="text-sm text-muted-foreground italic">
+          {lang === 'uk' ? 'Треків ще немає.' : 'No tracks yet.'}
+        </p>
       )}
 
-      {tracks.map((t) => (
-        <div key={t.id} className="rounded-lg border border-border bg-background overflow-hidden">
-          {editingId === t.id ? (
+      {tracks.map((track) => (
+        <div key={track.id} className="rounded-lg border border-border bg-background overflow-hidden">
+          {editingId === track.id ? (
             <div className="p-3">
               <TrackForm
                 name={name}
                 setName={setName}
                 guidelines={guidelines}
                 setGuidelines={setGuidelines}
-                onSave={() => handleSaveEdit(t)}
+                onSave={() => handleSaveEdit(track)}
                 onCancel={handleCancel}
                 isSaving={updateMut.isPending}
+                lang={lang}
+                t={t}
               />
             </div>
           ) : (
             <div className="flex items-center justify-between px-3 py-2.5">
               <div className="min-w-0">
-                <p className="text-sm font-medium">{t.name}</p>
-                {(t as any).guidelines && (
+                <p className="text-sm font-medium">{track.name}</p>
+                {(track as any).guidelines && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    📝 {(t as any).guidelines.slice(0, 70)}{(t as any).guidelines.length > 70 ? '…' : ''}
+                    📝 {(track as any).guidelines.slice(0, 70)}{(track as any).guidelines.length > 70 ? '…' : ''}
                   </p>
                 )}
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                <button type="button" className="rounded-md p-1.5 hover:bg-accent transition-colors" onClick={() => handleEdit(t)}>
+                <button type="button" className="rounded-md p-1.5 hover:bg-accent transition-colors" onClick={() => handleEdit(track)}>
                   <Pencil className="h-4 w-4 text-muted-foreground" />
                 </button>
-                <button type="button" className="rounded-md p-1.5 hover:bg-destructive/10 transition-colors" onClick={() => handleDelete(t.id)}>
+                <button type="button" className="rounded-md p-1.5 hover:bg-destructive/10 transition-colors" onClick={() => handleDelete(track.id)}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </button>
               </div>
@@ -227,6 +245,8 @@ export function TracksSection({ hackathonId, tracks: initialTracks = [], mode = 
           onSave={handleSaveAdd}
           onCancel={handleCancel}
           isSaving={createMut.isPending}
+          lang={lang}
+          t={t}
         />
       ) : !editingId && (
         <button
@@ -234,7 +254,7 @@ export function TracksSection({ hackathonId, tracks: initialTracks = [], mode = 
           onClick={() => { setAdding(true); setEditingId(null); resetForm() }}
           className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors w-full"
         >
-          <Plus className="h-4 w-4" /> Додати трек
+          <Plus className="h-4 w-4" /> {lang === 'uk' ? 'Додати трек' : 'Add track'}
         </button>
       )}
     </div>

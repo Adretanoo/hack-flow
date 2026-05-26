@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { teamsApi } from '@/api/teams'
@@ -14,19 +14,12 @@ import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import type { Team } from '@/types/api.types'
 import type { Column } from '@/components/shared/DataTable'
-
-const STATUS_TABS = [
-  { value: '',             label: 'Всі' },
-  { value: 'PENDING',      label: 'Очікують' },
-  { value: 'APPROVED',     label: 'Схвалені' },
-  { value: 'REJECTED',     label: 'Відхилені' },
-  { value: 'DISQUALIFIED', label: 'Дискваліф.' },
-]
-
+import { useI18n } from '@/i18n'
 import { usePageTitle } from '@/hooks/usePageTitle'
 
 export function TeamsListPage() {
-  usePageTitle('Команди')
+  const { t, lang } = useI18n()
+  usePageTitle(t.adminTeams.title)
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { page, limit, setPage } = usePagination(10)
@@ -66,11 +59,11 @@ export function TeamsListPage() {
     mutationFn: ({ id, status, comment }: { id: string; status: string; comment?: string }) =>
       teamsApi.updateApproval(id, { status, comment }),
     onSuccess: () => {
-      toast.success('Статус оновлено')
+      toast.success(lang === 'uk' ? 'Статус оновлено' : 'Status updated')
       qc.invalidateQueries({ queryKey: ['teams'] })
       setRejectTarget(null)
     },
-    onError: () => toast.error('Помилка при оновленні'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при оновленні' : 'Error updating status'),
   })
 
   const bulkMut = useMutation({
@@ -78,11 +71,11 @@ export function TeamsListPage() {
       await Promise.all(selectedIds.map((id) => teamsApi.updateApproval(id, { status })))
     },
     onSuccess: () => {
-      toast.success('Статуси оновлено')
+      toast.success(lang === 'uk' ? 'Статуси оновлено' : 'Statuses updated')
       qc.invalidateQueries({ queryKey: ['teams'] })
       setSelectedIds([])
     },
-    onError: () => toast.error('Помилка при масовому оновленні'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при масовому оновленні' : 'Error bulk updating statuses'),
   })
 
   const rawTeams = (data?.data.data ?? []) as Team[]
@@ -105,6 +98,26 @@ export function TeamsListPage() {
   const toggleAll = () =>
     setSelectedIds(selectedIds.length === teams.length ? [] : teams.map((t) => t.id))
 
+  const statusTabs = useMemo(() => [
+    { value: '',             label: t.states.all },
+    { value: 'PENDING',      label: t.states.pending },
+    { value: 'APPROVED',     label: t.states.approved },
+    { value: 'REJECTED',     label: t.states.rejected },
+    { value: 'DISQUALIFIED', label: lang === 'uk' ? 'Дискваліф.' : 'Disqual.' },
+  ], [t, lang])
+
+  const getPendingAlertLabel = (n: number) => {
+    if (lang === 'uk') {
+      const lastDigit = n % 10;
+      const lastTwo = n % 100;
+      if (lastTwo >= 11 && lastTwo <= 19) return `${n} команд очікують затвердження`;
+      if (lastDigit === 1) return `${n} команда очікує затвердження`;
+      if (lastDigit >= 2 && lastDigit <= 4) return `${n} команди очікують затвердження`;
+      return `${n} команд очікують затвердження`;
+    }
+    return `${n} ${n === 1 ? 'team is' : 'teams are'} pending approval`;
+  }
+
   const columns: Column<Team>[] = [
     {
       key: 'check',
@@ -113,79 +126,79 @@ export function TeamsListPage() {
           onChange={toggleAll} className="h-4 w-4 accent-primary" />
       ) as unknown as string,
       className: 'w-10',
-      render: (t) => (
-        <input type="checkbox" checked={selectedIds.includes(t.id)}
-          onChange={() => toggleSelect(t.id)} className="h-4 w-4 accent-primary" />
+      render: (teamItem) => (
+        <input type="checkbox" checked={selectedIds.includes(teamItem.id)}
+          onChange={() => toggleSelect(teamItem.id)} className="h-4 w-4 accent-primary" />
       ),
     },
     {
       key: 'logo',
       header: '',
       className: 'w-10',
-      render: (t) => t.logo
-        ? <img src={t.logo} className="h-8 w-8 rounded-full object-cover" alt="" />
-        : <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">{t.name[0]?.toUpperCase()}</div>,
+      render: (teamItem) => teamItem.logo
+        ? <img src={teamItem.logo} className="h-8 w-8 rounded-full object-cover" alt="" />
+        : <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">{teamItem.name[0]?.toUpperCase()}</div>,
     },
     {
       key: 'name',
-      header: 'Команда',
-      render: (t) => <span className="font-medium">{t.name}</span>,
+      header: t.adminTeams.title,
+      render: (teamItem) => <span className="font-medium">{teamItem.name}</span>,
     },
     {
       key: 'hackathon',
-      header: 'Хакатон',
-      render: (t) => <span className="text-sm text-muted-foreground">{(t.hackathon as { title?: string } | undefined)?.title ?? '—'}</span>,
+      header: t.adminTeams.hackathon,
+      render: (teamItem) => <span className="text-sm text-muted-foreground">{(teamItem.hackathon as { title?: string } | undefined)?.title ?? '—'}</span>,
     },
     {
       key: 'track',
-      header: 'Трек',
-      render: (t) => <span className="text-sm text-muted-foreground">{(t.track as { name?: string } | null)?.name ?? '—'}</span>,
+      header: t.adminTeams.track,
+      render: (teamItem) => <span className="text-sm text-muted-foreground">{(teamItem.track as { name?: string } | null)?.name ?? '—'}</span>,
     },
     {
       key: 'status',
-      header: 'Статус',
-      render: (t) => (
+      header: t.adminTeams.status,
+      render: (teamItem) => (
         <select
-          value={t.approvalStatus}
+          value={teamItem.approvalStatus}
           onChange={(e) => {
             if (e.target.value === 'REJECTED') {
-              setRejectTarget(t.id)
+              setRejectTarget(teamItem.id)
             } else {
-              approvalMut.mutate({ id: t.id, status: e.target.value as 'APPROVED' | 'PENDING' | 'DISQUALIFIED' })
+              approvalMut.mutate({ id: teamItem.id, status: e.target.value as 'APPROVED' | 'PENDING' | 'DISQUALIFIED' })
             }
           }}
           disabled={approvalMut.isPending}
           className="text-xs font-semibold px-2.5 py-1 rounded-full border border-border bg-background outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
           style={{
-            backgroundColor: t.approvalStatus === 'APPROVED' ? 'var(--green-50, #f0fdf4)' : t.approvalStatus === 'REJECTED' ? 'var(--red-50, #fef2f2)' : t.approvalStatus === 'DISQUALIFIED' ? 'var(--neutral-100, #f5f5f5)' : 'var(--amber-50, #fffbeb)',
-            color: t.approvalStatus === 'APPROVED' ? 'var(--green-700, #15803d)' : t.approvalStatus === 'REJECTED' ? 'var(--red-700, #b91c1c)' : t.approvalStatus === 'DISQUALIFIED' ? 'var(--neutral-600, #525252)' : 'var(--amber-700, #b45309)'
+            backgroundColor: teamItem.approvalStatus === 'APPROVED' ? 'var(--green-50, #f0fdf4)' : teamItem.approvalStatus === 'REJECTED' ? 'var(--red-50, #fef2f2)' : teamItem.approvalStatus === 'DISQUALIFIED' ? 'var(--neutral-100, #f5f5f5)' : 'var(--amber-50, #fffbeb)',
+            color: teamItem.approvalStatus === 'APPROVED' ? 'var(--green-700, #15803d)' : teamItem.approvalStatus === 'REJECTED' ? 'var(--red-700, #b91c1c)' : teamItem.approvalStatus === 'DISQUALIFIED' ? 'var(--neutral-600, #525252)' : 'var(--amber-700, #b45309)'
           }}
         >
-          <option value="PENDING">Очікує</option>
-          <option value="APPROVED">Схвалено</option>
-          <option value="REJECTED">Відхилено</option>
-          <option value="DISQUALIFIED">Дискваліфіковано</option>
+          <option value="PENDING">{t.states.pending}</option>
+          <option value="APPROVED">{t.states.approved}</option>
+          <option value="REJECTED">{t.states.rejected}</option>
+          <option value="DISQUALIFIED">{lang === 'uk' ? 'Дискваліфіковано' : 'Disqualified'}</option>
         </select>
       ),
     },
     {
       key: 'members',
-      header: 'Учасники',
-      render: (t) => <span className="text-sm text-muted-foreground">{t._count?.members ?? '—'}</span>,
+      header: t.adminTeams.members,
+      render: (teamItem) => <span className="text-sm text-muted-foreground">{teamItem._count?.members ?? '—'}</span>,
     },
     {
       key: 'createdAt',
-      header: 'Дата',
-      render: (t) => <span className="text-xs text-muted-foreground">{formatDate(t.createdAt)}</span>,
+      header: lang === 'uk' ? 'Дата' : 'Date',
+      render: (teamItem) => <span className="text-xs text-muted-foreground">{formatDate(teamItem.createdAt, lang)}</span>,
     },
     {
       key: 'actions',
       header: '',
       className: 'w-28',
-      render: (t) => (
+      render: (teamItem) => (
         <div className="flex items-center gap-1 justify-end">
-          <button title="Переглянути" className="rounded-md p-1.5 hover:bg-accent"
-            onClick={() => navigate(`/teams/${t.id}`)}>
+          <button title={t.adminTeams.view} className="rounded-md p-1.5 hover:bg-accent"
+            onClick={() => navigate(`/teams/${teamItem.id}`)}>
             <Eye className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
@@ -196,8 +209,8 @@ export function TeamsListPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       <div>
-        <h2 className="text-2xl font-bold">Команди</h2>
-        <p className="text-sm text-muted-foreground">Управління командами та їхнім затвердженням</p>
+        <h2 className="text-2xl font-bold">{t.adminTeams.title}</h2>
+        <p className="text-sm text-muted-foreground">{lang === 'uk' ? 'Управління командами та їхнім затвердженням' : 'Manage teams and their approvals'}</p>
       </div>
 
       {/* Pending alert */}
@@ -208,17 +221,19 @@ export function TeamsListPage() {
           </div>
           <div className="flex-1">
             <p className="text-sm font-semibold text-amber-800">
-              {pendingCount} {pendingCount === 1 ? 'команда очікує' : pendingCount < 5 ? 'команди очікують' : 'команд очікують'} затвердження
+              {getPendingAlertLabel(pendingCount)}
             </p>
             <p className="text-xs text-amber-700 mt-0.5">
-              Команди що змінили назву, опис або трек автоматично переходять у статус «Очікує».
+              {lang === 'uk' 
+                ? 'Команди що змінили назву, опис або трек автоматично переходять у статус «Очікує».' 
+                : 'Teams that changed their name, description, or track automatically switch to "Pending" status.'}
             </p>
           </div>
           <button
             onClick={() => { setStatusFilter('PENDING'); setPage(1) }}
             className="shrink-0 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 transition-colors"
           >
-            Переглянути
+            {t.adminTeams.view}
           </button>
         </div>
       )}
@@ -227,27 +242,27 @@ export function TeamsListPage() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-            placeholder="Пошук за назвою…"
+            placeholder={lang === 'uk' ? 'Пошук за назвою…' : 'Search by name...'}
             className="pl-9 pr-3 py-2 text-sm rounded-lg border border-input bg-background outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 w-56" />
         </div>
 
         <select value={hackathonId} onChange={(e) => { setHackathonId(e.target.value); setTrackId(''); setPage(1) }}
           className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring">
-          <option value="">Всі хакатони</option>
+          <option value="">{lang === 'uk' ? 'Всі хакатони' : 'All Hackathons'}</option>
           {hackathons.map((h) => <option key={h.id} value={h.id}>{h.title}</option>)}
         </select>
 
         {tracks.length > 0 && (
           <select value={trackId} onChange={(e) => { setTrackId(e.target.value); setPage(1) }}
             className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring">
-            <option value="">Всі треки</option>
+            <option value="">{lang === 'uk' ? 'Всі треки' : 'All Tracks'}</option>
             {tracks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         )}
 
         {/* Status tabs */}
         <div className="flex rounded-lg border border-border overflow-hidden">
-          {STATUS_TABS.map((tab) => (
+          {statusTabs.map((tab) => (
             <button key={tab.value} onClick={() => { setStatusFilter(tab.value); setPage(1) }}
               className={clsx('px-3 py-2 text-sm font-medium transition-colors',
                 statusFilter === tab.value ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-accent')}>
@@ -259,7 +274,6 @@ export function TeamsListPage() {
 
       {/* Table with PENDING highlight */}
       <div>
-
         <DataTable
           columns={columns}
           data={teams}
@@ -268,8 +282,8 @@ export function TeamsListPage() {
           page={page}
           limit={limit}
           onPageChange={setPage}
-          emptyTitle="Команд не знайдено за вашим фільтром"
-          emptyDescription="Спробуйте змінити фільтри або почекати на нові заявки."
+          emptyTitle={lang === 'uk' ? 'Команд не знайдено за вашим фільтром' : 'No teams found for your filter'}
+          emptyDescription={t.shared.emptyState.defaultDesc}
           rowClassName={(t: Team) => t.approvalStatus === 'PENDING' ? 'border-l-2 border-l-amber-400' : ''}
         />
       </div>
@@ -284,9 +298,9 @@ export function TeamsListPage() {
 
       <ConfirmDialog
         open={!!rejectTarget}
-        title="Відхилити команду?"
-        description="Команда отримає статус REJECTED. Ви можете змінити це пізніше на сторінці деталей."
-        confirmLabel="Відхилити"
+        title={lang === 'uk' ? 'Відхилити команду?' : 'Reject team?'}
+        description={lang === 'uk' ? 'Команда отримає статус REJECTED. Ви можете змінити це пізніше на сторінці деталей.' : 'The team will be set to REJECTED. You can change this later on the details page.'}
+        confirmLabel={t.adminTeams.reject}
         onConfirm={() => rejectTarget && approvalMut.mutate({ id: rejectTarget, status: 'REJECTED' })}
         onCancel={() => setRejectTarget(null)}
       />

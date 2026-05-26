@@ -4,6 +4,7 @@ import { hackathonsApi } from '@/api/hackathons'
 import { Plus, Trash2, Check, X, Pencil, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/utils/format'
+import { useI18n } from '@/i18n'
 import type { Stage, StageType } from '@/types/api.types'
 import { clsx } from 'clsx'
 import { inputCls } from './FormSection'
@@ -26,14 +27,16 @@ const STAGE_COLORS = [
 ]
 
 // ── Stage type options ─────────────────────────────────────────────────────
-export const STAGE_TYPE_OPTIONS: { value: StageType; label: string; description: string }[] = [
-  { value: 'REGISTRATION', label: 'Реєстрація', description: 'Команди реєструються та подають заявки' },
-  { value: 'HACKING', label: 'Хакінг', description: 'Активна фаза розробки, подача проєктів' },
-  { value: 'PRESENTATION', label: 'Презентація', description: 'Команди представляють свої рішення' },
-  { value: 'JUDGING', label: 'Суддівство', description: 'Судді оцінюють проєкти' },
-  { value: 'FINISHED', label: 'Завершено', description: 'Хакатон завершено, результати оголошено' },
-  { value: 'CUSTOM', label: 'Кастомна', description: 'Інша фаза — без спеціальних прав' },
-]
+export function getStageTypeOptions(lang: string) {
+  return [
+    { value: 'REGISTRATION' as StageType, label: lang === 'uk' ? 'Реєстрація' : 'Registration', description: lang === 'uk' ? 'Команди реєструються та подають заявки' : 'Teams register and apply' },
+    { value: 'HACKING' as StageType, label: lang === 'uk' ? 'Хакінг' : 'Hacking', description: lang === 'uk' ? 'Активна фаза розробки, подача проєктів' : 'Active coding phase, project submission' },
+    { value: 'PRESENTATION' as StageType, label: lang === 'uk' ? 'Презентація' : 'Presentation', description: lang === 'uk' ? 'Команди представляють свої рішення' : 'Teams present their solutions' },
+    { value: 'JUDGING' as StageType, label: lang === 'uk' ? 'Суддівство' : 'Judging', description: lang === 'uk' ? 'Судді оцінюють проєкти' : 'Judges evaluate projects' },
+    { value: 'FINISHED' as StageType, label: lang === 'uk' ? 'Завершено' : 'Finished', description: lang === 'uk' ? 'Хакатон завершено, результати оголошено' : 'Hackathon completed, results announced' },
+    { value: 'CUSTOM' as StageType, label: lang === 'uk' ? 'Кастомна' : 'Custom', description: lang === 'uk' ? 'Інша фаза — без спеціальних прав' : 'Other phase — no special rights' },
+  ]
+}
 
 const STAGE_TYPE_COLORS: Record<StageType, string> = {
   REGISTRATION: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -57,27 +60,32 @@ function toDatetimeLocal(iso?: string | Date | null): string {
 type FormState = typeof emptyForm
 
 // ── Stage form fields ─ declared OUTSIDE parent to prevent focus loss on re-render ──
-function StageFormFields({ form, setForm }: { form: FormState; setForm: (f: FormState) => void }) {
+function StageFormFields({ form, setForm, lang }: { form: FormState; setForm: (f: FormState) => void; lang: string }) {
+  const options = getStageTypeOptions(lang)
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Назва *</label>
+          <label className="text-xs text-muted-foreground mb-1 block">
+            {lang === 'uk' ? 'Назва *' : 'Name *'}
+          </label>
           <input
-            placeholder="напр. Перший хакінг"
+            placeholder={lang === 'uk' ? 'напр. Перший хакінг' : 'e.g. First hacking'}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             className={inputCls}
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Тип стадії *</label>
+          <label className="text-xs text-muted-foreground mb-1 block">
+            {lang === 'uk' ? 'Тип стадії *' : 'Stage type *'}
+          </label>
           <select
             value={form.type}
             onChange={(e) => setForm({ ...form, type: e.target.value as StageType })}
             className={inputCls}
           >
-            {STAGE_TYPE_OPTIONS.map(opt => (
+            {options.map(opt => (
               <option key={opt.value} value={opt.value}>
                 {opt.label} — {opt.description}
               </option>
@@ -87,7 +95,9 @@ function StageFormFields({ form, setForm }: { form: FormState; setForm: (f: Form
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Порядок *</label>
+          <label className="text-xs text-muted-foreground mb-1 block">
+            {lang === 'uk' ? 'Порядок *' : 'Order *'}
+          </label>
           <input
             type="number"
             placeholder="#"
@@ -97,7 +107,9 @@ function StageFormFields({ form, setForm }: { form: FormState; setForm: (f: Form
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Початок *</label>
+          <label className="text-xs text-muted-foreground mb-1 block">
+            {lang === 'uk' ? 'Початок *' : 'Start *'}
+          </label>
           <input
             type="datetime-local"
             value={form.startDate}
@@ -106,7 +118,9 @@ function StageFormFields({ form, setForm }: { form: FormState; setForm: (f: Form
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Завершення *</label>
+          <label className="text-xs text-muted-foreground mb-1 block">
+            {lang === 'uk' ? 'Завершення *' : 'End *'}
+          </label>
           <input
             type="datetime-local"
             value={form.endDate}
@@ -117,11 +131,20 @@ function StageFormFields({ form, setForm }: { form: FormState; setForm: (f: Form
       </div>
       <div>
         <label className="text-xs text-muted-foreground mb-1 block">
-          Завдання <span className="font-normal">(видно учасникам тільки під час активного етапу — не розкривайте наперед!)</span>
+          {lang === 'uk' ? 'Завдання' : 'Task'}{' '}
+          <span className="font-normal">
+            {lang === 'uk'
+              ? '(видно учасникам тільки під час активного етапу — не розкривайте наперед!)'
+              : '(visible to participants only during the active phase — do not reveal beforehand!)'}
+          </span>
         </label>
         <textarea
           rows={3}
-          placeholder="Наприклад: Розробіть MVP та підготуйте демо. Подайте репозиторій до завершення етапу."
+          placeholder={
+            lang === 'uk'
+              ? 'Наприклад: Розробіть MVP та підготуйте демо. Подайте репозиторій до завершення етапу.'
+              : 'e.g. Build an MVP and prepare a demo. Submit the repository before the phase ends.'
+          }
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
           className={inputCls + ' resize-none'}
@@ -133,6 +156,7 @@ function StageFormFields({ form, setForm }: { form: FormState; setForm: (f: Form
 
 export function StagesSection({ hackathonId, stages: initialStages = [], hackathonStart, hackathonEnd, mode = 'edit', onChange }: StagesSectionProps) {
   const qc = useQueryClient()
+  const { lang } = useI18n()
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -161,13 +185,13 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
         description: form.description.trim() || undefined,
       }),
     onSuccess: () => {
-      toast.success('Стадію додано')
+      toast.success(lang === 'uk' ? 'Стадію додано' : 'Stage added')
       qc.invalidateQueries({ queryKey: ['stages', hackathonId] })
       qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
       setAdding(false)
       setForm({ ...emptyForm, orderIndex: String(sorted.length + 2) })
     },
-    onError: () => toast.error('Помилка при створенні стадії'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при створенні стадії' : 'Error creating stage'),
   })
 
   const updateMut = useMutation({
@@ -181,22 +205,22 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
         description: (data as any).description?.trim() || undefined,
       }),
     onSuccess: () => {
-      toast.success('Стадію оновлено')
+      toast.success(lang === 'uk' ? 'Стадію оновлено' : 'Stage updated')
       qc.invalidateQueries({ queryKey: ['stages', hackathonId] })
       qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
       setEditingId(null)
     },
-    onError: () => toast.error('Помилка при оновленні стадії'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при оновленні стадії' : 'Error updating stage'),
   })
 
   const deleteMut = useMutation({
     mutationFn: (stageId: string) => hackathonsApi.deleteStage(stageId),
     onSuccess: () => {
-      toast.success('Стадію видалено')
+      toast.success(lang === 'uk' ? 'Стадію видалено' : 'Stage deleted')
       qc.invalidateQueries({ queryKey: ['stages', hackathonId] })
       qc.invalidateQueries({ queryKey: ['hackathon', hackathonId] })
     },
-    onError: () => toast.error('Помилка при видаленні'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при видаленні' : 'Error deleting stage'),
   })
 
   const notifyParent = (arr: Array<Stage & { id: string }>) => {
@@ -205,17 +229,17 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
 
   // ── Date range validation ─────────────────────────────────────────────────
   const validateStageDates = (f: FormState): string | null => {
-    if (!f.startDate || !f.endDate) return 'Дати початку та завершення обов\'язкові'
+    if (!f.startDate || !f.endDate) return lang === 'uk' ? 'Дати початку та завершення обов\'язкові' : 'Start and end dates are required'
     const start = new Date(f.startDate).getTime()
     const end   = new Date(f.endDate).getTime()
-    if (start >= end) return 'Дата початку має бути раніше дати завершення'
+    if (start >= end) return lang === 'uk' ? 'Дата початку має бути раніше дати завершення' : 'Start date must be before end date'
     if (hackathonStart) {
       const hStart = new Date(hackathonStart).getTime()
-      if (start < hStart) return `Початок стадії раніше старту хакатону (${formatDate(hackathonStart)})`
+      if (start < hStart) return lang === 'uk' ? `Початок стадії раніше старту хакатону (${formatDate(hackathonStart)})` : `Stage start is before hackathon start (${formatDate(hackathonStart)})`
     }
     if (hackathonEnd) {
       const hEnd = new Date(hackathonEnd).getTime()
-      if (end > hEnd) return `Завершення стадії пізніше кінця хакатону (${formatDate(hackathonEnd)})`
+      if (end > hEnd) return lang === 'uk' ? `Завершення стадії пізніше кінця хакатону (${formatDate(hackathonEnd)})` : `Stage end is after hackathon end (${formatDate(hackathonEnd)})`
     }
     return null
   }
@@ -314,7 +338,9 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
   return (
     <div className="space-y-4">
       {sorted.length === 0 && (
-        <p className="text-sm text-muted-foreground italic">Стадії ще не визначені.</p>
+        <p className="text-sm text-muted-foreground italic">
+          {lang === 'uk' ? 'Стадії ще не визначені.' : 'No stages defined yet.'}
+        </p>
       )}
 
       {/* Stage list */}
@@ -325,7 +351,8 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
           const nowMs = Date.now()
           const isActive = nowMs >= start && nowMs <= end
           const isPast = nowMs > end
-          const typeOpt = STAGE_TYPE_OPTIONS.find(o => o.value === stage.type)
+          const options = getStageTypeOptions(lang)
+          const typeOpt = options.find(o => o.value === stage.type)
           return (
             <div key={stage.id} className={clsx(
               'rounded-lg border px-4 py-3',
@@ -335,11 +362,11 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
                 <div className="space-y-3">
                   {(hackathonStart || hackathonEnd) && (
                     <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-1.5">
-                      📅 Допустимий діапазон хакатону:{' '}
+                      📅 {lang === 'uk' ? 'Допустимий діапазон хакатону: ' : 'Allowed hackathon range: '}{' '}
                       {hackathonStart && <strong>{formatDate(hackathonStart)}</strong>}{hackathonStart && hackathonEnd && ' — '}{hackathonEnd && <strong>{formatDate(hackathonEnd)}</strong>}
                     </p>
                   )}
-                  <StageFormFields form={form} setForm={setForm} />
+                  <StageFormFields form={form} setForm={setForm} lang={lang} />
                   {validationError && (
                     <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                       <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -350,11 +377,11 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
                     <button type="button" onClick={() => handleSaveEdit(stage.id)}
                       disabled={!form.name || !form.startDate || !form.endDate || updateMut.isPending}
                       className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
-                      <Check className="h-3.5 w-3.5" /> Зберегти
+                      <Check className="h-3.5 w-3.5" /> {lang === 'uk' ? 'Зберегти' : 'Save'}
                     </button>
                     <button type="button" onClick={handleCancel}
                       className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent">
-                      <X className="h-3.5 w-3.5" /> Скасувати
+                      <X className="h-3.5 w-3.5" /> {lang === 'uk' ? 'Скасувати' : 'Cancel'}
                     </button>
                   </div>
                 </div>
@@ -369,7 +396,7 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
                         </p>
                         {isActive && (
                           <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs text-primary font-normal">
-                            Зараз
+                            {lang === 'uk' ? 'Зараз' : 'Now'}
                           </span>
                         )}
                         {/* Type badge */}
@@ -488,11 +515,11 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
         <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4 mt-4">
           {(hackathonStart || hackathonEnd) && (
             <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-1.5">
-              📅 Стадія має бути в межах хакатону:{' '}
+              📅 {lang === 'uk' ? 'Стадія має бути в межах хакатону: ' : 'Stage must be within the hackathon range: '}{' '}
               {hackathonStart && <strong>{formatDate(hackathonStart)}</strong>}{hackathonStart && hackathonEnd && ' — '}{hackathonEnd && <strong>{formatDate(hackathonEnd)}</strong>}
             </p>
           )}
-          <StageFormFields form={form} setForm={setForm} />
+          <StageFormFields form={form} setForm={setForm} lang={lang} />
           {validationError && (
             <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
               <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -503,11 +530,11 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
             <button type="button" onClick={handleSaveAdd}
               disabled={!form.name || !form.startDate || !form.endDate || createMut.isPending}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
-              <Check className="h-3.5 w-3.5" /> Зберегти
+              <Check className="h-3.5 w-3.5" /> {lang === 'uk' ? 'Зберегти' : 'Save'}
             </button>
             <button type="button" onClick={handleCancel}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent">
-              <X className="h-3.5 w-3.5" /> Скасувати
+              <X className="h-3.5 w-3.5" /> {lang === 'uk' ? 'Скасувати' : 'Cancel'}
             </button>
           </div>
         </div>
@@ -518,7 +545,7 @@ export function StagesSection({ hackathonId, stages: initialStages = [], hackath
           setForm({ ...emptyForm, orderIndex: String(sorted.length + 2) })
         }}
           className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors w-full mt-4">
-          <Plus className="h-4 w-4" /> Додати стадію
+          <Plus className="h-4 w-4" /> {lang === 'uk' ? 'Додати стадію' : 'Add stage'}
         </button>
       )}
     </div>

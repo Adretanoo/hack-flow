@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { UserPlus, Crown, Trash2 } from 'lucide-react'
 import type { Track, UserProfile } from '@/types/api.types'
 import { clsx } from 'clsx'
+import { useI18n } from '@/i18n'
 
 interface JudgeTrackManagerProps {
   hackathonId: string
@@ -15,6 +16,7 @@ interface JudgeTrackManagerProps {
 
 export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
   const qc = useQueryClient()
+  const { t, lang } = useI18n()
   const [selectedUserId, setSelectedUserId] = useState('')
   const [selectedTrackId, setSelectedTrackId] = useState('')
   const [showAssignForm, setShowAssignForm] = useState(false)
@@ -52,12 +54,12 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
     mutationFn: (data: { userId: string; trackId: string; isHeadJudge?: boolean }) =>
       judgeTrackApi.assign(hackathonId, data),
     onSuccess: () => {
-      toast.success('Суддю призначено')
+      toast.success(lang === 'uk' ? 'Суддю призначено' : 'Judge assigned')
       qc.invalidateQueries({ queryKey: ['judgeAssignments', hackathonId] })
     },
     onError: (err: unknown) => {
       const e = err as { response?: { data?: { error?: { message?: string }; message?: string } } }
-      const msg = e.response?.data?.error?.message || e.response?.data?.message || 'Помилка при призначенні'
+      const msg = e.response?.data?.error?.message || e.response?.data?.message || (lang === 'uk' ? 'Помилка при призначенні' : 'Error assigning judge')
       toast.error(msg)
     },
   })
@@ -72,19 +74,19 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
       }
     },
     onSuccess: () => {
-      toast.success('Суддю призначено на всі треки')
+      toast.success(lang === 'uk' ? 'Суддю призначено на всі треки' : 'Judge assigned to all tracks')
       qc.invalidateQueries({ queryKey: ['judgeAssignments', hackathonId] })
     },
-    onError: () => toast.error('Помилка при масовому призначенні'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при масовому призначенні' : 'Error bulk assigning judge'),
   })
 
   const removeMut = useMutation({
     mutationFn: (id: string) => judgeTrackApi.remove(hackathonId, id),
     onSuccess: () => {
-      toast.success('Суддю знято')
+      toast.success(lang === 'uk' ? 'Суддю знято' : 'Judge unassigned')
       qc.invalidateQueries({ queryKey: ['judgeAssignments', hackathonId] })
     },
-    onError: () => toast.error('Помилка при знятті'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при знятті' : 'Error unassigning judge'),
   })
 
   const removeAllMut = useMutation({
@@ -95,10 +97,10 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
       }
     },
     onSuccess: () => {
-      toast.success('Суддю знято з усіх треків')
+      toast.success(lang === 'uk' ? 'Суддю знято з усіх треків' : 'Judge unassigned from all tracks')
       qc.invalidateQueries({ queryKey: ['judgeAssignments', hackathonId] })
     },
-    onError: () => toast.error('Помилка при видаленні'),
+    onError: () => toast.error(lang === 'uk' ? 'Помилка при видаленні' : 'Error deleting assignment'),
   })
 
   const toggleMut = useMutation({
@@ -123,17 +125,17 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
       {/* Matrix table */}
       {tracks.length === 0 ? (
         <p className="text-sm text-muted-foreground italic">
-          Треків ще немає. Додайте треки в налаштуваннях хакатону.
+          {lang === 'uk' ? 'Треків ще немає. Додайте треки в налаштуваннях хакатону.' : 'No tracks yet. Add tracks in hackathon settings.'}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Суддя</th>
-                {tracks.map((t) => (
-                  <th key={t.id} className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">
-                    {t.name}
+                <th className="px-4 py-3 text-left font-semibold text-muted-foreground">{lang === 'uk' ? 'Суддя' : 'Judge'}</th>
+                {tracks.map((tItem) => (
+                  <th key={tItem.id} className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">
+                    {tItem.name}
                   </th>
                 ))}
                 <th className="px-4 py-3 w-10" />
@@ -143,7 +145,7 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
               {judges.length === 0 ? (
                 <tr>
                   <td colSpan={tracks.length + 2} className="px-4 py-6 text-center text-sm text-muted-foreground">
-                    Суддів не призначено. Спочатку призначте роль судді користувачам.
+                    {lang === 'uk' ? 'Суддів не призначено. Спочатку призначте роль судді користувачам.' : 'No judges assigned yet. First assign the judge role to users.'}
                   </td>
                 </tr>
               ) : (
@@ -159,9 +161,9 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
                             <p className="text-xs text-muted-foreground">{j.email}</p>
                           </div>
                           <button
-                            title="Видалити суддю з усіх треків"
+                            title={lang === 'uk' ? 'Видалити суддю з усіх треків' : 'Remove judge from all tracks'}
                             onClick={() => {
-                              if (confirm(`Зняти суддю ${j.fullName} з усіх треків?`)) {
+                              if (confirm(lang === 'uk' ? `Зняти суддю ${j.fullName} з усіх треків?` : `Unassign judge ${j.fullName} from all tracks?`)) {
                                 removeAllMut.mutate(j.id)
                               }
                             }}
@@ -179,7 +181,7 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
                             <div className="flex flex-col items-center gap-1">
                               <button
                                 onClick={() => handleCellClick(j.id, track.id)}
-                                title={assigned ? 'Зняти' : 'Призначити'}
+                                title={assigned ? (lang === 'uk' ? 'Зняти' : 'Unassign') : (lang === 'uk' ? 'Призначити' : 'Assign')}
                                 className={clsx(
                                   'h-7 w-7 rounded-md border-2 transition-all',
                                   assigned
@@ -191,7 +193,7 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
                               </button>
                               {assigned && assignment && (
                                 <button
-                                  title={assignment.isHeadJudge ? 'Прибрати Head Judge' : 'Зробити Head Judge'}
+                                  title={assignment.isHeadJudge ? (lang === 'uk' ? 'Прибрати Головного суддю' : 'Remove Head Judge') : (lang === 'uk' ? 'Зробити Головним суддею' : 'Make Head Judge')}
                                   onClick={() => toggleMut.mutate({ id: assignment.id, isHeadJudge: !assignment.isHeadJudge })}
                                   className={clsx(
                                     'flex h-5 items-center gap-0.5 rounded px-1 text-[10px] transition-colors',
@@ -201,7 +203,7 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
                                   )}
                                 >
                                   <Crown className="h-3 w-3" />
-                                  {assignment.isHeadJudge ? 'Head' : ''}
+                                  {assignment.isHeadJudge ? (lang === 'uk' ? 'Головний' : 'Head') : ''}
                                 </button>
                               )}
                             </div>
@@ -226,7 +228,7 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
             onChange={(e) => setSelectedUserId(e.target.value)}
             className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring"
           >
-            <option value="">Обрати суддю…</option>
+            <option value="">{lang === 'uk' ? 'Обрати суддю…' : 'Select judge...'}</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>{u.fullName} ({u.email})</option>
             ))}
@@ -236,10 +238,10 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
             onChange={(e) => setSelectedTrackId(e.target.value)}
             className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring"
           >
-            <option value="">Обрати трек…</option>
-            <option value="ALL" className="font-semibold text-primary">Всі треки</option>
-            {tracks.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
+            <option value="">{lang === 'uk' ? 'Обрати трек…' : 'Select track...'}</option>
+            <option value="ALL" className="font-semibold text-primary">{lang === 'uk' ? 'Всі треки' : 'All tracks'}</option>
+            {tracks.map((tItem) => (
+              <option key={tItem.id} value={tItem.id}>{tItem.name}</option>
             ))}
           </select>
           <button
@@ -255,13 +257,13 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
             disabled={!selectedUserId || !selectedTrackId}
             className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
-            Призначити
+            {lang === 'uk' ? 'Призначити' : 'Assign'}
           </button>
           <button
             onClick={() => setShowAssignForm(false)}
             className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent"
           >
-            Скасувати
+            {t.actions.cancel}
           </button>
         </div>
       ) : (
@@ -269,7 +271,7 @@ export function JudgeTrackManager({ hackathonId }: JudgeTrackManagerProps) {
           onClick={() => setShowAssignForm(true)}
           className="flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
         >
-          <UserPlus className="h-4 w-4" /> Призначити суддю
+          <UserPlus className="h-4 w-4" /> {lang === 'uk' ? 'Призначити суддю' : 'Assign judge'}
         </button>
       )}
     </div>

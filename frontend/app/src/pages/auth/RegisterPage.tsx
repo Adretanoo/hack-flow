@@ -6,23 +6,7 @@ import { z } from 'zod'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/store/auth.store'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
-
-const registerSchema = z.object({
-  fullName: z.string().min(2, 'ПІБ має містити мінімум 2 символи'),
-  username: z
-    .string()
-    .min(3, 'Логін має містити мінімум 3 символи')
-    .max(30, 'Логін не може перевищувати 30 символів')
-    .regex(/^[a-z0-9_]+$/i, 'Тільки латинські літери, цифри та "_"'),
-  email: z.string().email('Невірний формат email'),
-  password: z.string().min(8, 'Пароль має містити мінімум 8 символів'),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'Паролі не співпадають',
-  path: ['confirmPassword'],
-})
-
-type RegisterForm = z.infer<typeof registerSchema>
+import { useI18n } from '@/i18n'
 
 const inputCls = 'block w-full rounded-md border-0 py-2 text-foreground shadow-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm sm:leading-6 px-3 bg-background'
 
@@ -31,6 +15,24 @@ export function RegisterPage() {
   const { setTokens, setUser } = useAuthStore()
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const { t } = useI18n()
+
+  const registerSchema = z.object({
+    fullName: z.string().min(2, t.auth.nameTooShort),
+    username: z
+      .string()
+      .min(3, t.auth.usernameTooShort)
+      .max(30, t.auth.usernameTooLong)
+      .regex(/^[a-z0-9_]+$/i, t.auth.usernameInvalid),
+    email: z.string().email(t.auth.invalidEmail),
+    password: z.string().min(8, t.auth.passwordTooShort),
+    confirmPassword: z.string(),
+  }).refine((data) => data.password === data.confirmPassword, {
+    message: t.auth.passwordsMismatch,
+    path: ['confirmPassword'],
+  })
+
+  type RegisterForm = z.infer<typeof registerSchema>
 
   const { register, handleSubmit, setError: setFieldError, formState: { errors } } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
@@ -41,24 +43,23 @@ export function RegisterPage() {
       setIsLoading(true)
       setError('')
       const { confirmPassword, ...payload } = data
+      void confirmPassword
       const response = await authApi.register(payload)
       const { accessToken, refreshToken, user } = response.data.data
       setTokens(accessToken, refreshToken)
       setUser(user)
       navigate('/app')
     } catch (err: any) {
-      // Extract message from axios error response or direct error
       const msg: string =
         err?.response?.data?.message ||
         err?.response?.data?.error ||
         err?.message ||
-        'Помилка реєстрації'
+        t.auth.registerError
 
-      // Map backend conflict messages to field-specific errors
       if (msg.toLowerCase().includes('email')) {
-        setFieldError('email', { message: 'Цей email вже зареєстрований' })
+        setFieldError('email', { message: t.auth.emailTaken })
       } else if (msg.toLowerCase().includes('username')) {
-        setFieldError('username', { message: 'Цей логін вже зайнятий' })
+        setFieldError('username', { message: t.auth.usernameTaken })
       } else {
         setError(msg)
       }
@@ -71,9 +72,12 @@ export function RegisterPage() {
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8 rounded-2xl border border-border bg-card p-8 shadow-sm">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">Створення акаунту</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">{t.auth.registerTitle}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Або <Link to="/login" className="font-medium text-primary hover:text-primary/80 transition-colors">увійдіть, якщо вже маєте акаунт</Link>
+            {t.auth.orCreateAccount}{' '}
+            <Link to="/login" className="font-medium text-primary hover:text-primary/80 transition-colors">
+              {t.auth.registerSubtitle}
+            </Link>
           </p>
         </div>
 
@@ -84,19 +88,17 @@ export function RegisterPage() {
             </div>
           )}
 
-          {/* ПІБ */}
           <div>
-            <label className="block text-sm font-medium leading-6 text-foreground">ПІБ</label>
+            <label className="block text-sm font-medium leading-6 text-foreground">{t.auth.fullNameLabel}</label>
             <div className="mt-1.5">
-              <input {...register('fullName')} type="text" placeholder="Іванко Петренко" className={inputCls} />
+              <input {...register('fullName')} type="text" placeholder={t.auth.fullNamePlaceholder} className={inputCls} />
               {errors.fullName && <p className="mt-1 text-sm text-destructive">{errors.fullName.message}</p>}
             </div>
           </div>
 
-          {/* Username */}
           <div>
             <label className="block text-sm font-medium leading-6 text-foreground">
-              Логін <span className="text-xs text-muted-foreground font-normal">(латинські літери, цифри, _)</span>
+              {t.auth.usernameLabel} <span className="text-xs text-muted-foreground font-normal">{t.auth.usernameHint}</span>
             </label>
             <div className="mt-1.5 relative">
               <span className="absolute inset-y-0 left-3 flex items-center text-muted-foreground text-sm">@</span>
@@ -112,29 +114,26 @@ export function RegisterPage() {
             </div>
           </div>
 
-          {/* Email */}
           <div>
-            <label className="block text-sm font-medium leading-6 text-foreground">Email адреса</label>
+            <label className="block text-sm font-medium leading-6 text-foreground">{t.auth.emailLabel}</label>
             <div className="mt-1.5">
-              <input {...register('email')} type="email" placeholder="ivan@example.com" className={inputCls} />
+              <input {...register('email')} type="email" placeholder={t.auth.emailPlaceholder} className={inputCls} />
               {errors.email && <p className="mt-1 text-sm text-destructive">{errors.email.message}</p>}
             </div>
           </div>
 
-          {/* Пароль */}
           <div>
-            <label className="block text-sm font-medium leading-6 text-foreground">Пароль</label>
+            <label className="block text-sm font-medium leading-6 text-foreground">{t.auth.passwordLabel}</label>
             <div className="mt-1.5">
-              <input {...register('password')} type="password" placeholder="Мінімум 8 символів" className={inputCls} />
+              <input {...register('password')} type="password" placeholder={t.auth.passwordPlaceholder} className={inputCls} />
               {errors.password && <p className="mt-1 text-sm text-destructive">{errors.password.message}</p>}
             </div>
           </div>
 
-          {/* Підтвердження */}
           <div>
-            <label className="block text-sm font-medium leading-6 text-foreground">Підтвердження паролю</label>
+            <label className="block text-sm font-medium leading-6 text-foreground">{t.auth.confirmPasswordLabel}</label>
             <div className="mt-1.5">
-              <input {...register('confirmPassword')} type="password" placeholder="Повторіть пароль" className={inputCls} />
+              <input {...register('confirmPassword')} type="password" placeholder={t.auth.confirmPasswordPlaceholder} className={inputCls} />
               {errors.confirmPassword && <p className="mt-1 text-sm text-destructive">{errors.confirmPassword.message}</p>}
             </div>
           </div>
@@ -145,7 +144,7 @@ export function RegisterPage() {
               disabled={isLoading}
               className="flex w-full justify-center rounded-md bg-primary px-3 py-2.5 text-sm font-semibold leading-6 text-primary-foreground shadow-sm hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50"
             >
-              {isLoading ? <LoadingSpinner size="sm" /> : 'Зареєструватись'}
+              {isLoading ? <LoadingSpinner size="sm" /> : t.auth.registerBtn}
             </button>
           </div>
         </form>

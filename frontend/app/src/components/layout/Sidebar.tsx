@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { judgingApi } from '@/api/judging'
 import { mentorshipApi } from '@/api/mentorship'
 import { teamsApi } from '@/api/teams'
+import { useI18n } from '@/i18n'
 
 interface SidebarProps {
   open: boolean
@@ -15,6 +16,7 @@ interface SidebarProps {
 export function Sidebar({ open, onClose }: SidebarProps) {
   const { pathname } = useLocation()
   const { user } = useAuthStore()
+  const { t } = useI18n()
   const isAdmin  = user?.role === 'admin'
   const isJudge  = user?.role === 'judge'
   const isMentor = user?.role === 'mentor'
@@ -71,27 +73,27 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
   // ── Nav items ──────────────────────────────────────────────────
   const adminNav = [
-    { name: 'Панель адміна', href: '/app/admin',    icon: Shield,  badge: 0, badgeColor: '' },
-    { name: 'Профіль',       href: '/app/profile',  icon: User,    badge: 0, badgeColor: '' },
+    { name: t.adminDashboard.title, href: '/app/admin',    icon: Shield,  badge: 0, badgeColor: '' },
+    { name: t.sidebar.profile,      href: '/app/profile',  icon: User,    badge: 0, badgeColor: '' },
   ]
 
   const judgeNav = [
-    { name: 'Проєкти',    href: '/app/judge/projects',   icon: FileText,      badge: unscoredCount,       badgeColor: 'bg-red-500' },
-    { name: 'Мої оцінки', href: '/app/judge/scores',     icon: Star,          badge: 0,                   badgeColor: '' },
-    { name: 'Конфлікти',  href: '/app/judge/conflicts',  icon: AlertTriangle, badge: myConflicts.length,  badgeColor: 'bg-muted-foreground/60' },
-    { name: 'Профіль',    href: '/app/profile',          icon: User,          badge: 0,                   badgeColor: '' },
+    { name: t.sidebar.judgeProjects,   href: '/app/judge/projects',   icon: FileText,      badge: unscoredCount,      badgeColor: 'bg-red-500' },
+    { name: t.sidebar.judgeScores,     href: '/app/judge/scores',     icon: Star,          badge: 0,                  badgeColor: '' },
+    { name: t.sidebar.judgeConflicts,  href: '/app/judge/conflicts',  icon: AlertTriangle, badge: myConflicts.length, badgeColor: 'bg-muted-foreground/60' },
+    { name: t.sidebar.profile,         href: '/app/profile',          icon: User,          badge: 0,                  badgeColor: '' },
   ]
 
   const mentorNav = [
-    { name: 'Розклад',  href: '/app/mentor/availability', icon: Calendar, badge: 0,                   badgeColor: '' },
-    { name: 'Сесії',    href: '/app/mentor/slots',        icon: Clock,    badge: upcomingBookedSlots, badgeColor: 'bg-blue-500' },
-    { name: 'Профіль',  href: '/app/profile',             icon: User,     badge: 0,                   badgeColor: '' },
+    { name: t.sidebar.mentorAvailability, href: '/app/mentor/availability', icon: Calendar, badge: 0,                   badgeColor: '' },
+    { name: t.sidebar.mentorSlots,        href: '/app/mentor/slots',        icon: Clock,    badge: upcomingBookedSlots, badgeColor: 'bg-blue-500' },
+    { name: t.sidebar.profile,            href: '/app/profile',             icon: User,     badge: 0,                   badgeColor: '' },
   ]
 
   const participantNav = [
-    { name: 'Хакатони',      href: '/app/hackathons',  icon: Trophy,     badge: 0, badgeColor: '' },
-    { name: 'Пошук команди', href: '/app/matchmaking', icon: UserSearch, badge: 0, badgeColor: '' },
-    { name: 'Профіль',       href: '/app/profile',     icon: User,       badge: 0, badgeColor: '' },
+    { name: t.sidebar.myHackathons, href: '/app/hackathons',  icon: Trophy,     badge: 0, badgeColor: '' },
+    { name: t.sidebar.matchmaking,  href: '/app/matchmaking', icon: UserSearch, badge: 0, badgeColor: '' },
+    { name: t.sidebar.profile,      href: '/app/profile',     icon: User,       badge: 0, badgeColor: '' },
   ]
 
   const navItems = isAdmin ? adminNav : isJudge ? judgeNav : isMentor ? mentorNav : participantNav
@@ -104,7 +106,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         <button
           onClick={onClose}
           className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-          aria-label="Закрити меню"
+          aria-label={t.actions.close}
         >
           <X className="h-5 w-5" />
         </button>

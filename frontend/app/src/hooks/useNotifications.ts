@@ -4,13 +4,15 @@ import { teamsApi } from '@/api/teams'
 import { useAuthStore } from '@/store/auth.store'
 import { useNotificationsStore } from '@/store/notifications.store'
 import type { AppNotification } from '@/store/notifications.store'
+import { useI18n } from '@/i18n'
+import type { Translations } from '@/i18n/uk'
 
-function buildNotifications(teams: any[]): AppNotification[] {
+function buildNotifications(teams: any[], t: Translations): AppNotification[] {
   const result: AppNotification[] = []
 
   for (const team of teams) {
     const approvals: any[] = team.approvals ?? []
-    const hackathonTitle = team.hackathon?.title ?? 'Хакатон'
+    const hackathonTitle = team.hackathon?.title ?? t.notificationAlerts.hackathonDefault
 
     for (const approval of approvals) {
       if (!approval.approvedAt) continue
@@ -23,21 +25,23 @@ function buildNotifications(teams: any[]): AppNotification[] {
       let body = ''
 
       if (status === 'APPROVED') {
-        title = `✅ Команду «${team.name}» схвалено`
+        title = t.notificationAlerts.approvedTitle(team.name)
         body = approval.comment
-          ? `Коментар організатора: ${approval.comment}`
-          : `Ваша команда успішно затверджена для участі в хакатоні «${hackathonTitle}».`
+          ? t.notificationAlerts.approvedBodyComment(approval.comment)
+          : t.notificationAlerts.approvedBodyDefault(hackathonTitle)
       } else if (status === 'REJECTED') {
-        title = `❌ Команду «${team.name}» відхилено`
+        title = t.notificationAlerts.rejectedTitle(team.name)
         body = approval.comment
-          ? `Причина: ${approval.comment}`
-          : `Організатор відхилив вашу команду без пояснення.`
+          ? t.notificationAlerts.rejectedBodyComment(approval.comment)
+          : t.notificationAlerts.rejectedBodyDefault
       } else if (status === 'DISQUALIFIED') {
-        title = `🚫 Команду «${team.name}» дискваліфіковано`
-        body = approval.comment ? `Причина: ${approval.comment}` : `Зверніться до організаторів хакатону.`
+        title = t.notificationAlerts.disqualifiedTitle(team.name)
+        body = approval.comment
+          ? t.notificationAlerts.disqualifiedBodyComment(approval.comment)
+          : t.notificationAlerts.disqualifiedBodyDefault
       } else if (status === 'PENDING') {
-        title = `⏳ Заявку команди «${team.name}» повернуто на розгляд`
-        body = `Повідомлення організатора: ${approval.comment}`
+        title = t.notificationAlerts.pendingTitle(team.name)
+        body = t.notificationAlerts.pendingBodyComment(approval.comment)
       } else {
         continue
       }
@@ -52,6 +56,7 @@ function buildNotifications(teams: any[]): AppNotification[] {
 export function useNotifications() {
   const { user } = useAuthStore()
   const { readIds, dismissedIds, mentorNotifications } = useNotificationsStore()
+  const { t } = useI18n()
 
   const { data } = useQuery({
     queryKey: ['my-teams-notifications', user?.id],
@@ -61,7 +66,7 @@ export function useNotifications() {
     staleTime: 30_000,
   })
 
-  const teamNotifications = useMemo(() => buildNotifications(data ?? []), [data])
+  const teamNotifications = useMemo(() => buildNotifications(data ?? [], t), [data, t])
 
   // Merge team approval notifications + mentor slot cancellation notifications
   const all = useMemo(() => {

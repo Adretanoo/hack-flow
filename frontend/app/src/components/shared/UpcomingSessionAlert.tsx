@@ -3,9 +3,11 @@ import { useQuery } from '@tanstack/react-query'
 import { BellRing, Video, X } from 'lucide-react'
 import { mentorshipApi } from '@/api/mentorship'
 import { useAuthStore } from '@/store/auth.store'
+import { useI18n } from '@/i18n'
 
 export function UpcomingSessionAlert() {
   const { user } = useAuthStore()
+  const { t } = useI18n()
   const isMentor = user?.role === 'mentor' || user?.role === 'admin'
   const [dismissedSlotId, setDismissedSlotId] = useState<string | null>(null)
 
@@ -72,10 +74,10 @@ export function UpcomingSessionAlert() {
         
         <div className="flex-1">
           <h4 className="font-bold text-green-900 dark:text-green-100 mb-1 leading-tight">
-            Сесія починається через {minutesLeft} хв
+            {t.mentor.sessionImminentHeader(minutesLeft)}
           </h4>
           <p className="text-sm text-green-800 dark:text-green-300 mb-3">
-            Команда <span className="font-semibold">{upcomingSlot.team?.name || 'Невідома'}</span> чекає на вас.
+            {t.mentor.sessionWaitingTeam(upcomingSlot.team?.name || t.adminDashboardPage.notSpecified)}
           </p>
           
           {upcomingSlot.meetingLink && (
@@ -86,7 +88,7 @@ export function UpcomingSessionAlert() {
               className="inline-flex w-full justify-center items-center gap-2 bg-green-600 text-white hover:bg-green-700 transition-colors py-2 rounded-lg text-sm font-bold shadow-sm"
               onClick={() => setDismissedSlotId(upcomingSlot.id)}
             >
-              <Video className="h-4 w-4" /> Приєднатись до дзвінка
+              <Video className="h-4 w-4" /> {t.mentor.joinCall}
             </a>
           )}
         </div>

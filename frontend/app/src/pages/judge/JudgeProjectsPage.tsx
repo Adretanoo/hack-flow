@@ -11,6 +11,7 @@ import { teamsApi } from '@/api/teams'
 import { formatRelativeTime } from '@/utils/format'
 import { useAuthStore } from '@/store/auth.store'
 import { useHackathonStage } from '@/hooks/useHackathonStage'
+import { useI18n } from '@/i18n'
 
 type Filter = 'all' | 'unscored' | 'scored' | 'conflict'
 
@@ -19,6 +20,7 @@ export function JudgeProjectsPage() {
     () => localStorage.getItem('judge_hackathon') || ''
   )
   const [filter, setFilter] = useState<Filter>('all')
+  const { t } = useI18n()
 
   const { data: hackathonsData } = useQuery({
     queryKey: ['judge-hackathons'],
@@ -97,7 +99,7 @@ export function JudgeProjectsPage() {
       const project = team.projects.find((p: any) => SUBMITTED_STATUSES.includes(p.status))
       const scored = myScores.some((s: any) => s.projectId === project.id)
       const hasConflict = myConflicts.some((c: any) => c.teamId === team.id)
-      const trackName = team.track?.name || myTracks.find((t: any) => t.trackId === team.trackId)?.track?.name || 'Без треку'
+      const trackName = team.track?.name || myTracks.find((t: any) => t.trackId === team.trackId)?.track?.name || t.judge.noTrack
       return { ...project, team, scored, hasConflict, trackName }
     })
 
@@ -125,8 +127,8 @@ export function JudgeProjectsPage() {
       {/* Header + hackathon selector */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <PageHeader
-          title="Проєкти для оцінювання"
-          subtitle="Переглядайте та оцінюйте проєкти команд з ваших треків"
+          title={t.judge.projects}
+          subtitle={t.sidebar.judgeProjects}
         />
         {hackathons.length > 1 ? (
           <select
@@ -134,7 +136,7 @@ export function JudgeProjectsPage() {
             onChange={e => handleHackathonChange(e.target.value)}
             className="rounded-md border border-border bg-card px-3 py-2 text-sm shadow-sm min-w-[200px] shrink-0"
           >
-            <option value="">Оберіть хакатон...</option>
+            <option value="">{t.judge.selectHackathonPlaceholder}</option>
             {hackathons.map((h: any) => (
               <option key={h.id} value={h.id}>{h.title}</option>
             ))}
@@ -147,14 +149,14 @@ export function JudgeProjectsPage() {
       </div>
 
       {!activeHackathonId ? (
-        <EmptyState title="Хакатон не обрано" description="Оберіть хакатон зі списку вище" />
+        <EmptyState title={t.judge.selectHackathon} description={t.judge.selectHackathon} />
       ) : myTracks.length === 0 ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold text-amber-900">Вас ще не призначено на жоден трек</p>
+            <p className="font-semibold text-amber-900">{t.judge.notAssignedToTrack}</p>
             <p className="text-sm text-amber-700 mt-1">
-              Зверніться до організатора хакатону для отримання призначення.
+              {t.judge.contactOrganizerForTrack}
             </p>
           </div>
         </div>
@@ -165,18 +167,18 @@ export function JudgeProjectsPage() {
             <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 flex items-start gap-3">
               <Lock className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-blue-900">Хакатон завершено — оцінювання закрито</p>
-                <p className="text-sm text-blue-700 mt-0.5">Ви можете переглядати проєкти, але не змінювати оцінки.</p>
+                <p className="font-semibold text-blue-900">{t.judge.hackathonFinishedJudgingClosed}</p>
+                <p className="text-sm text-blue-700 mt-0.5">{t.judge.canViewCannotEditScores}</p>
               </div>
             </div>
           )}
 
           {/* My tracks banner */}
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Ви суддя треків:</span>
+            <span className="text-muted-foreground">{t.judge.youAreJudgeOfTracks}</span>
             {myTracks.map((t: any) => (
               <span key={t.trackId} className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                {t.track?.name || 'Трек'}
+                {t.track?.name || t.teamTab.track}
               </span>
             ))}
           </div>
@@ -184,8 +186,8 @@ export function JudgeProjectsPage() {
           {/* Progress */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between text-sm">
-              <span className="font-semibold">Прогрес оцінювання</span>
-              <span className="text-muted-foreground font-mono">{evaluatedCount} з {totalProjects} проєктів</span>
+              <span className="font-semibold">{t.judge.judgingProgress}</span>
+              <span className="text-muted-foreground font-mono">{evaluatedCount} {t.judge.of} {totalProjects} {t.judge.projectsCount(totalProjects)}</span>
             </div>
             <div className="relative h-3 w-full bg-muted rounded-full overflow-hidden">
               <div
@@ -193,16 +195,16 @@ export function JudgeProjectsPage() {
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
-            <p className="text-right text-xs text-muted-foreground">{Math.round(progressPercent)}% виконано</p>
+            <p className="text-right text-xs text-muted-foreground">{Math.round(progressPercent)}% {t.judge.completed}</p>
           </div>
 
           {/* Filter tabs */}
           <div className="flex gap-1 border-b border-border pb-1">
             {([
-              { key: 'all',      label: 'Всі',        count: allProjects.length },
-              { key: 'unscored', label: 'Не оцінені', count: allProjects.filter((p:any) => !p.scored && !p.hasConflict).length },
-              { key: 'scored',   label: 'Оцінки',    count: evaluatedCount },
-              { key: 'conflict', label: 'Конфлікти',  count: conflictsCount },
+            { key: 'all',      label: t.states.all,          count: allProjects.length },
+              { key: 'unscored', label: t.judge.noScores,       count: allProjects.filter((p:any) => !p.scored && !p.hasConflict).length },
+              { key: 'scored',   label: t.judge.scores,         count: evaluatedCount },
+              { key: 'conflict', label: t.judge.conflicts,       count: conflictsCount },
             ] as const).map(tab => (
               <button
                 key={tab.key}
@@ -230,8 +232,8 @@ export function JudgeProjectsPage() {
             <div className="py-12"><LoadingSpinner /></div>
           ) : filtered.length === 0 ? (
             <EmptyState
-              title="Проєктів не знайдено"
-              description="Команди ще не подали проєкти або не відповідають фільтру"
+              title={t.judge.noProjects}
+              description={t.judge.noProjectsDesc}
             />
           ) : (
             <div className="space-y-6">
@@ -243,7 +245,7 @@ export function JudgeProjectsPage() {
                       <Folder className="h-4 w-4" />
                       <span>{trackName}</span>
                       <span className="text-xs font-normal text-muted-foreground">
-                        ({projects.length} {projects.length === 1 ? 'проєкт' : 'проєктів'})
+                        ({projects.length} {projects.length === 1 ? t.judge.projectSingular : t.judge.projectPlural})
                       </span>
                     </div>
                   )}
@@ -267,6 +269,7 @@ function ProjectCard({ project, isFinished }: { project: any; isFinished: boolea
   const { user } = useAuthStore()
   const isAdmin = user?.role === 'admin'
   const submittedAgo = project.submittedAt ? formatRelativeTime(project.submittedAt) : null
+  const { t } = useI18n()
 
   return (
     <div className={`rounded-xl border bg-card shadow-sm overflow-hidden transition-all hover:shadow-md ${
@@ -276,27 +279,27 @@ function ProjectCard({ project, isFinished }: { project: any; isFinished: boolea
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 space-y-1.5">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold truncate">{project.title || 'Без назви'}</h3>
+              <h3 className="font-semibold truncate">{project.title || t.judge.untitled}</h3>
               {project.hasConflict && (
                 <span className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                  <AlertTriangle className="h-3 w-3" /> Конфлікт
+                  <AlertTriangle className="h-3 w-3" /> {t.judge.hasConflict}
                 </span>
               )}
               {project.scored && !project.hasConflict && (
                 <span className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                  <CheckCircle className="h-3 w-3" /> Оцінено
+                  <CheckCircle className="h-3 w-3" /> {t.judge.scored}
                 </span>
               )}
               {!project.scored && !project.hasConflict && (
                 <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                  Не оцінено
+                  {t.judge.notEvaluated}
                 </span>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">Команда: <span className="font-medium text-foreground">{project.team.name}</span></p>
+            <p className="text-sm text-muted-foreground">{t.judge.teamLabel}<span className="font-medium text-foreground">{project.team.name}</span></p>
             {submittedAgo && (
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Clock className="h-3 w-3" /> Подано {submittedAgo}
+                <Clock className="h-3 w-3" /> {t.judge.submitted} {submittedAgo}
               </p>
             )}
           </div>
@@ -304,7 +307,7 @@ function ProjectCard({ project, isFinished }: { project: any; isFinished: boolea
           {project.hasConflict ? (
             <div className="shrink-0 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               <ShieldAlert className="h-4 w-4" />
-              Оцінювання недоступне
+              {t.judge.evaluationUnavailable}
             </div>
           ) : (
               <Link
@@ -315,7 +318,7 @@ function ProjectCard({ project, isFinished }: { project: any; isFinished: boolea
                     : 'bg-primary text-primary-foreground hover:bg-primary/90'
                 }`}
               >
-                {isFinished ? 'Переглянути' : isAdmin ? 'Статистика' : project.scored ? 'Змінити' : 'Оцінити'}
+                {isFinished ? t.actions.view : isAdmin ? t.judge.scores : project.scored ? t.actions.edit : t.actions.score}
                 <ChevronRight className="h-4 w-4" />
               </Link>
           )}

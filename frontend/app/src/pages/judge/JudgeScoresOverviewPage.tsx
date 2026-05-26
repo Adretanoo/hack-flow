@@ -6,8 +6,10 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { judgingApi } from '@/api/judging'
 import { formatDate, formatRelativeTime } from '@/utils/format'
+import { useI18n } from '@/i18n'
 
 export function JudgeScoresOverviewPage() {
+  const { t } = useI18n()
   const { data: myScoresData, isLoading } = useQuery({
     queryKey: ['my-scores'],
     queryFn: () => judgingApi.getMyScores().then(res => res.data.data),
@@ -36,15 +38,15 @@ export function JudgeScoresOverviewPage() {
   const lowestScore  = allAssessments.length > 0 ? Math.min(...allAssessments) : 0
 
   const stats = [
-    { label: 'Оцінено проєктів', value: totalEvaluated, Icon: FileCheck, color: 'text-primary' },
-    { label: 'Середній бал',     value: avgScore.toFixed(1), Icon: Activity,   color: 'text-blue-500' },
-    { label: 'Найвища оцінка',   value: highestScore,        Icon: TrendingUp,  color: 'text-green-500' },
-    { label: 'Найнижча оцінка',  value: lowestScore,         Icon: TrendingDown,color: 'text-amber-500' },
+    { label: t.judge.scoredProjects, value: totalEvaluated, Icon: FileCheck, color: 'text-primary' },
+    { label: t.judge.avgAssessment, value: avgScore.toFixed(1), Icon: Activity, color: 'text-blue-500' },
+    { label: t.judge.highestScore, value: highestScore, Icon: TrendingUp, color: 'text-green-500' },
+    { label: t.judge.lowestScore, value: lowestScore, Icon: TrendingDown, color: 'text-amber-500' },
   ]
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader title="Мої оцінки" subtitle="Перегляд та редагування виставлених вами оцінок" />
+      <PageHeader title={t.judge.scores} subtitle={t.judge.scoresSubtitle} />
 
       {/* Stats row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -61,11 +63,11 @@ export function JudgeScoresOverviewPage() {
 
       {/* Scored projects table */}
       <div>
-        <h3 className="text-xl font-semibold mb-4">Історія оцінювання</h3>
+        <h3 className="text-xl font-semibold mb-4">{t.judge.judgingHistory}</h3>
         {projects.length === 0 ? (
           <EmptyState
-            title="Ви ще не оцінили жодного проєкту"
-            description="Перейдіть у вкладку «Проєкти», щоб розпочати оцінювання"
+            title={t.judge.noScores}
+            description={t.judge.noScoresDesc}
           />
         ) : (
           <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
@@ -73,11 +75,11 @@ export function JudgeScoresOverviewPage() {
               <table className="w-full text-sm text-left">
                 <thead className="text-xs uppercase bg-muted/50 text-muted-foreground border-b border-border">
                   <tr>
-                    <th className="px-6 py-4 font-semibold">Проєкт</th>
-                    <th className="px-6 py-4 font-semibold">Оцінки</th>
-                    <th className="px-6 py-4 font-semibold">Середнє</th>
-                    <th className="px-6 py-4 font-semibold">Оновлено</th>
-                    <th className="px-6 py-4 font-semibold text-right">Дії</th>
+                    <th className="px-6 py-4 font-semibold">{t.resultsTab.project}</th>
+                    <th className="px-6 py-4 font-semibold">{t.judge.scores}</th>
+                    <th className="px-6 py-4 font-semibold">{t.judge.avgScore}</th>
+                    <th className="px-6 py-4 font-semibold">{t.judge.updatedAt}</th>
+                    <th className="px-6 py-4 font-semibold text-right">{t.judge.actions}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -106,13 +108,13 @@ export function JudgeScoresOverviewPage() {
                         <span className="text-xs text-muted-foreground">/10</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
-                        <span title={formatDate(p.updatedAt)}>{formatRelativeTime(p.updatedAt)} тому</span>
+                        <span title={formatDate(p.updatedAt)}>{formatRelativeTime(p.updatedAt)} {t.judge.ago}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <Link
                           to={`/app/judge/score/${p.projectId}`}
                           className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                          title="Редагувати оцінку"
+                          title={t.judge.editScore}
                         >
                           <Edit className="h-4 w-4" />
                         </Link>

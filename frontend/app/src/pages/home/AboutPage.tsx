@@ -1,5 +1,6 @@
 import { ExternalLink, Mail, Zap, GraduationCap, Code2, Trophy } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useI18n } from '@/i18n'
 
 const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -9,6 +10,26 @@ const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
 )
 
 export function AboutPage() {
+  const { t } = useI18n()
+
+  const cards = [
+    {
+      icon: Trophy,
+      title: t.aboutPage.hackathons,
+      desc: t.aboutPage.hackathonsDesc,
+    },
+    {
+      icon: GraduationCap,
+      title: t.aboutPage.mentorship,
+      desc: t.aboutPage.mentorshipDesc,
+    },
+    {
+      icon: Code2,
+      title: t.aboutPage.openSource,
+      desc: t.aboutPage.openSourceDesc,
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-16 md:px-8 max-w-4xl space-y-16">
@@ -17,36 +38,19 @@ export function AboutPage() {
         <div className="text-center space-y-6">
           <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
             <Zap className="h-4 w-4" />
-            Студентський проєкт
+            {t.aboutPage.studentProject}
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
-            Про <span className="text-primary">Hack-Flow</span>
+            {t.aboutPage.title.split('Hack-Flow')[0]}<span className="text-primary">Hack-Flow</span>
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Hack-Flow — платформа для організації та проведення хакатонів, розроблена студентами
-            Коледжу УжНУ як дипломний проєкт.
+            {t.aboutPage.heroDescription}
           </p>
         </div>
 
         {/* About project */}
         <div className="grid gap-8 md:grid-cols-3">
-          {[
-            {
-              icon: Trophy,
-              title: 'Хакатони',
-              desc: 'Повний цикл управління хакатонами: реєстрація, команди, проєкти, суддівство та результати.',
-            },
-            {
-              icon: GraduationCap,
-              title: 'Ментори',
-              desc: 'Система менторства з бронюванням слотів та підтримкою команд під час хакатону.',
-            },
-            {
-              icon: Code2,
-              title: 'Відкритий код',
-              desc: 'Проєкт з відкритим вихідним кодом, доступний на GitHub для вивчення та розвитку.',
-            },
-          ].map(({ icon: Icon, title, desc }) => (
+          {cards.map(({ icon: Icon, title, desc }) => (
             <div key={title} className="rounded-xl border border-border bg-card p-6 space-y-3">
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Icon className="h-5 w-5 text-primary" />
@@ -59,14 +63,14 @@ export function AboutPage() {
 
         {/* Author */}
         <div className="rounded-xl border border-border bg-card p-8 space-y-6">
-          <h2 className="text-2xl font-bold">Розробник</h2>
+          <h2 className="text-2xl font-bold">{t.aboutPage.developer}</h2>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-2xl font-bold text-primary shrink-0">
               A
             </div>
             <div className="space-y-1">
-              <p className="font-semibold text-lg">Адріан Тежа</p>
-              <p className="text-sm text-muted-foreground">Студент Коледжу УжНУ</p>
+              <p className="font-semibold text-lg">{t.aboutPage.developerName}</p>
+              <p className="text-sm text-muted-foreground">{t.aboutPage.student}</p>
               <div className="flex flex-wrap items-center gap-3 mt-2">
                 <a
                   href="mailto:c.tehza.adrian@student.uzhnu.edu.ua"
@@ -91,9 +95,9 @@ export function AboutPage() {
 
         {/* College */}
         <div className="rounded-xl border border-border bg-card p-8 space-y-4">
-          <h2 className="text-2xl font-bold">Навчальний заклад</h2>
+          <h2 className="text-2xl font-bold">{t.aboutPage.institution}</h2>
           <p className="text-muted-foreground">
-            Проєкт розроблений на базі <strong>Коледжу Ужгородського національного університету</strong>.
+            {t.aboutPage.collegeDesc}
           </p>
           <a
             href="https://www.college.uzhnu.edu.ua/"
@@ -101,13 +105,13 @@ export function AboutPage() {
             rel="noreferrer"
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
           >
-            Сайт коледжу <ExternalLink className="h-4 w-4" />
+            {t.aboutPage.collegeLinkText} <ExternalLink className="h-4 w-4" />
           </a>
         </div>
 
         {/* Tech stack */}
         <div className="space-y-4">
-          <h2 className="text-2xl font-bold">Технології</h2>
+          <h2 className="text-2xl font-bold">{t.aboutPage.techStack}</h2>
           <div className="flex flex-wrap gap-2">
             {['React', 'TypeScript', 'Node.js', 'Fastify', 'PostgreSQL', 'Drizzle ORM', 'TailwindCSS', 'TanStack Query'].map(t => (
               <span key={t} className="rounded-full bg-muted px-3 py-1 text-sm font-medium">
@@ -124,7 +128,7 @@ export function AboutPage() {
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             <Zap className="h-4 w-4" />
-            Переглянути хакатони
+            {t.aboutPage.viewHackathons}
           </Link>
         </div>
 
