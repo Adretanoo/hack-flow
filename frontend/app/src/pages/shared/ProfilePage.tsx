@@ -6,134 +6,203 @@ import { mentorshipApi } from '@/api/mentorship'
 import { useAuthStore } from '@/store/auth.store'
 import { Avatar } from '@/components/shared/Avatar'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
+import { SkillsInput } from '@/components/shared/SkillsInput'
+import { SocialsSection } from '@/components/shared/SocialsSection'
+
+type FormValues = {
+  fullName: string
+  description: string | null
+  isLookingForTeam: boolean
+}
 
 export function ProfilePage() {
   const { user, setUser } = useAuthStore()
   const queryClient = useQueryClient()
-  
+
+  const [skills, setSkills] = useState<string[]>([])
   const [successMsg, setSuccessMsg] = useState('')
 
   const isMentor = user?.role === 'mentor' || user?.role === 'admin'
+  const isJudge = user?.role === 'judge'
+  const isParticipant = user?.role === 'participant'
+
+  // Mentor availabilities for expertise section
   const { data: availabilitiesData } = useQuery({
     queryKey: ['my-availabilities'],
-    queryFn: () => mentorshipApi.getMyAvailabilities().then(res => res.data.data),
-    enabled: isMentor
+    queryFn: () => mentorshipApi.getMyAvailabilities().then((res) => res.data.data),
+    enabled: isMentor,
   })
 
-  // Extract unique track names
-  const expertiseTracks = Array.from(new Set(
-    (availabilitiesData || [])
-      .map((a: any) => a.track?.name)
-      .filter(Boolean)
-  )) as string[]
+  const expertiseTracks = Array.from(
+    new Set(
+      (availabilitiesData || [])
+        .map((a: any) => a.track?.name)
+        .filter(Boolean),
+    ),
+  ) as string[]
 
-  const { register, handleSubmit, setValue, watch } = useForm({
+  const { register, handleSubmit, setValue } = useForm<FormValues>({
     defaultValues: {
       fullName: user?.fullName || '',
       description: user?.description || user?.bio || '',
-      avatarUrl: user?.avatarUrl || '',
       isLookingForTeam: user?.isLookingForTeam || false,
-    }
+    },
   })
 
   useEffect(() => {
     if (user) {
       setValue('fullName', user.fullName)
       setValue('description', user.description || user.bio || '')
-      setValue('avatarUrl', user.avatarUrl || '')
       setValue('isLookingForTeam', user.isLookingForTeam || false)
+      setSkills(user.skills ?? [])
     }
   }, [user, setValue])
 
   const updateMut = useMutation({
-    mutationFn: (data: any) => usersApi.updateMe(data),
+    mutationFn: (data: FormValues & { skills: string[] }) => usersApi.updateMe(data),
     onSuccess: (res) => {
       setUser(res.data.data)
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] })
       setSuccessMsg('Профіль успішно оновлено')
       setTimeout(() => setSuccessMsg(''), 3000)
-    }
+    },
   })
 
-  const onSubmit = (data: any) => {
-    const payload = { ...data }
-    if (!payload.avatarUrl) payload.avatarUrl = null
-    if (!payload.description) payload.description = null
+  const onSubmit = (data: FormValues) => {
+    const payload = {
+      ...data,
+      skills,
+      description: data.description || null,
+    }
     updateMut.mutate(payload)
   }
 
-  if (!user) return <div className="py-24"><LoadingSpinner /></div>
+  if (!user) {
+    return (
+      <div className="py-24 flex justify-center">
+        <LoadingSpinner />
+      </div>
+    )
+  }
+
+  const roleLabel: Record<string, string> = {
+    admin: 'Адміністратор',
+    mentor: 'Ментор',
+    judge: 'Суддя',
+    participant: 'Учасник',
+  }
+
+  const roleBadgeColor: Record<string, string> = {
+    admin: 'bg-red-500/10 text-red-500 border-red-500/20',
+    mentor: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+    judge: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+    participant: 'bg-primary/10 text-primary border-primary/20',
+  }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
+    <div className="max-w-3xl mx-auto space-y-6 animate-fade-in pb-12">
+      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Мій профіль</h1>
-        <p className="mt-2 text-muted-foreground">Керуйте своїми особистими даними та налаштуваннями.</p>
+        <p className="mt-2 text-muted-foreground">
+          Керуйте своїми особистими даними та налаштуваннями.
+        </p>
       </div>
 
+      {/* Profile card */}
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          
-          <div className="flex items-center gap-6">
-            <Avatar name={user.fullName} url={watch('avatarUrl')} size="xl" />
-            <div className="space-y-1">
-              <h3 className="font-medium">Аватар</h3>
-              <input 
-                {...register('avatarUrl')} 
-                type="text" 
-                placeholder="URL зображення" 
-                className="w-full sm:w-80 rounded-md border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary bg-background"
-              />
+          {/* Avatar + identity */}
+          <div className="flex items-center gap-5">
+            <div className="relative">
+              <Avatar name={user.fullName} size="xl" />
+              <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground ring-2 ring-card">
+                {user.fullName.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              <p className="font-semibold text-lg leading-tight">{user.fullName}</p>
+              <p className="text-sm text-muted-foreground">@{user.username}</p>
+              <span
+                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                  roleBadgeColor[user.role] ?? roleBadgeColor.participant
+                }`}
+              >
+                {roleLabel[user.role] ?? user.role}
+              </span>
             </div>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div className="space-y-2">
+          {/* Fields */}
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">ПІБ</label>
-              <input 
-                {...register('fullName')} 
-                type="text" 
-                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary bg-background"
+              <input
+                {...register('fullName')}
+                type="text"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">Email (не змінюється)</label>
-              <input 
-                type="email" 
-                value={user.email} 
-                disabled 
-                className="w-full rounded-md border border-border px-3 py-2 text-sm bg-muted text-muted-foreground cursor-not-allowed"
+              <input
+                type="email"
+                value={user.email}
+                disabled
+                className="w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground cursor-not-allowed"
               />
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="text-sm font-medium">Про себе</label>
-            <textarea 
-              {...register('description')} 
-              rows={4}
-              className="w-full rounded-md border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary bg-background resize-none"
-              placeholder="Розкажіть трохи про свій досвід..."
+            <textarea
+              {...register('description')}
+              rows={3}
+              placeholder="Розкажіть трохи про свій досвід та інтереси..."
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all resize-none"
             />
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-border p-4 bg-muted/50">
-            <div className="space-y-0.5">
-              <label className="text-sm font-medium">Шукаю команду</label>
-              <p className="text-xs text-muted-foreground">Ваш профіль буде видно іншим учасникам, які шукають людей у команду</p>
-            </div>
-            <label className="relative inline-flex cursor-pointer items-center">
-              <input type="checkbox" {...register('isLookingForTeam')} className="peer sr-only" />
-              <div className="peer h-6 w-11 rounded-full bg-border after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20"></div>
-            </label>
+          {/* Skills (participants and all roles) */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Навички</label>
+            <p className="text-xs text-muted-foreground">
+              Введіть навичку та натисніть Enter або кому щоб додати (макс. 20)
+            </p>
+            <SkillsInput value={skills} onChange={setSkills} />
           </div>
 
-          <div className="flex items-center justify-end gap-4 pt-4 border-t border-border">
-            {successMsg && <span className="text-sm font-medium text-green-600">{successMsg}</span>}
-            <button 
-              type="submit" 
+          {/* Looking for team — only participants */}
+          {(isParticipant || user.role === 'admin') && (
+            <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 p-4">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">Шукаю команду</label>
+                <p className="text-xs text-muted-foreground">
+                  Ваш профіль буде видно іншим учасникам при пошуку
+                </p>
+              </div>
+              <label className="relative inline-flex cursor-pointer items-center">
+                <input
+                  type="checkbox"
+                  {...register('isLookingForTeam')}
+                  className="peer sr-only"
+                />
+                <div className="peer h-6 w-11 rounded-full bg-border after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-focus:ring-2 peer-focus:ring-primary/20" />
+              </label>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-4 pt-2 border-t border-border">
+            {successMsg && (
+              <span className="text-sm font-medium text-emerald-600 flex items-center gap-1.5">
+                <span>✓</span> {successMsg}
+              </span>
+            )}
+            <button
+              type="submit"
               disabled={updateMut.isPending}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
               {updateMut.isPending ? <LoadingSpinner size="sm" /> : 'Зберегти зміни'}
             </button>
@@ -141,24 +210,81 @@ export function ProfilePage() {
         </form>
       </div>
 
+      {/* Social links — for all roles */}
+      <SocialsSection />
+
+      {/* Mentor expertise section */}
       {isMentor && (
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <h3 className="text-lg font-bold mb-4">Моя експертиза</h3>
-          <p className="text-sm text-muted-foreground mb-4">На основі ваших доступностей для менторства, ви спеціалізуєтесь на наступних треках:</p>
-          
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
+          <div>
+            <h3 className="text-lg font-bold">Моя експертиза</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Треки, у яких ви зареєстрували доступність для менторства
+            </p>
+          </div>
           {expertiseTracks.length === 0 ? (
-            <div className="p-4 rounded-lg bg-muted/30 border border-border text-sm text-muted-foreground text-center">
+            <div className="rounded-lg bg-muted/30 border border-border py-6 text-center text-sm text-muted-foreground">
               Ви ще не додали жодного специфічного треку до свого розкладу.
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {expertiseTracks.map(track => (
-                <span key={track} className="px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full text-sm font-medium">
+              {expertiseTracks.map((track) => (
+                <span
+                  key={track}
+                  className="px-3 py-1 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-full text-sm font-medium"
+                >
                   {track}
                 </span>
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Judge info section */}
+      {isJudge && (
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-6 shadow-sm space-y-4">
+          <div>
+            <h3 className="text-lg font-bold text-amber-700 dark:text-amber-400">Роль судді</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Ви призначені суддею. Переходьте до відповідного розділу для оцінювання проєктів.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(skills.length > 0 ? skills : ['—']).map((s) => (
+              <span
+                key={s}
+                className="px-3 py-1 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded-full text-sm font-medium"
+              >
+                {s}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Teams participated */}
+      {user.teams && user.teams.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
+          <h3 className="text-lg font-bold">Мої команди</h3>
+          <ul className="space-y-2">
+            {user.teams.map((t) => (
+              <li
+                key={t.id}
+                className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3"
+              >
+                <div>
+                  <p className="font-medium text-sm">{t.name}</p>
+                  {t.hackathon && (
+                    <p className="text-xs text-muted-foreground">{t.hackathon.title}</p>
+                  )}
+                </div>
+                <span className="text-xs rounded-full bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 font-medium capitalize">
+                  {t.role}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

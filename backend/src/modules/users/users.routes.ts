@@ -70,7 +70,6 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
             fullName: { type: 'string', minLength: 2, maxLength: 100 },
             username: { type: 'string', minLength: 3, maxLength: 30 },
             description: { type: ['string', 'null'], maxLength: 1000 },
-            avatarUrl: { type: ['string', 'null'], format: 'uri' },
             isLookingForTeam: { type: 'boolean' },
             skills: { type: 'array', items: { type: 'string' } },
           },

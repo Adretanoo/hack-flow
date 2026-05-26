@@ -3,7 +3,6 @@ import { z } from 'zod';
 export const UpdateProfileSchema = z.object({
   fullName: z.string().min(2).max(100).optional(),
   username: z.string().min(3).max(30).regex(/^[a-z0-9_]+$/i).optional(),
-  avatarUrl: z.string().url().optional().nullable(),
   description: z.string().max(500).optional().nullable(),
   isLookingForTeam: z.boolean().optional(),
   skills: z.array(z.string().min(1).max(50)).max(20).optional(),

@@ -47,8 +47,11 @@ export interface UserProfile {
   description?: string | null
   bio?: string | null
   isLookingForTeam: boolean
+  skills?: string[]
+  socials?: UserSocial[]
   createdAt: string
   deletedAt?: string | null
+  teams?: { id: string; name: string; role: string; hackathon: { title: string } | null }[]
 }
 
 // ── Hackathon ─────────────────────────────────────────────────────────────
