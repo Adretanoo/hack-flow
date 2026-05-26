@@ -133,7 +133,7 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
         properties: {
           hackathonId: { type: 'string', format: 'uuid' },
           page: { type: 'integer', minimum: 1, default: 1 },
-          limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          limit: { type: 'integer', minimum: 1, maximum: 1000, default: 20 },
         },
       },
     },
@@ -165,6 +165,50 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, (req, reply) => ctrl.reportConflict(req, reply));
+
+  // ── Admin Conflict CRUD ────────────────────────────────────────────────────
+  app.post('/conflicts/admin', {
+    onRequest: [authenticate, authorize('admin')],
+    schema: {
+      tags: ['Judging'],
+      summary: 'Admin: create a conflict of interest record',
+      security: Sec,
+      body: {
+        type: 'object',
+        required: ['judgeId', 'teamId'],
+        properties: {
+          judgeId: { type: 'string', format: 'uuid' },
+          teamId:  { type: 'string', format: 'uuid' },
+          reason:  { type: 'string', enum: ['MENTORED', 'RELATIVE'] },
+        },
+      },
+    },
+  }, (req, reply) => ctrl.adminCreateConflict(req, reply));
+
+  app.delete('/conflicts/:id', {
+    onRequest: [authenticate, authorize('admin')],
+    schema: {
+      tags: ['Judging'],
+      summary: 'Admin: delete a conflict record',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, (req, reply) => ctrl.adminDeleteConflict(req, reply));
+
+  app.patch('/conflicts/:id', {
+    onRequest: [authenticate, authorize('admin')],
+    schema: {
+      tags: ['Judging'],
+      summary: 'Admin: update conflict reason',
+      security: Sec,
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        required: ['reason'],
+        properties: { reason: { type: 'string', enum: ['MENTORED', 'RELATIVE'] } },
+      },
+    },
+  }, (req, reply) => ctrl.adminUpdateConflict(req, reply));
 
   // ── Full Results ────────────────────────────────────────────
   app.get('/results/:id', {

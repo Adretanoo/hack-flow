@@ -10,7 +10,7 @@ export interface SubmitScoreDto {
 
 export interface ReportConflictDto {
   teamId: string
-  reason?: string
+  reason?: 'MENTORED' | 'RELATIVE'
 }
 
 export const judgingApi = {
@@ -42,7 +42,16 @@ export const judgingApi = {
     api.get<ApiResponse<any[]>>('/judging/teams', { params: { hackathonId } }),
 
   getAllConflicts: (hackathonId?: string) =>
-    api.get<ApiResponse<any[]>>('/judging/conflicts/all', { params: hackathonId ? { hackathonId } : undefined }),
+    api.get<ApiResponse<any>>('/judging/conflicts/all', { params: hackathonId ? { hackathonId } : undefined }),
+
+  adminCreateConflict: (data: { judgeId: string; teamId: string; reason?: 'MENTORED' | 'RELATIVE' }) =>
+    api.post<ApiResponse<any>>('/judging/conflicts/admin', data),
+
+  adminDeleteConflict: (id: string) =>
+    api.delete<void>(`/judging/conflicts/${id}`),
+
+  adminUpdateConflict: (id: string, reason: 'MENTORED' | 'RELATIVE') =>
+    api.patch<ApiResponse<any>>(`/judging/conflicts/${id}`, { reason }),
 
   createCriteria: (data: { trackId: string; name: string; maxScore: number; weight: number; description?: string }) =>
     api.post<ApiResponse<any>>('/judging/criteria', data),

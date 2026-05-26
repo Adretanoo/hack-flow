@@ -211,7 +211,7 @@ export interface Conflict {
   reason?: string | null
   createdAt: string
   judge?: { id: string; fullName: string; email: string }
-  team?: { id: string; name: string }
+  team?: { id: string; name: string; hackathonId?: string }
 }
 
 export interface LeaderboardEntry {

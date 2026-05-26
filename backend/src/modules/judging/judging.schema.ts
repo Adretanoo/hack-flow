@@ -34,7 +34,7 @@ export const ReportConflictSchema = z.object({
 export const AllConflictsQuerySchema = z.object({
   hackathonId: z.string().uuid().optional(),
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  limit: z.coerce.number().int().min(1).max(1000).default(20),
 });
 
 export const UuidParamSchema = z.object({ id: z.string().uuid() });

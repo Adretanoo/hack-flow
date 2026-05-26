@@ -11,6 +11,11 @@ import { formatDate } from '@/utils/format'
 const DISMISS_KEY = 'conflict_info_dismissed'
 const HACKATHON_KEY = 'judge_hackathon'
 
+const CONFLICT_REASON_LABEL: Record<string, string> = {
+  MENTORED: '👨‍🏫 Ментор команди',
+  RELATIVE: '👥 Особисті стосунки',
+}
+
 export function JudgeConflictsPage() {
   const queryClient = useQueryClient()
   const [teamId, setTeamId] = useState('')
@@ -63,10 +68,12 @@ export function JudgeConflictsPage() {
   const availableTeams = allTeams.filter((t: any) => !conflictTeamIds.has(t.id))
   const allReported = allTeams.length > 0 && availableTeams.length === 0
 
-  const reasonLabel = reason === 'mentor' ? 'Ментор команди' : reason === 'personal' ? "Особисті стосунки" : ''
 
   const reportMut = useMutation({
-    mutationFn: () => judgingApi.reportConflict({ teamId, reason: reasonLabel }),
+    mutationFn: () => judgingApi.reportConflict({
+      teamId,
+      reason: reason === 'mentor' ? 'MENTORED' : 'RELATIVE',
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-conflicts'] })
       setTeamId('')
@@ -222,7 +229,7 @@ export function JudgeConflictsPage() {
                         <p className="font-semibold text-sm">Команда: {team?.name || c.teamId}</p>
                       </div>
                       <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
-                        {c.reason || 'Конфлікт'}
+                        {CONFLICT_REASON_LABEL[c.reason] ?? c.reason ?? 'Конфлікт'}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground ml-6">

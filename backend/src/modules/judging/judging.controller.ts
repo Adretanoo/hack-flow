@@ -69,6 +69,25 @@ export class JudgingController {
     return reply.send({ success: true, ...result });
   }
 
+  async adminDeleteConflict(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    await this.service.deleteConflict(id);
+    return reply.status(204).send();
+  }
+
+  async adminUpdateConflict(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { id } = UuidParamSchema.parse(request.params);
+    const { reason } = request.body as { reason: string };
+    const row = await this.service.updateConflictReason(id, reason);
+    return reply.send({ success: true, data: row });
+  }
+
+  async adminCreateConflict(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { judgeId, teamId, reason } = request.body as { judgeId: string; teamId: string; reason?: string };
+    const row = await this.service.adminCreateConflict(judgeId, teamId, reason);
+    return reply.status(201).send({ success: true, data: row });
+  }
+
   async getLeaderboard(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
     const { id } = UuidParamSchema.parse(request.params);
     const redis = getRedisClient();

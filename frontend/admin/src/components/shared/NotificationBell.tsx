@@ -61,8 +61,12 @@ export function NotificationBell() {
                   key={c.id} 
                   onClick={() => {
                     setIsOpen(false)
-                    // If team has hackathonId, we could route there. For now, route to judging root.
-                    navigate('/judging') 
+                    const hackathonId = (c as any).team?.hackathonId
+                    if (hackathonId) {
+                      navigate(`/judging/${hackathonId}?tab=conflicts`)
+                    } else {
+                      navigate('/judging')
+                    }
                   }}
                   className="w-full flex gap-3 rounded-lg p-3 text-left hover:bg-accent transition-colors"
                 >

@@ -50,6 +50,7 @@ export class JudgingService {
   }
 
   async submitScore(judgeId: string, dto: SubmitScoreDto) {
+    // Guard 1: track assignment check (optional, based on env flag)
     if (env.ENFORCE_JUDGE_TRACK && this.judgeTrackRepo) {
       const project = await this.repo.findProjectById(dto.projectId);
       if (!project) throw new NotFoundError('Project not found');
@@ -59,6 +60,18 @@ export class JudgingService {
         if (!assigned) throw new ForbiddenError('Judge not assigned to this track');
       }
     }
+
+    // Guard 2: conflict of interest check (always enforced)
+    const project = await this.repo.findProjectById(dto.projectId);
+    if (project) {
+      const hasConf = await this.repo.hasConflict(judgeId, project.teamId);
+      if (hasConf) {
+        throw new ForbiddenError(
+          'You have declared a conflict of interest for this team and cannot score it',
+        );
+      }
+    }
+
     const result = await this.repo.upsertScore(judgeId, dto);
     this.auditLog?.log(judgeId, 'submit_score', 'score', result.id).catch(() => undefined);
     return result;
@@ -73,6 +86,18 @@ export class JudgingService {
     const existing = await this.repo.hasConflict(judgeId, dto.teamId);
     if (existing) throw new ForbiddenError('Conflict already reported for this team');
     return this.repo.reportConflict(judgeId, dto);
+  }
+
+  async deleteConflict(id: string) {
+    await this.repo.deleteConflict(id);
+  }
+
+  async updateConflictReason(id: string, reason: string) {
+    return this.repo.updateConflictReason(id, reason);
+  }
+
+  async adminCreateConflict(judgeId: string, teamId: string, reason?: string) {
+    return this.repo.adminCreateConflict(judgeId, teamId, reason);
   }
 
   // ── Normalization ─────────────────────────────────────────

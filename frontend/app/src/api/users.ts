@@ -5,6 +5,9 @@ export const usersApi = {
   getMe: () =>
     api.get<ApiResponse<UserProfile>>('/users/me'),
 
+  getUsers: (params?: { role?: string; search?: string; limit?: number; page?: number }) =>
+    api.get<ApiResponse<UserProfile[]>>('/users', { params }),
+
   getUserById: (id: string) =>
     api.get<ApiResponse<UserProfile>>(`/users/${id}`),
 

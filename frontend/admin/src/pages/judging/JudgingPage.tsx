@@ -1,18 +1,25 @@
-import { useState, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState, useMemo, useEffect } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { judgingApi } from '@/api/judging'
 import { hackathonsApi } from '@/api/hackathons'
+import { judgeTrackApi } from '@/api/judgeTrack'
+import { teamsApi } from '@/api/teams'
 import { exportToCSV } from '@/utils/export'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { DataTable } from '@/components/shared/DataTable'
 import { ScoreDetailDrawer } from './components/ScoreDetailDrawer'
 import { formatDate } from '@/utils/format'
-import { ArrowLeft, Plus, Download, AlertTriangle, RefreshCcw } from 'lucide-react'
+import { ArrowLeft, Plus, Download, AlertTriangle, RefreshCcw, Trash2, Pencil, Check, X as XIcon } from 'lucide-react'
 import { clsx } from 'clsx'
 import { toast } from 'sonner'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import type { Track, Criteria, LeaderboardEntry, Conflict } from '@/types/api.types'
+
+const CONFLICT_REASON_LABEL: Record<string, string> = {
+  MENTORED: '👨‍🏫 Ментор команди',
+  RELATIVE: '👥 Особисті стосунки',
+}
 
 type Tab = 'criteria' | 'scores' | 'conflicts' | 'leaderboard'
 const TABS: { key: Tab; label: string }[] = [
@@ -29,6 +36,15 @@ export function JudgingPage() {
   const qc = useQueryClient()
 
   const [activeTab, setActiveTab] = useState<Tab>('criteria')
+  const [searchParams] = useSearchParams()
+
+  // Auto-switch to tab specified in URL query param (e.g. ?tab=conflicts)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab') as Tab | null
+    if (tabParam && TABS.some(t => t.key === tabParam)) {
+      setActiveTab(tabParam)
+    }
+  }, [searchParams])
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   
   // Criteria form state per track
@@ -57,8 +73,8 @@ export function JudgingPage() {
 
   const { data: conflictsData, isLoading: conflictsLoading } = useQuery({
     queryKey: ['conflicts', hackathonId],
-    queryFn: () => judgingApi.listAllConflicts({ hackathonId, limit: 1000 }),
-    enabled: !!hackathonId && activeTab === 'conflicts',
+    queryFn: () => judgingApi.listAllConflicts({ hackathonId, limit: 100 }),
+    enabled: !!hackathonId,
   })
 
   const createCriteriaMut = useMutation({
@@ -86,6 +102,66 @@ export function JudgingPage() {
     },
   })
 
+  // Conflicts CRUD state
+  const [showCreateConflict, setShowCreateConflict] = useState(false)
+  const [newConflict, setNewConflict] = useState({ judgeId: '', teamId: '', reason: 'MENTORED' as 'MENTORED' | 'RELATIVE' })
+  const [editConflictId, setEditConflictId] = useState<string | null>(null)
+  const [editConflictReason, setEditConflictReason] = useState<'MENTORED' | 'RELATIVE'>('MENTORED')
+
+  // Load judges assigned to this hackathon (not all judges globally)
+  const { data: judgeAssignmentsData } = useQuery({
+    queryKey: ['judge-assignments', hackathonId],
+    queryFn: () => judgeTrackApi.list(hackathonId!),
+    enabled: !!hackathonId,
+  })
+
+  const { data: teamsForConflict } = useQuery({
+    queryKey: ['teams-for-conflict', hackathonId],
+    queryFn: () => teamsApi.list({ hackathon_id: hackathonId, limit: 100 }),
+    enabled: !!hackathonId,
+  })
+
+  const createConflictMut = useMutation({
+    mutationFn: () => judgingApi.adminCreateConflict({ judgeId: newConflict.judgeId, teamId: newConflict.teamId, reason: newConflict.reason }),
+    onSuccess: () => { toast.success('Конфлікт додано'); qc.invalidateQueries({ queryKey: ['conflicts', hackathonId] }); setNewConflict({ judgeId: '', teamId: '', reason: 'MENTORED' }); setShowCreateConflict(false) },
+    onError: () => toast.error('Помилка створення конфлікту'),
+  })
+
+  const deleteConflictMut = useMutation({
+    mutationFn: (id: string) => judgingApi.adminDeleteConflict(id),
+    onSuccess: () => { toast.success('Конфлікт видалено'); qc.invalidateQueries({ queryKey: ['conflicts', hackathonId] }) },
+  })
+
+  const updateConflictMut = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: 'MENTORED' | 'RELATIVE' }) => judgingApi.adminUpdateConflict(id, reason),
+    onSuccess: () => { toast.success('Причину оновлено'); qc.invalidateQueries({ queryKey: ['conflicts', hackathonId] }); setEditConflictId(null) },
+  })
+
+  const tracks = (tracksData?.data.data ?? []) as Track[]
+  const leaderboard = (leaderboardData?.data.data ?? []) as LeaderboardEntry[]
+  const conflicts = ((conflictsData?.data as any)?.data ?? []) as Conflict[]
+
+  // Build unique judges list from track assignments
+  const judgeAssignments = (judgeAssignmentsData?.data?.data ?? []) as any[]
+  const judges = useMemo(() => {
+    const map = new Map<string, any>()
+    judgeAssignments.forEach((a: any) => {
+      if (!map.has(a.userId) && a.user) map.set(a.userId, { id: a.userId, ...a.user })
+    })
+    return Array.from(map.values())
+  }, [judgeAssignments])
+
+  // Teams filtered by selected judge's track(s)
+  const allHackathonTeams = ((teamsForConflict?.data as any)?.data ?? []) as any[]
+  const teamsForSelect = useMemo(() => {
+    if (!newConflict.judgeId) return allHackathonTeams
+    const trackIds = judgeAssignments
+      .filter((a: any) => a.userId === newConflict.judgeId)
+      .map((a: any) => a.trackId)
+    if (trackIds.length === 0) return allHackathonTeams
+    return allHackathonTeams.filter((t: any) => trackIds.includes(t.trackId))
+  }, [allHackathonTeams, newConflict.judgeId, judgeAssignments])
+
   const hackathons = hackData?.data.data ?? []
 
   if (!hackathonId) {
@@ -109,11 +185,7 @@ export function JudgingPage() {
         </div>
       </div>
     )
-  }
-
-  const tracks = (tracksData?.data.data ?? []) as Track[]
-  const leaderboard = (leaderboardData?.data.data ?? []) as LeaderboardEntry[]
-  const conflicts = ((conflictsData?.data as any)?.data ?? []) as Conflict[]
+}
 
   const handleExportConflicts = () => {
     const rows = conflicts.map(c => ({
@@ -200,23 +272,132 @@ export function JudgingPage() {
       )}
 
       {activeTab === 'conflicts' && (
-        <div className="space-y-3">
-          <div className="flex justify-end">
+        <div className="space-y-4">
+          {/* Toolbar */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => setShowCreateConflict(v => !v)}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="h-4 w-4" /> Додати конфлікт
+            </button>
             <button onClick={handleExportConflicts} className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-accent">
               <Download className="h-4 w-4" /> Експорт CSV
             </button>
+            <span className="ml-auto text-sm text-muted-foreground">Зафіксовано: <strong>{conflicts.length}</strong></span>
           </div>
-          <DataTable
-            columns={[
-              { key: 'judge', header: 'Суддя', render: (c) => <span className="font-medium">{c.judge?.fullName || '—'}</span> },
-              { key: 'team', header: 'Команда', render: (c) => <span className="font-medium">{c.team?.name || '—'}</span> },
-              { key: 'reason', header: 'Причина', render: (c) => <span className="text-muted-foreground text-sm">{c.reason || '—'}</span> },
-              { key: 'date', header: 'Дата', render: (c) => <span className="text-xs text-muted-foreground">{formatDate(c.createdAt)}</span> },
-            ]}
-            data={conflicts}
-            loading={conflictsLoading}
-            emptyTitle="Конфліктів немає"
-          />
+
+          {/* Create form */}
+          {showCreateConflict && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/10 p-4 grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <select
+                value={newConflict.judgeId}
+                onChange={e => setNewConflict(p => ({ ...p, judgeId: e.target.value }))}
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">Оберіть суддю</option>
+                {judges.map((j: any) => <option key={j.id} value={j.id}>{j.fullName}</option>)}
+              </select>
+              <select
+                value={newConflict.teamId}
+                onChange={e => setNewConflict(p => ({ ...p, teamId: e.target.value }))}
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">Оберіть команду</option>
+                {teamsForSelect.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              <select
+                value={newConflict.reason}
+                onChange={e => setNewConflict(p => ({ ...p, reason: e.target.value as any }))}
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="MENTORED">👨‍🏫 Ментор команди</option>
+                <option value="RELATIVE">👥 Особисті стосунки</option>
+              </select>
+              <button
+                onClick={() => createConflictMut.mutate()}
+                disabled={!newConflict.judgeId || !newConflict.teamId || createConflictMut.isPending}
+                className="rounded-lg bg-primary text-primary-foreground text-sm font-bold py-2 px-4 disabled:opacity-40 hover:bg-primary/90 transition-colors"
+              >
+                {createConflictMut.isPending ? 'Створення...' : 'Зберегти'}
+              </button>
+            </div>
+          )}
+
+          {/* Table */}
+          {conflictsLoading ? (
+            <EmptyState title="Завантаження..." />
+          ) : conflicts.length === 0 ? (
+            <EmptyState
+              title="Конфліктів немає"
+              description="Судді не декларували конфліктів інтересів для цього хакатону."
+            />
+          ) : (
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs font-semibold text-muted-foreground border-b border-border bg-muted/20">
+                    <th className="px-4 py-3">Суддя</th>
+                    <th className="px-4 py-3">Email</th>
+                    <th className="px-4 py-3">Команда</th>
+                    <th className="px-4 py-3">Причина</th>
+                    <th className="px-4 py-3">Дата</th>
+                    <th className="px-4 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {conflicts.map((c: any) => (
+                    <tr key={c.id} className="border-b border-border/50 hover:bg-muted/5 transition-colors group">
+                      <td className="px-4 py-3 font-medium">{c.judge?.fullName || '—'}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{c.judge?.email || '—'}</td>
+                      <td className="px-4 py-3">{c.team?.name || '—'}</td>
+                      <td className="px-4 py-3">
+                        {editConflictId === c.id ? (
+                          <div className="flex items-center gap-1.5">
+                            <select
+                              value={editConflictReason}
+                              onChange={e => setEditConflictReason(e.target.value as any)}
+                              className="text-xs rounded border border-border bg-background px-2 py-1 focus:outline-none"
+                            >
+                              <option value="MENTORED">👨‍🏫 Ментор</option>
+                              <option value="RELATIVE">👥 Особисті</option>
+                            </select>
+                            <button onClick={() => updateConflictMut.mutate({ id: c.id, reason: editConflictReason })}
+                              className="p-1 rounded hover:bg-green-100 text-green-600 transition-colors">
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                            <button onClick={() => setEditConflictId(null)}
+                              className="p-1 rounded hover:bg-muted text-muted-foreground transition-colors">
+                              <XIcon className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span
+                            className="text-sm cursor-pointer hover:underline"
+                            onClick={() => { setEditConflictId(c.id); setEditConflictReason(c.reason || 'MENTORED') }}
+                            title="Клацніть для редагування"
+                          >
+                            {CONFLICT_REASON_LABEL[c.reason] ?? c.reason ?? '—'}
+                            <Pencil className="inline ml-1 h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-60" />
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{formatDate(c.createdAt)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => { if (confirm('Видалити цей конфлікт?')) deleteConflictMut.mutate(c.id) }}
+                          disabled={deleteConflictMut.isPending}
+                          className="opacity-0 group-hover:opacity-100 rounded p-1.5 hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-all disabled:opacity-30"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

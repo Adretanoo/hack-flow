@@ -37,4 +37,13 @@ export const judgingApi = {
 
   listAllConflicts: (params?: { hackathonId?: string; page?: number; limit?: number }) =>
     api.get<PaginatedResponse<unknown>>('/judging/conflicts/all', { params }),
+
+  adminCreateConflict: (data: { judgeId: string; teamId: string; reason?: 'MENTORED' | 'RELATIVE' }) =>
+    api.post<ApiResponse<unknown>>('/judging/conflicts/admin', data),
+
+  adminDeleteConflict: (id: string) =>
+    api.delete<void>(`/judging/conflicts/${id}`),
+
+  adminUpdateConflict: (id: string, reason: 'MENTORED' | 'RELATIVE') =>
+    api.patch<ApiResponse<unknown>>(`/judging/conflicts/${id}`, { reason }),
 }

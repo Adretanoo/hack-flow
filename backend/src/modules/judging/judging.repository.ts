@@ -236,12 +236,13 @@ export class JudgingRepository {
   async findAllConflicts(opts: { hackathonId?: string; page: number; limit: number }) {
     const offset = (opts.page - 1) * opts.limit;
 
-    // Build base query joining judge user info and team info
     const baseQuery = this.db
       .select({
         id: judgeConflicts.id,
         reason: judgeConflicts.reason,
         createdAt: judgeConflicts.createdAt,
+        judgeId: judgeConflicts.judgeId,
+        teamId: judgeConflicts.teamId,
         judge: {
           id: users.id,
           fullName: users.fullName,
@@ -266,7 +267,6 @@ export class JudgingRepository {
           .limit(opts.limit)
           .offset(offset);
 
-    // Count total for pagination metadata
     const countQuery = this.db
       .select({ total: sql<number>`count(*)::int` })
       .from(judgeConflicts)
@@ -277,6 +277,28 @@ export class JudgingRepository {
       : await countQuery;
 
     return { data: rows, total, page: opts.page, limit: opts.limit };
+  }
+
+  async deleteConflict(id: string) {
+    await this.db.delete(judgeConflicts).where(eq(judgeConflicts.id, id));
+  }
+
+  async updateConflictReason(id: string, reason: string) {
+    const [row] = await this.db
+      .update(judgeConflicts)
+      .set({ reason })
+      .where(eq(judgeConflicts.id, id))
+      .returning();
+    return row;
+  }
+
+  async adminCreateConflict(judgeId: string, teamId: string, reason?: string) {
+    const [row] = await this.db
+      .insert(judgeConflicts)
+      .values({ judgeId, teamId, reason })
+      .onConflictDoNothing()
+      .returning();
+    return row ?? null;
   }
 
   // ── Full Results ──────────────────────────────────────────
