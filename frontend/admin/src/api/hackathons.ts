@@ -24,7 +24,7 @@ export interface CreateHackathonDto {
   banner?: string
   rulesUrl?: string
   tags?: string[]
-  tracks?: Array<{ name: string; description?: string }>
+  tracks?: Array<{ name: string; description?: string; guidelines?: string }>
   stages?: Array<{ name: string; startDate: string; endDate: string; orderIndex: number }>
   awards?: Array<{ name: string; description?: string; certificate?: string; place: number }>
 }

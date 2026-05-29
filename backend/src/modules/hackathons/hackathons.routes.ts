@@ -84,7 +84,7 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
           rulesUrl: { type: 'string' },
           contactEmail: { type: 'string', format: 'email' },
           tags: { type: 'array', items: { type: 'string' } },
-          tracks: { type: 'array', items: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, description: { type: 'string' } } } },
+          tracks: { type: 'array', items: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, description: { type: 'string' }, guidelines: { type: 'string' } } } },
           stages: { type: 'array', items: { type: 'object', required: ['name', 'orderIndex', 'startDate', 'endDate'], properties: { name: { type: 'string' }, type: { type: 'string', enum: ['REGISTRATION', 'HACKING', 'PRESENTATION', 'JUDGING', 'FINISHED', 'CUSTOM'], default: 'CUSTOM' }, orderIndex: { type: 'integer' }, startDate: { type: 'string', format: 'date-time' }, endDate: { type: 'string', format: 'date-time' } } } },
           awards: { type: 'array', items: { type: 'object', required: ['name', 'place'], properties: { name: { type: 'string' }, place: { type: 'integer' }, description: { type: 'string' }, certificate: { type: 'string' } } } },
         },

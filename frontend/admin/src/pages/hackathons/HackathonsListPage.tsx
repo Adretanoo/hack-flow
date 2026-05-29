@@ -69,10 +69,23 @@ export function HackathonsListPage() {
     onSuccess: () => {
       toast.success(lang === 'uk' ? 'Статус оновлено' : 'Status updated')
       qc.invalidateQueries({ queryKey: ['hackathons'] })
+      qc.invalidateQueries({ queryKey: ['hackathons', 'all'] })
     },
     onError: (err: any) => {
-      const msg = err.response?.data?.error?.message || err.response?.data?.message || (lang === 'uk' ? 'Помилка при оновленні статусу' : 'Error updating status');
-      toast.error(msg);
+      // Reset the select UI back to real server value
+      qc.invalidateQueries({ queryKey: ['hackathons'] })
+      const backendMsg: string = err?.response?.data?.message ?? ''
+      let msg: string
+      if (backendMsg.toLowerCase().includes('stage')) {
+        msg = lang === 'uk'
+          ? '❌ Неможливо опублікувати — потрібна хоча б одна стадія'
+          : '❌ Cannot publish — at least one stage is required'
+      } else if (backendMsg) {
+        msg = backendMsg
+      } else {
+        msg = lang === 'uk' ? 'Помилка при оновленні статусу' : 'Error updating status'
+      }
+      toast.error(msg)
     },
   })
 

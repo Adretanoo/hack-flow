@@ -63,9 +63,24 @@ export function HackathonDetailPage() {
       toast.success(lang === 'uk' ? 'Статус оновлено' : 'Status updated')
       qc.invalidateQueries({ queryKey: ['hackathon', id] })
       qc.invalidateQueries({ queryKey: ['hackathons'] })
+      qc.invalidateQueries({ queryKey: ['hackathons', 'all'] })
       setConfirmStatusOpen(false)
     },
-    onError: () => toast.error(lang === 'uk' ? 'Помилка при зміні статусу' : 'Error changing status'),
+    onError: (err: any) => {
+      setConfirmStatusOpen(false)
+      const backendMsg: string = err?.response?.data?.message ?? ''
+      let msg: string
+      if (backendMsg.toLowerCase().includes('stage')) {
+        msg = lang === 'uk'
+          ? '❌ Неможливо опублікувати — спочатку додайте хоча б одну стадію (вкладка «Стадії»)'
+          : '❌ Cannot publish — please add at least one stage first (Stages tab)'
+      } else if (backendMsg) {
+        msg = backendMsg
+      } else {
+        msg = lang === 'uk' ? 'Помилка при зміні статусу' : 'Error changing status'
+      }
+      toast.error(msg)
+    },
   })
 
   const approvalMut = useMutation({

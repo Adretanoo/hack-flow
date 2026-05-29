@@ -71,7 +71,7 @@ export function HackathonFormPage() {
 
   // Local state for creation mode nested arrays
   const [localTags, setLocalTags] = useState<string[]>([])
-  const [localTracks, setLocalTracks] = useState<Array<{ name: string; description?: string }>>([])
+  const [localTracks, setLocalTracks] = useState<Array<{ name: string; description?: string; guidelines?: string }>>([])
   const [localStages, setLocalStages] = useState<Array<{ name: string; startDate: string; endDate: string; orderIndex: number }>>([])
   const [localAwards, setLocalAwards] = useState<Array<{ name: string; description?: string; certificate?: string; place: number }>>([])
 

@@ -12,7 +12,7 @@ interface TracksSectionProps {
   hackathonId?: string
   tracks?: Track[]
   mode?: 'edit' | 'create'
-  onChange?: (tracks: Array<{ name: string; description?: string }>) => void
+  onChange?: (tracks: Array<{ name: string; description?: string; guidelines?: string }>) => void
 }
 
 // ── TrackForm MUST be outside TracksSection to avoid focus loss on re-render ──
@@ -77,14 +77,14 @@ function TrackForm({ name, setName, guidelines, setGuidelines, onSave, onCancel,
           disabled={!name.trim() || isSaving}
           className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
         >
-          <Check className="h-3.5 w-3.5" /> {isSaving ? (lang === 'uk' ? 'Збереження...' : 'Saving...') : t('actions.save')}
+          <Check className="h-3.5 w-3.5" /> {isSaving ? (lang === 'uk' ? 'Збереження...' : 'Saving...') : t.actions.save}
         </button>
         <button
           type="button"
           onClick={onCancel}
           className="flex items-center gap-1.5 rounded-lg border border-border px-4 py-1.5 text-xs hover:bg-accent"
         >
-          <X className="h-3.5 w-3.5" /> {t('actions.cancel')}
+          <X className="h-3.5 w-3.5" /> {t.actions.cancel}
         </button>
       </div>
     </div>
@@ -152,7 +152,7 @@ export function TracksSection({ hackathonId, tracks: initialTracks = [], mode = 
     if (mode === 'create') {
       const newArr = [...localTracks, { id: Date.now().toString(), name, guidelines }]
       setLocalTracks(newArr)
-      onChange?.(newArr.map(t => ({ name: t.name })))
+      onChange?.(newArr.map(t => ({ name: t.name, guidelines: t.guidelines })))
       setAdding(false); resetForm()
     } else {
       createMut.mutate()
@@ -163,7 +163,7 @@ export function TracksSection({ hackathonId, tracks: initialTracks = [], mode = 
     if (mode === 'create') {
       const newArr = localTracks.map(x => x.id === t.id ? { ...x, name, guidelines } : x)
       setLocalTracks(newArr)
-      onChange?.(newArr.map(x => ({ name: x.name })))
+      onChange?.(newArr.map(x => ({ name: x.name, guidelines: x.guidelines })))
       setEditingId(null)
     } else {
       updateMut.mutate(t.id)
@@ -174,7 +174,7 @@ export function TracksSection({ hackathonId, tracks: initialTracks = [], mode = 
     if (mode === 'create') {
       const newArr = localTracks.filter(x => x.id !== id)
       setLocalTracks(newArr)
-      onChange?.(newArr.map(x => ({ name: x.name })))
+      onChange?.(newArr.map(x => ({ name: x.name, guidelines: x.guidelines })))
     } else {
       deleteMut.mutate(id)
     }

@@ -21,7 +21,7 @@ export class JudgingService {
     private readonly repo: JudgingRepository,
     private readonly auditLog?: AuditLogRepository,
     private readonly judgeTrackRepo?: JudgeTrackRepository,
-  ) {}
+  ) { }
 
   // ── Criteria ─────────────────────────────────────────────
   async listCriteria(trackId: string) {
@@ -159,6 +159,7 @@ export class JudgingService {
     await redis.setex(cacheKey, LEADERBOARD_TTL_SECONDS, JSON.stringify(entries));
     return entries;
   }
+
 
   // ── Full Results ──────────────────────────────────────────
   async getFullResults(hackathonId: string) {

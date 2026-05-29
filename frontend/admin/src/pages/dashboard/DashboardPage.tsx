@@ -25,16 +25,22 @@ export function DashboardPage() {
   const { data: hackData, isLoading: hackLoading } = useQuery({
     queryKey: ['hackathons', 'all'],
     queryFn: () => hackathonsApi.list({ limit: 100 }),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   })
 
   const { data: usersData, isLoading: usersLoading } = useQuery({
     queryKey: ['users', 'all'],
-    queryFn: () => usersApi.list({ limit: 500 }),
+    queryFn: () => usersApi.list({ limit: 100 }),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   })
 
   const { data: teamsData, isLoading: teamsLoading } = useQuery({
     queryKey: ['teams', 'all'],
     queryFn: () => teamsApi.list({ limit: 100 }),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   })
 
   const isLoading = hackLoading || usersLoading || teamsLoading
@@ -44,27 +50,27 @@ export function DashboardPage() {
   const users = (usersData?.data.data ?? []) as UserProfile[]
   const teams = (teamsData?.data.data ?? []) as Team[]
 
-  const activeHackathons = hackathons.filter(h => h.status === 'PUBLISHED').length
-  const pendingTeams = teams.filter(t => t.approvalStatus === 'PENDING').length
+  const publishedCount = hackathons.filter(h => h.status === 'PUBLISHED').length
+  const draftCount     = hackathons.filter(h => h.status === 'DRAFT').length
+  const archivedCount  = hackathons.filter(h => h.status === 'ARCHIVED').length
+  const pendingTeams   = teams.filter(t => t.approvalStatus === 'PENDING').length
 
   const pieData = [
-    { name: t.states.draft, value: hackathons.filter(h => h.status === 'DRAFT').length, color: '#94a3b8' },
-    { name: t.states.published, value: activeHackathons, color: '#3b82f6' },
-    { name: lang === 'uk' ? 'Архів' : 'Archived', value: hackathons.filter(h => h.status === 'ARCHIVED').length, color: '#a855f7' },
+    { name: t.states.draft,     value: draftCount,    color: '#94a3b8' },
+    { name: t.states.published, value: publishedCount, color: '#3b82f6' },
+    { name: lang === 'uk' ? 'Архів' : 'Archived', value: archivedCount, color: '#a855f7' },
   ].filter(d => d.value > 0)
 
-  // Registrations over time (last 7 days) - with base demo data for visual presentation
+  // Registrations over time (last 7 days) - real data only
   const areaData = useMemo(() => {
     const data = []
-    // Base demo curve to ensure the graph looks alive during presentation
-    const baseCurve = [12, 19, 15, 25, 22, 30, 38] 
     
     for (let i = 6; i >= 0; i--) {
       const d = new Date()
       d.setDate(d.getDate() - i)
       const dateStr = d.toISOString().split('T')[0]
       
-      const realCount = users.filter(u => {
+      const count = users.filter(u => {
         if (!u.createdAt) return false
         try {
           return new Date(u.createdAt).toISOString().split('T')[0] === dateStr
@@ -72,9 +78,6 @@ export function DashboardPage() {
           return false
         }
       }).length
-      
-      // Combine real data with base curve so it always looks "WOW"
-      const count = realCount + baseCurve[6 - i]
       
       data.push({ date: d.toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US', { weekday: 'short' }), count })
     }
@@ -127,8 +130,8 @@ export function DashboardPage() {
       {/* Row 1: Stats */}
       <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
         <StatCard title={t.adminDashboard.totalHackathons} value={hackathons.length} icon={Trophy} />
-        <StatCard title={t.states.active} value={activeHackathons} icon={Activity} trend="+1" />
-        <StatCard title={t.adminDashboard.totalUsers} value={users.length} icon={Users} trend="+12" />
+        <StatCard title={t.states.active} value={publishedCount} icon={Activity} />
+        <StatCard title={t.adminDashboard.totalUsers} value={users.length} icon={Users} />
         <StatCard title={lang === 'uk' ? 'Очікують схвалення' : 'Pending Approval'} value={pendingTeams} icon={ClipboardCheck} 
           className={pendingTeams > 0 ? "border-amber-200 bg-amber-50" : ""} />
       </div>

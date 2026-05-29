@@ -6,7 +6,7 @@ export class TeamStageService {
   constructor(
     private readonly repo: TeamStageRepository,
     private readonly auditLog: AuditLogRepository,
-  ) {}
+  ) { }
 
   /** Return the current stage for a team (or null if not placed yet). */
   async getTeamStage(teamId: string) {
@@ -27,24 +27,19 @@ export class TeamStageService {
     // 1. Team exists?
     const team = await this.repo.findTeam(teamId);
     if (!team) throw new NotFoundError('Team not found');
-
     // 2. Team approved?
     const approval = await this.repo.findTeamApproval(teamId);
     if (!approval || approval.status !== 'APPROVED') {
       throw new ForbiddenError('Only teams with APPROVED status can be moved between stages');
     }
-
     // 3. Stage exists?
     const stage = await this.repo.findStage(stageId);
     if (!stage) throw new NotFoundError('Stage not found');
-
     // 4. Same hackathon?
     if (stage.hackathonId !== team.hackathonId) {
       throw new ForbiddenError('Stage does not belong to the team\'s hackathon');
     }
-
     const record = await this.repo.upsert(teamId, stageId);
-
     // Audit log — fire-and-forget
     this.auditLog
       .log(actorId, 'move_team_stage', 'team', teamId)
@@ -52,6 +47,8 @@ export class TeamStageService {
 
     return record;
   }
+
+
 
   /** List all teams currently placed in a given stage. */
   async getTeamsInStage(stageId: string) {
