@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Search } from 'lucide-react'
+import { Search, Archive } from 'lucide-react'
 import { hackathonsApi } from '@/api/hackathons'
 import { useAuthStore } from '@/store/auth.store'
 import { HackathonCard } from '@/components/shared/HackathonCard'
@@ -16,18 +16,21 @@ export function HomePage() {
   const { t } = useI18n()
 
   const TABS = [
-    { id: '', label: t.homePage.tabAll },
-    { id: 'active', label: t.homePage.tabActive },
-    { id: 'upcoming', label: t.homePage.tabUpcoming },
-    { id: 'past', label: t.homePage.tabPast },
+    { id: '', label: t.homePage.tabAll, icon: null },
+    { id: 'active', label: t.homePage.tabActive, icon: null },
+    { id: 'upcoming', label: t.homePage.tabUpcoming, icon: null },
+    { id: 'past', label: t.homePage.tabPast, icon: null },
+    { id: 'archived', label: t.homePage.tabArchived, icon: Archive },
   ]
+
+  const isArchiveTab = activeTab === 'archived'
 
   const { data, isLoading } = useQuery({
     queryKey: ['public-hackathons', activeTab, search],
     queryFn: () => hackathonsApi.list({
-      status: activeTab || undefined,
+      status: (!isArchiveTab && activeTab) ? activeTab : undefined,
       search: search || undefined,
-      publishStatus: 'PUBLISHED',
+      publishStatus: isArchiveTab ? 'ARCHIVED' : 'PUBLISHED',
       limit: 20
     }),
   })
@@ -81,12 +84,16 @@ export function HomePage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                    activeTab === tab.id
-                      ? 'bg-foreground text-background'
-                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                  }`}
+                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors flex items-center gap-1.5 ${activeTab === tab.id
+                      ? tab.id === 'archived'
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-foreground text-background'
+                      : tab.id === 'archived'
+                        ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-900/50'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
                 >
+                  {tab.icon && <tab.icon className="h-3.5 w-3.5" />}
                   {tab.label}
                 </button>
               ))}

@@ -94,10 +94,29 @@ export interface Translations {
   // ── HomePage ────────────────────────────────────────────────────────────
   homePage: {
     heroTitle: string; heroSubtitle: string
-    tabAll: string; tabActive: string; tabUpcoming: string; tabPast: string
+    tabAll: string; tabActive: string; tabUpcoming: string; tabPast: string; tabArchived: string
     searchPlaceholder: string; noHackathons: string; noHackathonsDesc: string
     participants: string; teams: string; prize: string
     viewAll: string; registerCTA: string
+  }
+  hackathonResults: {
+    sectionTitle: string
+    winnersTitle: string
+    leaderboardTitle: string
+    allTeamsTitle: string
+    noResults: string
+    noResultsDesc: string
+    place: string
+    teamLabel: string
+    projectLabel: string
+    membersLabel: string
+    scoreLabel: string
+    resourcesLabel: string
+    noProject: string
+    noAward: string
+    rank: string
+    disqualifiedLabel: string
+    notSubmittedLabel: string
   }
   // ── HackathonDashboard ──────────────────────────────────────────────────
   dashboard: {
@@ -687,11 +706,30 @@ export const uk: Translations = {
   homePage: {
     heroTitle: 'Ласкаво просимо до Hack-Flow',
     heroSubtitle: 'Платформа для організації та участі у хакатонах. Знаходьте команди, беріть участь і перемагайте!',
-    tabAll: 'Всі', tabActive: 'Активні', tabUpcoming: 'Майбутні', tabPast: 'Минулі',
+    tabAll: 'Всі', tabActive: 'Активні', tabUpcoming: 'Майбутні', tabPast: 'Минулі', tabArchived: 'Архів',
     searchPlaceholder: 'Пошук хакатонів...', noHackathons: 'Немає хакатонів',
     noHackathonsDesc: 'Спробуйте змінити фільтри або поверніться пізніше',
     participants: 'учасників', teams: 'команд', prize: 'Призовий фонд',
     viewAll: 'Переглянути всі', registerCTA: 'Зареєструватись',
+  },
+  hackathonResults: {
+    sectionTitle: '🏆 Підсумки хакатону',
+    winnersTitle: 'Переможці',
+    leaderboardTitle: 'Загальний рейтинг',
+    allTeamsTitle: 'Усі команди',
+    noResults: 'Результати ще не оголошено',
+    noResultsDesc: 'Зачекайте поки суддівство завершиться',
+    place: 'місце',
+    teamLabel: 'Команда',
+    projectLabel: 'Проєкт',
+    membersLabel: 'Учасники',
+    scoreLabel: 'Бали',
+    resourcesLabel: 'Ресурси',
+    noProject: 'Проєкт не подано',
+    noAward: 'Без нагороди',
+    rank: '#',
+    disqualifiedLabel: 'Дискваліфіковано',
+    notSubmittedLabel: 'Проєкт не подано',
   },
   dashboard: {
     backToList: 'До списку хакатонів', notFound: 'Хакатон не знайдено',

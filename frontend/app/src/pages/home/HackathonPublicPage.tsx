@@ -1,16 +1,17 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
 import {
   Calendar, MapPin, Users, Globe, ExternalLink, ChevronLeft,
-  ChevronDown, ChevronUp, BookOpen, Clock, Tag,
+  ChevronDown, ChevronUp, BookOpen, Clock, Tag, Trophy,
 } from 'lucide-react'
 import { hackathonsApi } from '@/api/hackathons'
 import { useAuthStore } from '@/store/auth.store'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { HackathonResultsSection } from '@/components/shared/HackathonResultsSection'
 import { formatDate } from '@/utils/format'
 import { useHackathonStage } from '@/hooks/useHackathonStage'
 import { useI18n } from '@/i18n'
@@ -123,6 +124,7 @@ export function HackathonPublicPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuthStore()
   const { t } = useI18n()
+  const resultsRef = useRef<HTMLDivElement>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['public-hackathon', id],
@@ -133,8 +135,22 @@ export function HackathonPublicPage() {
   const hackathon = data?.data?.data
   const { activeStage, canRegister: stageAllowsRegistration } = useHackathonStage(hackathon)
 
-  const hasStages = hackathon != null && (hackathon.stages?.length ?? 0) > 0
   const now = new Date()
+  const isPast =
+    hackathon != null && (
+      new Date(hackathon.endDate) < now ||
+      activeStage?.type === 'FINISHED' ||
+      hackathon.status === 'ARCHIVED'
+    )
+
+  // Fetch results only for past/archived hackathons
+  const { data: resultsData, isLoading: resultsLoading } = useQuery({
+    queryKey: ['hackathon-results', id],
+    queryFn: () => hackathonsApi.getResults(id!),
+    enabled: !!id && !!isPast,
+  })
+
+  const hasStages = hackathon != null && (hackathon.stages?.length ?? 0) > 0
   const withinDates =
     hackathon != null &&
     new Date(hackathon.startDate) <= now &&
@@ -146,6 +162,8 @@ export function HackathonPublicPage() {
   if (isLoading) return <div className="py-24"><LoadingSpinner size="lg" /></div>
   if (!hackathon) return <div className="py-24 text-center">{t.publicHackathon.hackathonNotFound}</div>
 
+  const results = resultsData?.data?.data
+
   return (
     <div className="animate-fade-in space-y-8">
       <Link
@@ -156,8 +174,20 @@ export function HackathonPublicPage() {
       </Link>
 
       {/* Banner */}
-      <div className="relative h-48 sm:h-64 w-full overflow-hidden rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600">
+      <div className={`relative h-48 sm:h-64 w-full overflow-hidden rounded-2xl ${
+        hackathon.status === 'ARCHIVED'
+          ? 'bg-gradient-to-r from-slate-500 to-slate-700'
+          : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+      }`}>
         <div className="absolute inset-0 bg-black/20" />
+        {hackathon.status === 'ARCHIVED' && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center text-white/80 space-y-1">
+              <Trophy className="mx-auto h-12 w-12 text-amber-400 drop-shadow" />
+              <p className="text-sm font-semibold tracking-widest uppercase">Завершено</p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -167,7 +197,7 @@ export function HackathonPublicPage() {
           <div>
             <div className="flex items-center gap-3 mb-4">
               <StatusBadge status={
-                hackathon.status === 'PUBLISHED' 
+                hackathon.status === 'PUBLISHED'
                   ? (now > new Date(hackathon.endDate) || activeStage?.type === 'FINISHED' ? 'past' : (now < new Date(hackathon.startDate) ? 'upcoming' : 'active'))
                   : hackathon.status
               } />
@@ -211,6 +241,16 @@ export function HackathonPublicPage() {
                 <Clock className="h-6 w-6 text-primary" /> {t.publicHackathon.stagesTitle}
               </h2>
               <StageTimeline stages={hackathon.stages} activeStageId={activeStage?.id} />
+            </div>
+          )}
+
+          {isPast && (
+            <div className="border-t border-border pt-8">
+              <HackathonResultsSection
+                results={results}
+                isLoading={resultsLoading}
+                sectionRef={resultsRef}
+              />
             </div>
           )}
         </div>
@@ -265,7 +305,16 @@ export function HackathonPublicPage() {
             )}
 
             <div className="pt-4 border-t border-border">
-              {!isRegistrationOpen ? (
+              {isPast ? (
+                /* Finished — show results scroll CTA */
+                <button
+                  onClick={() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500/10 border border-amber-400/30 px-4 py-3 text-sm font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+                >
+                  <Trophy className="h-4 w-4" />
+                  Переглянути підсумки та переможців
+                </button>
+              ) : !isRegistrationOpen ? (
                 <button disabled className="flex w-full justify-center rounded-lg bg-muted px-4 py-3 text-sm font-semibold text-muted-foreground cursor-not-allowed">
                   {t.publicHackathon.registrationClosed}
                 </button>
@@ -300,6 +349,23 @@ export function HackathonPublicPage() {
                     {tag.name || tag.tag?.name}
                   </span>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Stats for finished hackathons */}
+          {isPast && hackathon._count && (
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Статистика</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">{hackathon._count.teams ?? 0}</p>
+                  <p className="text-xs text-muted-foreground">{t.homePage.teams}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">{hackathon._count.participants ?? 0}</p>
+                  <p className="text-xs text-muted-foreground">{t.homePage.participants}</p>
+                </div>
               </div>
             </div>
           )}

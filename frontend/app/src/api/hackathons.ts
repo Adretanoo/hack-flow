@@ -7,4 +7,8 @@ export const hackathonsApi = {
 
   getById: (id: string) =>
     api.get<ApiResponse<Hackathon>>(`/hackathons/${id}`),
+
+  getResults: (id: string) =>
+    api.get<ApiResponse<any>>(`/judging/results/${id}`),
 }
+
