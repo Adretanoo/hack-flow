@@ -10,29 +10,30 @@ import { useI18n } from '@/i18n'
 
 const inputCls = 'block w-full rounded-md border-0 py-2 text-foreground shadow-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm sm:leading-6 px-3 bg-background'
 
+// Схема визначена ПОЗА компонентом — форма не скидається при кожному рендері
+const registerSchema = z.object({
+  fullName: z.string().min(2, 'Ім’я занадто коротке'),
+  username: z
+    .string()
+    .min(3, 'Усернейм занадто короткий')
+    .max(30, 'Усернейм занадто довгий')
+    .regex(/^[a-z0-9_]+$/i, 'Тільки латинські літери, цифри та _'),
+  email: z.string().email('Невірна email адреса'),
+  password: z.string().min(8, 'Пароль мінімум 8 символів'),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Паролі не збігаються',
+  path: ['confirmPassword'],
+})
+
+type RegisterForm = z.infer<typeof registerSchema>
+
 export function RegisterPage() {
   const navigate = useNavigate()
   const { setTokens, setUser } = useAuthStore()
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const { t } = useI18n()
-
-  const registerSchema = z.object({
-    fullName: z.string().min(2, t.auth.nameTooShort),
-    username: z
-      .string()
-      .min(3, t.auth.usernameTooShort)
-      .max(30, t.auth.usernameTooLong)
-      .regex(/^[a-z0-9_]+$/i, t.auth.usernameInvalid),
-    email: z.string().email(t.auth.invalidEmail),
-    password: z.string().min(8, t.auth.passwordTooShort),
-    confirmPassword: z.string(),
-  }).refine((data) => data.password === data.confirmPassword, {
-    message: t.auth.passwordsMismatch,
-    path: ['confirmPassword'],
-  })
-
-  type RegisterForm = z.infer<typeof registerSchema>
 
   const { register, handleSubmit, setError: setFieldError, formState: { errors } } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),

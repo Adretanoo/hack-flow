@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Trophy, UserSearch, User, FileText, Star, AlertTriangle, Calendar, Clock, Shield, X } from 'lucide-react'
+import { Trophy, UserSearch, User, FileText, Star, AlertTriangle, Calendar, Clock, Shield, X, ExternalLink } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
 import { useQuery } from '@tanstack/react-query'
 import { judgingApi } from '@/api/judging'
@@ -73,27 +73,27 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
   // ── Nav items ──────────────────────────────────────────────────
   const adminNav = [
-    { name: t.adminDashboard.title, href: '/app/admin',    icon: Shield,  badge: 0, badgeColor: '' },
-    { name: t.sidebar.profile,      href: '/app/profile',  icon: User,    badge: 0, badgeColor: '' },
+    { name: t.adminDashboard.title, href: 'http://localhost:5173', icon: Shield,  badge: 0, badgeColor: '', external: true },
+    { name: t.sidebar.profile,      href: '/app/profile',         icon: User,    badge: 0, badgeColor: '', external: false },
   ]
 
   const judgeNav = [
-    { name: t.sidebar.judgeProjects,   href: '/app/judge/projects',   icon: FileText,      badge: unscoredCount,      badgeColor: 'bg-red-500' },
-    { name: t.sidebar.judgeScores,     href: '/app/judge/scores',     icon: Star,          badge: 0,                  badgeColor: '' },
-    { name: t.sidebar.judgeConflicts,  href: '/app/judge/conflicts',  icon: AlertTriangle, badge: myConflicts.length, badgeColor: 'bg-muted-foreground/60' },
-    { name: t.sidebar.profile,         href: '/app/profile',          icon: User,          badge: 0,                  badgeColor: '' },
+    { name: t.sidebar.judgeProjects,   href: '/app/judge/projects',   icon: FileText,      badge: unscoredCount,      badgeColor: 'bg-red-500',            external: false },
+    { name: t.sidebar.judgeScores,     href: '/app/judge/scores',     icon: Star,          badge: 0,                  badgeColor: '',                      external: false },
+    { name: t.sidebar.judgeConflicts,  href: '/app/judge/conflicts',  icon: AlertTriangle, badge: myConflicts.length, badgeColor: 'bg-muted-foreground/60', external: false },
+    { name: t.sidebar.profile,         href: '/app/profile',          icon: User,          badge: 0,                  badgeColor: '',                      external: false },
   ]
 
   const mentorNav = [
-    { name: t.sidebar.mentorAvailability, href: '/app/mentor/availability', icon: Calendar, badge: 0,                   badgeColor: '' },
-    { name: t.sidebar.mentorSlots,        href: '/app/mentor/slots',        icon: Clock,    badge: upcomingBookedSlots, badgeColor: 'bg-blue-500' },
-    { name: t.sidebar.profile,            href: '/app/profile',             icon: User,     badge: 0,                   badgeColor: '' },
+    { name: t.sidebar.mentorAvailability, href: '/app/mentor/availability', icon: Calendar, badge: 0,                   badgeColor: '', external: false },
+    { name: t.sidebar.mentorSlots,        href: '/app/mentor/slots',        icon: Clock,    badge: upcomingBookedSlots, badgeColor: 'bg-blue-500', external: false },
+    { name: t.sidebar.profile,            href: '/app/profile',             icon: User,     badge: 0,                   badgeColor: '', external: false },
   ]
 
   const participantNav = [
-    { name: t.sidebar.myHackathons, href: '/app/hackathons',  icon: Trophy,     badge: 0, badgeColor: '' },
-    { name: t.sidebar.matchmaking,  href: '/app/matchmaking', icon: UserSearch, badge: 0, badgeColor: '' },
-    { name: t.sidebar.profile,      href: '/app/profile',     icon: User,       badge: 0, badgeColor: '' },
+    { name: t.sidebar.myHackathons, href: '/app/hackathons',  icon: Trophy,     badge: 0, badgeColor: '', external: false },
+    { name: t.sidebar.matchmaking,  href: '/app/matchmaking', icon: UserSearch, badge: 0, badgeColor: '', external: false },
+    { name: t.sidebar.profile,      href: '/app/profile',     icon: User,       badge: 0, badgeColor: '', external: false },
   ]
 
   const navItems = isAdmin ? adminNav : isJudge ? judgeNav : isMentor ? mentorNav : participantNav
@@ -114,22 +114,29 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       <div className="flex-1 overflow-y-auto py-4">
         <nav className="grid gap-1 px-4 text-sm font-medium">
           {navItems.map((item) => {
-            const isActive = pathname.startsWith(item.href)
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all ${
-                  isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                }`}
-              >
+            const isActive = !item.external && pathname.startsWith(item.href)
+            const cls = `flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all ${
+              isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            }`
+            const content = (
+              <>
                 <item.icon className="h-5 w-5 shrink-0" />
                 <span className="flex-1">{item.name}</span>
+                {item.external && <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-50" />}
                 {item.badge > 0 && (
                   <span className={`${item.badgeColor} text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0`}>
                     {item.badge > 9 ? '9+' : item.badge}
                   </span>
                 )}
+              </>
+            )
+            return item.external ? (
+              <a key={item.name} href={item.href} className={cls}>
+                {content}
+              </a>
+            ) : (
+              <Link key={item.name} to={item.href} className={cls}>
+                {content}
               </Link>
             )
           })}

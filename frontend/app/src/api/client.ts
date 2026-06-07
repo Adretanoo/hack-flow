@@ -24,7 +24,11 @@ api.interceptors.response.use(
       originalRequest._retry = true
       try {
         const { refreshToken } = useAuthStore.getState()
-        if (!refreshToken) throw new Error('No refresh token')
+        if (!refreshToken) {
+          // Немає refresh token — тихо виходимо, RoleGuard сам перенаправить на /login
+          useAuthStore.getState().logout()
+          return Promise.reject(error)
+        }
 
         const response = await axios.post<{ data: { accessToken: string } }>(
           `${api.defaults.baseURL}/auth/refresh`,
@@ -38,8 +42,8 @@ api.interceptors.response.use(
         const result = await axios(originalRequest)
         return result.data
       } catch (refreshError) {
+        // Refresh не вдався — виходимо. RoleGuard/router сам обробить редирект
         useAuthStore.getState().logout()
-        window.location.href = '/login'
         return Promise.reject(refreshError)
       }
     }

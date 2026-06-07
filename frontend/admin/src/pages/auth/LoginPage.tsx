@@ -6,16 +6,17 @@ import { Zap, Loader2, AlertCircle } from 'lucide-react'
 import { isAxiosError } from 'axios'
 import { useI18n } from '@/i18n'
 
+// Схема поза компонентом — форма не скидається при ре-рендері
+const schema = z.object({
+  email: z.string().email('Невірний формат email'),
+  password: z.string().min(1, 'Введіть пароль'),
+})
+
+type FormData = z.infer<typeof schema>
+
 export function LoginPage() {
   const { login, loginPending, loginError } = useAuth()
-  const { t, lang } = useI18n()
-
-  const schema = z.object({
-    email: z.string().email(t.auth.invalidEmail),
-    password: z.string().min(1, t.auth.enterPassword),
-  })
-
-  type FormData = z.infer<typeof schema>
+  const { t } = useI18n()
 
   const {
     register,
@@ -29,9 +30,9 @@ export function LoginPage() {
 
   const errorMessage =
     isAxiosError(loginError) && loginError.response?.status === 401
-      ? (lang === 'uk' ? 'Невірний email або пароль' : 'Invalid email or password')
+      ? 'Невірний email або пароль'
       : loginError
-      ? (lang === 'uk' ? 'Сталась помилка. Спробуйте пізніше.' : 'An error occurred. Please try again later.')
+      ? 'Сталась помилка. Спробуйте пізніше.'
       : null
 
   return (

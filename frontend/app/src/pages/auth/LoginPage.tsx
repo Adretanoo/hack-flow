@@ -8,19 +8,21 @@ import { useAuthStore } from '@/store/auth.store'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { useI18n } from '@/i18n'
 
+// Схема визначена ПОЗА компонентом, щоб не перестворюватись при кожному рендері
+// (інакше react-hook-form скидає форму при кожній зміні стану)
+const loginSchema = z.object({
+  email: z.string().email('Невірний email'),
+  password: z.string().min(1, 'Введіть пароль'),
+})
+
+type LoginForm = z.infer<typeof loginSchema>
+
 export function LoginPage() {
   const navigate = useNavigate()
-  const { setTokens, setUser } = useAuthStore()
+  const { setTokens, setUser, logout } = useAuthStore()
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const { t } = useI18n()
-
-  const loginSchema = z.object({
-    email: z.string().email(t.auth.invalidEmail),
-    password: z.string().min(1, t.auth.enterPassword),
-  })
-
-  type LoginForm = z.infer<typeof loginSchema>
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -32,8 +34,18 @@ export function LoginPage() {
       setError('')
       const response = await authApi.login(data)
       const { accessToken, refreshToken, user } = response.data.data
+
+      // Адмін-панель знаходиться тільки на localhost:5173
+      // З порту 5174 вхід заборонено — очищаємо стан і показуємо загальну помилку
+      if (user.role === 'admin') {
+        logout()
+        setError('Невірний email або пароль')
+        return
+      }
+
       setTokens(accessToken, refreshToken)
       setUser(user)
+
       const pendingToken = sessionStorage.getItem('hackflow_pending_join_token')
       if (pendingToken) {
         navigate(`/join/${pendingToken}`)
@@ -41,7 +53,15 @@ export function LoginPage() {
         navigate('/app')
       }
     } catch (err: any) {
-      setError(err.message || t.auth.loginError)
+      // Перекладаємо відомі повідомлення бекенду на українську
+      const raw: string = err?.response?.data?.message || err?.message || ''
+      const translated =
+        raw.toLowerCase().includes('invalid credentials') || raw.toLowerCase().includes('invalid email')
+          ? 'Невірний email або пароль'
+          : raw.toLowerCase().includes('deactivated')
+          ? 'Акаунт деактивовано'
+          : raw || t.auth.loginError
+      setError(translated)
     } finally {
       setIsLoading(false)
     }

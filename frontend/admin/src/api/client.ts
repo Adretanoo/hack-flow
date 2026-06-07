@@ -22,8 +22,8 @@ api.interceptors.response.use(
       original._retry = true
       const refreshToken = useAuthStore.getState().refreshToken
       if (!refreshToken) {
+        // Немає refresh token — тихо виходимо, router сам перенаправить
         useAuthStore.getState().logout()
-        window.location.href = '/login'
         return Promise.reject(error)
       }
       try {
@@ -36,8 +36,8 @@ api.interceptors.response.use(
         original.headers.Authorization = `Bearer ${accessToken}`
         return api(original)
       } catch {
+        // Refresh не вдався — виходимо, router сам обробить редирект
         useAuthStore.getState().logout()
-        window.location.href = '/login'
       }
     }
     return Promise.reject(error)
