@@ -90,10 +90,16 @@ export function ResultsPanel({ hackathonId }: Props) {
   const { data: resultsData, isLoading } = useQuery({
     queryKey: ['full-results', hackathonId],
     queryFn: () => judgingApi.getFullResults(hackathonId).then(r => r.data.data),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: 15_000,
   })
   const { data: awardsData } = useQuery({
     queryKey: ['awards', hackathonId],
-    queryFn: () => judgingApi.listAwards(hackathonId).then(r => r.data.data ?? []),
+    queryFn: () => judgingApi.listAwards(hackathonId).then(r => {
+      const raw = r.data?.data ?? r.data
+      return Array.isArray(raw) ? raw : []
+    }),
   })
 
   const reinstateTeamMut = useMutation({
@@ -121,7 +127,7 @@ export function ResultsPanel({ hackathonId }: Props) {
   const disqualified: any[] = results.disqualified ?? []
   const notSubmitted: any[] = results.notSubmitted ?? []
   const stats = results.stats ?? {}
-  const awards: any[] = awardsData ?? []
+  const awards: any[] = Array.isArray(awardsData) ? awardsData : []
   const activeTrack = tracks[activeTrackIdx]
 
   // ── Export functions ────────────────────────────────────────

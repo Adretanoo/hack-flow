@@ -268,6 +268,7 @@ export class TeamsRepository {
       .select()
       .from(teamApprovals)
       .where(eq(teamApprovals.teamId, teamId))
+      .orderBy(desc(teamApprovals.approvedAt))
       .limit(1);
     return row ?? null;
   }
@@ -278,6 +279,21 @@ export class TeamsRepository {
     approvedBy?: string;
     comment?: string;
   }) {
+    // Try to UPDATE the existing record first; only INSERT if none exists yet.
+    const updated = await this.db
+      .update(teamApprovals)
+      .set({
+        status: data.status,
+        approvedBy: data.approvedBy,
+        comment: data.comment ?? null,
+        approvedAt: new Date(),
+      })
+      .where(eq(teamApprovals.teamId, data.teamId))
+      .returning();
+
+    if (updated.length > 0) return updated[0];
+
+    // No existing row — insert a fresh one.
     const [row] = await this.db
       .insert(teamApprovals)
       .values({ ...data, approvedAt: new Date() })

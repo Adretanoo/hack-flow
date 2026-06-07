@@ -163,7 +163,16 @@ export class JudgingService {
 
   // ── Full Results ──────────────────────────────────────────
   async getFullResults(hackathonId: string) {
-    const allTeams = await this.repo.findAllTeamsForHackathon(hackathonId);
+    const rawTeams = await this.repo.findAllTeamsForHackathon(hackathonId);
+
+    // Deduplicate by teamId — SQL JOINs in the repo can return the same team multiple times
+    const seenTeamIds = new Set<string>();
+    const allTeams = rawTeams.filter(t => {
+      if (seenTeamIds.has(t.teamId)) return false;
+      seenTeamIds.add(t.teamId);
+      return true;
+    });
+
     if (allTeams.length === 0) return this.emptyResults();
 
     const teamIds = allTeams.map(t => t.teamId);

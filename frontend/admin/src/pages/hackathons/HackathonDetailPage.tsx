@@ -35,6 +35,8 @@ export function HackathonDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [statusOverride, setStatusOverride] = useState<string>('')
   const [confirmStatusOpen, setConfirmStatusOpen] = useState(false)
+  // Local optimistic overrides: teamId -> new status shown immediately in SELECT
+  const [teamStatusOverrides, setTeamStatusOverrides] = useState<Record<string, string>>({})
 
   const TABS: { key: Tab; label: string; icon: React.ElementType }[] = useMemo(() => [
     { key: 'overview', label: lang === 'uk' ? 'Огляд' : 'Overview', icon: Trophy },
@@ -55,6 +57,8 @@ export function HackathonDetailPage() {
     queryKey: ['teams', id],
     queryFn: () => teamsApi.list({ hackathon_id: id, limit: 50 }),
     enabled: activeTab === 'teams' && !!id,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   })
 
   const overrideMut = useMutation({
@@ -86,11 +90,21 @@ export function HackathonDetailPage() {
   const approvalMut = useMutation({
     mutationFn: ({ teamId, status }: { teamId: string; status: string }) =>
       teamsApi.updateApproval(teamId, { status }),
-    onSuccess: () => {
-      toast.success(lang === 'uk' ? 'Статус команди оновлено' : 'Team status updated')
-      qc.invalidateQueries({ queryKey: ['teams', id] })
+
+    onError: (_err, vars) => {
+      // Revert the local override on failure
+      setTeamStatusOverrides(prev => { const n = { ...prev }; delete n[vars.teamId]; return n })
+      toast.error(lang === 'uk' ? 'Помилка' : 'Error')
     },
-    onError: () => toast.error(lang === 'uk' ? 'Помилка' : 'Error'),
+
+    onSuccess: async (_data, vars) => {
+      toast.success(lang === 'uk' ? 'Статус команди оновлено' : 'Team status updated')
+      // Refetch first, THEN clear override — so the UI never falls back to stale server data
+      // while the network round-trip is in flight.
+      await qc.refetchQueries({ queryKey: ['teams', id] })
+      setTeamStatusOverrides(prev => { const n = { ...prev }; delete n[vars.teamId]; return n })
+      qc.invalidateQueries({ queryKey: ['full-results'] })
+    },
   })
 
   if (isLoading) return <LoadingSpinner className="py-20" label={lang === 'uk' ? 'Завантаження…' : 'Loading...'} />
@@ -108,13 +122,17 @@ export function HackathonDetailPage() {
       header: t.adminTeams.status,
       render: (teamItem) => (
         <select
-          value={teamItem.approvalStatus}
-          onChange={(e) => approvalMut.mutate({ teamId: teamItem.id, status: e.target.value as 'APPROVED' | 'REJECTED' | 'PENDING' | 'DISQUALIFIED' })}
-          disabled={approvalMut.isPending}
+          value={teamStatusOverrides[teamItem.id] ?? teamItem.approvalStatus}
+          onChange={(e) => {
+            const newStatus = e.target.value as 'APPROVED' | 'REJECTED' | 'PENDING' | 'DISQUALIFIED'
+            setTeamStatusOverrides(prev => ({ ...prev, [teamItem.id]: newStatus }))
+            approvalMut.mutate({ teamId: teamItem.id, status: newStatus })
+          }}
+          disabled={false}
           className="text-xs font-semibold px-2.5 py-1 rounded-full border border-border bg-background outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
           style={{
-            backgroundColor: teamItem.approvalStatus === 'APPROVED' ? 'var(--green-50, #f0fdf4)' : teamItem.approvalStatus === 'REJECTED' ? 'var(--red-50, #fef2f2)' : teamItem.approvalStatus === 'DISQUALIFIED' ? 'var(--neutral-100, #f5f5f5)' : 'var(--amber-50, #fffbeb)',
-            color: teamItem.approvalStatus === 'APPROVED' ? 'var(--green-700, #15803d)' : teamItem.approvalStatus === 'REJECTED' ? 'var(--red-700, #b91c1c)' : teamItem.approvalStatus === 'DISQUALIFIED' ? 'var(--neutral-600, #525252)' : 'var(--amber-700, #b45309)'
+            backgroundColor: (teamStatusOverrides[teamItem.id] ?? teamItem.approvalStatus) === 'APPROVED' ? 'var(--green-50, #f0fdf4)' : (teamStatusOverrides[teamItem.id] ?? teamItem.approvalStatus) === 'REJECTED' ? 'var(--red-50, #fef2f2)' : (teamStatusOverrides[teamItem.id] ?? teamItem.approvalStatus) === 'DISQUALIFIED' ? 'var(--neutral-100, #f5f5f5)' : 'var(--amber-50, #fffbeb)',
+            color: (teamStatusOverrides[teamItem.id] ?? teamItem.approvalStatus) === 'APPROVED' ? 'var(--green-700, #15803d)' : (teamStatusOverrides[teamItem.id] ?? teamItem.approvalStatus) === 'REJECTED' ? 'var(--red-700, #b91c1c)' : (teamStatusOverrides[teamItem.id] ?? teamItem.approvalStatus) === 'DISQUALIFIED' ? 'var(--neutral-600, #525252)' : 'var(--amber-700, #b45309)'
           }}
         >
           <option value="PENDING">{t.states.pending}</option>

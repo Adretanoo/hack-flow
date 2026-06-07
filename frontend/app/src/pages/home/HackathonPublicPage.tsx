@@ -8,6 +8,7 @@ import {
   ChevronDown, ChevronUp, BookOpen, Clock, Tag, Trophy,
 } from 'lucide-react'
 import { hackathonsApi } from '@/api/hackathons'
+import { teamsApi } from '@/api/teams'
 import { useAuthStore } from '@/store/auth.store'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -148,7 +149,22 @@ export function HackathonPublicPage() {
     queryKey: ['hackathon-results', id],
     queryFn: () => hackathonsApi.getResults(id!),
     enabled: !!id && !!isPast,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: 15_000,
   })
+
+  // Fetch user's team status for this hackathon
+  const { data: myTeamData } = useQuery({
+    queryKey: ['my-team-public', id, user?.id],
+    queryFn: () => teamsApi.getMyTeam(id!).then(r => r.data?.data ?? null),
+    enabled: !!id && !!user,
+    retry: false,
+    staleTime: 0,               // always re-fetch fresh data
+    refetchOnWindowFocus: true, // refetch when user switches back to tab
+    refetchInterval: 15_000,    // poll every 15s to catch admin status changes
+  })
+  const myTeam = myTeamData ?? null
 
   const hasStages = hackathon != null && (hackathon.stages?.length ?? 0) > 0
   const withinDates =
@@ -306,7 +322,6 @@ export function HackathonPublicPage() {
 
             <div className="pt-4 border-t border-border">
               {isPast ? (
-                /* Finished — show results scroll CTA */
                 <button
                   onClick={() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500/10 border border-amber-400/30 px-4 py-3 text-sm font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
@@ -314,6 +329,33 @@ export function HackathonPublicPage() {
                   <Trophy className="h-4 w-4" />
                   Переглянути підсумки та переможців
                 </button>
+              ) : myTeam ? (
+                /* User already has a team — show status */
+                <div className="space-y-3">
+                  <div className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium border ${
+                    myTeam.approvalStatus === 'APPROVED'
+                      ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/30 dark:border-green-800 dark:text-green-400'
+                      : myTeam.approvalStatus === 'REJECTED'
+                        ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950/30 dark:border-red-800 dark:text-red-400'
+                        : 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-400'
+                  }`}>
+                    <span className="font-semibold">
+                      {myTeam.approvalStatus === 'APPROVED' ? '✅ Команду схвалено'
+                        : myTeam.approvalStatus === 'REJECTED' ? '❌ Команду відхилено'
+                        : '⏳ Очікує розгляду'}
+                    </span>
+                    <StatusBadge status={myTeam.approvalStatus} />
+                  </div>
+                  <div className="text-xs text-muted-foreground text-center">
+                    Команда: <span className="font-semibold text-foreground">{myTeam.name}</span>
+                  </div>
+                  <Link
+                    to={`/app/hackathons/${hackathon.id}`}
+                    className="flex w-full justify-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+                  >
+                    {t.publicHackathon.applyButton}
+                  </Link>
+                </div>
               ) : !isRegistrationOpen ? (
                 <button disabled className="flex w-full justify-center rounded-lg bg-muted px-4 py-3 text-sm font-semibold text-muted-foreground cursor-not-allowed">
                   {t.publicHackathon.registrationClosed}

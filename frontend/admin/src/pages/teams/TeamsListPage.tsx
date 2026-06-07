@@ -30,6 +30,8 @@ export function TeamsListPage() {
   const [trackId, setTrackId]           = useState('')
   const [selectedIds, setSelectedIds]   = useState<string[]>([])
   const [rejectTarget, setRejectTarget] = useState<string | null>(null)
+  // Local optimistic overrides: teamId -> new status shown immediately in SELECT
+  const [teamStatusOverrides, setTeamStatusOverrides] = useState<Record<string, string>>({})
 
   const debouncedSearch = useDebounce(search, 300)
 
@@ -55,24 +57,55 @@ export function TeamsListPage() {
     enabled: !!hackathonId,
   })
 
+  const teamsQueryKey = ['teams', page, limit, statusFilter, hackathonId, trackId, debouncedSearch]
+
   const approvalMut = useMutation({
     mutationFn: ({ id, status, comment }: { id: string; status: string; comment?: string }) =>
       teamsApi.updateApproval(id, { status, comment }),
-    onSuccess: () => {
+
+    onMutate: async ({ id: teamId, status }) => {
+      await qc.cancelQueries({ queryKey: teamsQueryKey })
+      const prev = qc.getQueryData<any>(teamsQueryKey)
+      qc.setQueryData(teamsQueryKey, (old: any) => {
+        if (!old?.data?.data) return old
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            data: (old.data.data as any[]).map((t: any) =>
+              t.id === teamId ? { ...t, approvalStatus: status } : t
+            ),
+          },
+        }
+      })
+      return { prev }
+    },
+
+    onError: (_err, vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(teamsQueryKey, ctx.prev)
+      // Revert local override on error
+      setTeamStatusOverrides(prev => { const n = { ...prev }; delete n[vars.id]; return n })
+      toast.error(lang === 'uk' ? 'Помилка при оновленні' : 'Error updating status')
+    },
+
+    onSuccess: async (_data, vars) => {
       toast.success(lang === 'uk' ? 'Статус оновлено' : 'Status updated')
-      qc.invalidateQueries({ queryKey: ['teams'] })
+      // Refetch first, THEN clear override — so UI never falls back to stale data mid-flight
+      await qc.refetchQueries({ queryKey: teamsQueryKey })
+      setTeamStatusOverrides(prev => { const n = { ...prev }; delete n[vars.id]; return n })
+      qc.invalidateQueries({ queryKey: ['full-results'] })
       setRejectTarget(null)
     },
-    onError: () => toast.error(lang === 'uk' ? 'Помилка при оновленні' : 'Error updating status'),
   })
 
   const bulkMut = useMutation({
     mutationFn: async (status: 'APPROVED' | 'REJECTED') => {
       await Promise.all(selectedIds.map((id) => teamsApi.updateApproval(id, { status })))
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success(lang === 'uk' ? 'Статуси оновлено' : 'Statuses updated')
-      qc.invalidateQueries({ queryKey: ['teams'] })
+      await qc.refetchQueries({ queryKey: ['teams'] })
+      await qc.refetchQueries({ queryKey: ['full-results'] })
       setSelectedIds([])
     },
     onError: () => toast.error(lang === 'uk' ? 'Помилка при масовому оновленні' : 'Error bulk updating statuses'),
@@ -157,29 +190,35 @@ export function TeamsListPage() {
     {
       key: 'status',
       header: t.adminTeams.status,
-      render: (teamItem) => (
-        <select
-          value={teamItem.approvalStatus}
-          onChange={(e) => {
-            if (e.target.value === 'REJECTED') {
-              setRejectTarget(teamItem.id)
-            } else {
-              approvalMut.mutate({ id: teamItem.id, status: e.target.value as 'APPROVED' | 'PENDING' | 'DISQUALIFIED' })
-            }
-          }}
-          disabled={approvalMut.isPending}
-          className="text-xs font-semibold px-2.5 py-1 rounded-full border border-border bg-background outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
-          style={{
-            backgroundColor: teamItem.approvalStatus === 'APPROVED' ? 'var(--green-50, #f0fdf4)' : teamItem.approvalStatus === 'REJECTED' ? 'var(--red-50, #fef2f2)' : teamItem.approvalStatus === 'DISQUALIFIED' ? 'var(--neutral-100, #f5f5f5)' : 'var(--amber-50, #fffbeb)',
-            color: teamItem.approvalStatus === 'APPROVED' ? 'var(--green-700, #15803d)' : teamItem.approvalStatus === 'REJECTED' ? 'var(--red-700, #b91c1c)' : teamItem.approvalStatus === 'DISQUALIFIED' ? 'var(--neutral-600, #525252)' : 'var(--amber-700, #b45309)'
-          }}
-        >
-          <option value="PENDING">{t.states.pending}</option>
-          <option value="APPROVED">{t.states.approved}</option>
-          <option value="REJECTED">{t.states.rejected}</option>
-          <option value="DISQUALIFIED">{lang === 'uk' ? 'Дискваліфіковано' : 'Disqualified'}</option>
-        </select>
-      ),
+      render: (teamItem) => {
+        const currentStatus = teamStatusOverrides[teamItem.id] ?? teamItem.approvalStatus
+        return (
+          <select
+            value={currentStatus}
+            onChange={(e) => {
+              const newStatus = e.target.value
+              if (newStatus === 'REJECTED') {
+                setRejectTarget(teamItem.id)
+              } else {
+                // Set local override immediately — no disabled, no snap-back
+                setTeamStatusOverrides(prev => ({ ...prev, [teamItem.id]: newStatus }))
+                approvalMut.mutate({ id: teamItem.id, status: newStatus as 'APPROVED' | 'PENDING' | 'DISQUALIFIED' })
+              }
+            }}
+            disabled={false}
+            className="text-xs font-semibold px-2.5 py-1 rounded-full border border-border bg-background outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
+            style={{
+              backgroundColor: currentStatus === 'APPROVED' ? 'var(--green-50, #f0fdf4)' : currentStatus === 'REJECTED' ? 'var(--red-50, #fef2f2)' : currentStatus === 'DISQUALIFIED' ? 'var(--neutral-100, #f5f5f5)' : 'var(--amber-50, #fffbeb)',
+              color: currentStatus === 'APPROVED' ? 'var(--green-700, #15803d)' : currentStatus === 'REJECTED' ? 'var(--red-700, #b91c1c)' : currentStatus === 'DISQUALIFIED' ? 'var(--neutral-600, #525252)' : 'var(--amber-700, #b45309)'
+            }}
+          >
+            <option value="PENDING">{t.states.pending}</option>
+            <option value="APPROVED">{t.states.approved}</option>
+            <option value="REJECTED">{t.states.rejected}</option>
+            <option value="DISQUALIFIED">{lang === 'uk' ? 'Дискваліфіковано' : 'Disqualified'}</option>
+          </select>
+        )
+      },
     },
     {
       key: 'members',

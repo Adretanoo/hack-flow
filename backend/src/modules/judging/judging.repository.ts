@@ -305,19 +305,37 @@ export class JudgingRepository {
 
   /** All non-deleted teams for a hackathon with track and latest approval status */
   async findAllTeamsForHackathon(hackathonId: string) {
+    // Use correlated subqueries instead of JOIN to avoid duplicate rows.
+    // leftJoin(teamApprovals) returns one row per approval record because
+    // upsertApproval always INSERTs (never UPDATEs), so each status change
+    // adds a new row — causing a team with N changes to appear N times.
     const rows = await this.db
       .select({
         teamId: teams.id,
         teamName: teams.name,
         trackId: tracks.id,
         trackName: tracks.name,
-        approvalStatus: teamApprovals.status,
-        approvalComment: teamApprovals.comment,
-        approvalAt: teamApprovals.approvedAt,
+        approvalStatus: sql<string>`COALESCE((
+          SELECT status FROM team_approvals
+          WHERE team_id = ${teams.id}
+          ORDER BY approved_at DESC NULLS LAST
+          LIMIT 1
+        ), 'PENDING')`,
+        approvalComment: sql<string | null>`(
+          SELECT comment FROM team_approvals
+          WHERE team_id = ${teams.id}
+          ORDER BY approved_at DESC NULLS LAST
+          LIMIT 1
+        )`,
+        approvalAt: sql<Date | null>`(
+          SELECT approved_at FROM team_approvals
+          WHERE team_id = ${teams.id}
+          ORDER BY approved_at DESC NULLS LAST
+          LIMIT 1
+        )`,
       })
       .from(teams)
       .leftJoin(tracks, eq(teams.trackId, tracks.id))
-      .leftJoin(teamApprovals, eq(teamApprovals.teamId, teams.id))
       .where(and(eq(teams.hackathonId, hackathonId), isNull(teams.deletedAt)));
     return rows;
   }

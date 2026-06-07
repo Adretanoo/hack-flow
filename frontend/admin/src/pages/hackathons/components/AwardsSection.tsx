@@ -36,7 +36,7 @@ export function AwardsSection({ hackathonId, awards: initialAwards = [], mode = 
     enabled: mode === 'edit' && !!hackathonId,
   })
 
-  const awards = mode === 'edit' ? (awardsData?.data.data ?? initialAwards) : localAwards
+  const awards = mode === 'edit' ? (awardsData?.data?.data ?? initialAwards) : localAwards
 
   const createMut = useMutation({
     mutationFn: () =>

@@ -87,6 +87,8 @@ export function TeamDetailPage() {
     onSuccess: () => {
       toast.success(lang === 'uk' ? 'Рішення збережено' : 'Decision saved')
       qc.invalidateQueries({ queryKey: ['team', id] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['full-results'] })
       setApprovalComment('')
     },
     onError: () => toast.error(lang === 'uk' ? 'Помилка при збереженні' : 'Error saving decision'),
