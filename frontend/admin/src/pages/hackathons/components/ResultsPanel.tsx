@@ -6,17 +6,11 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { toast } from 'sonner'
 import { Trophy, Users, AlertTriangle, FileText, Download, RotateCcw, Medal } from 'lucide-react'
 import { useI18n } from '@/i18n'
+import { downloadCSV } from '@/utils/export'
 
 interface Props { hackathonId: string }
 
-// ── CSV Export ─────────────────────────────────────────────────
-function exportCSV(filename: string, rows: string[][], headers: string[]) {
-  const BOM = '\uFEFF'
-  const lines = [headers, ...rows].map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))
-  const blob = new Blob([BOM + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' })
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
-  a.download = filename; a.click()
-}
+
 
 // ── Stat Card ───────────────────────────────────────────────────
 function StatCard({ label, value, sub, color }: { label: string; value: number | string; sub?: string; color?: string }) {
@@ -132,27 +126,46 @@ export function ResultsPanel({ hackathonId }: Props) {
 
   // ── Export functions ────────────────────────────────────────
   function exportResults() {
-    const rows = tracks.flatMap((t: any) =>
-      t.ranked.map((e: any) => [e.position, e.teamName, t.trackName, e.project?.title ?? '—', e.normalizedTotal, e.judgeCount, e.award?.name ?? '—', e.project?.isLate ? (lang === 'uk' ? 'Так' : 'Yes') : (lang === 'uk' ? 'Ні' : 'No'), e.project?.submittedAt ?? '—'])
-    )
     const headers = lang === 'uk'
       ? ['Місце', 'Команда', 'Трек', 'Проєкт', 'Норм. бал', 'Суддів', 'Нагорода', 'Запізнення', 'Подано']
       : ['Place', 'Team', 'Track', 'Project', 'Norm. Score', 'Judges', 'Award', 'Late', 'Submitted']
-    exportCSV('results.csv', rows, headers)
+    const rows = tracks.flatMap((t: any) =>
+      t.ranked.map((e: any) => [
+        e.position,
+        e.teamName,
+        t.trackName,
+        e.project?.title ?? '—',
+        e.normalizedTotal,
+        e.judgeCount,
+        e.award?.name ?? '—',
+        e.project?.isLate ? (lang === 'uk' ? 'Так' : 'Yes') : (lang === 'uk' ? 'Ні' : 'No'),
+        e.project?.submittedAt ?? '—',
+      ])
+    )
+    downloadCSV('results.csv', headers, rows)
   }
 
   function exportScores() {
-    const rows = tracks.flatMap((t: any) =>
-      t.ranked.flatMap((e: any) =>
-        (e.perJudge ?? []).flatMap((j: any) =>
-          (e.perCriteria ?? []).map((c: any) => [e.teamName, e.project?.title ?? '—', t.trackName, j.judgeName, c.criteriaName, c.avgScore, c.maxScore, c.weight])
-        )
-      )
-    )
     const headers = lang === 'uk'
       ? ['Команда', 'Проєкт', 'Трек', 'Суддя', 'Критерій', 'Оцінка', 'Макс.', 'Вага']
       : ['Team', 'Project', 'Track', 'Judge', 'Criterion', 'Score', 'Max', 'Weight']
-    exportCSV('scores.csv', rows, headers)
+    const rows = tracks.flatMap((t: any) =>
+      t.ranked.flatMap((e: any) =>
+        (e.perJudge ?? []).flatMap((j: any) =>
+          (e.perCriteria ?? []).map((c: any) => [
+            e.teamName,
+            e.project?.title ?? '—',
+            t.trackName,
+            j.judgeName,
+            c.criteriaName,
+            c.avgScore,
+            c.maxScore,
+            c.weight,
+          ])
+        )
+      )
+    )
+    downloadCSV('scores.csv', headers, rows)
   }
 
   function exportFull() { exportResults(); setTimeout(exportScores, 300) }
