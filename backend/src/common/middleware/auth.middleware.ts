@@ -25,6 +25,22 @@ export async function authenticate(
 }
 
 /**
+ * Optional JWT verification — does NOT throw if token is absent/invalid.
+ * Allows public access while still populating request.user when a token IS present.
+ * Used on endpoints like GET /hackathons where both public and authenticated users call them.
+ */
+export async function optionalAuthenticate(
+  request: FastifyRequest,
+  _reply: FastifyReply,
+): Promise<void> {
+  try {
+    await request.jwtVerify<JwtPayload>();
+  } catch {
+    // No token or invalid — proceed as unauthenticated (request.user remains undefined)
+  }
+}
+
+/**
  * Role-based guard factory.
  * Usage: { preHandler: authorize('admin', 'judge') }
  */

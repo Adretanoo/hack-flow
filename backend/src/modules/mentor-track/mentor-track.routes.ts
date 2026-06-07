@@ -16,7 +16,7 @@ export async function mentorTrackRoutes(app: FastifyInstance): Promise<void> {
   const ctrl = new MentorTrackController(service);
 
   app.get('/hackathons/:hackathonId/mentors', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['MentorTrack'],
       summary: 'List mentor→track assignments for a hackathon — admin only',
@@ -26,7 +26,7 @@ export async function mentorTrackRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.listByHackathon(req, reply));
 
   app.post('/hackathons/:hackathonId/mentors', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['MentorTrack'],
       summary: 'Assign a mentor to a track — admin only',
@@ -44,7 +44,7 @@ export async function mentorTrackRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.assign(req, reply));
 
   app.delete('/hackathons/:hackathonId/mentors/:mentorTrackId', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['MentorTrack'],
       summary: 'Remove a mentor→track assignment — admin only',

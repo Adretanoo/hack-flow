@@ -19,7 +19,7 @@ type LoginForm = z.infer<typeof loginSchema>
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const { setTokens, setUser, logout } = useAuthStore()
+  const { setTokens, setUser } = useAuthStore()
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const { t } = useI18n()
@@ -35,11 +35,18 @@ export function LoginPage() {
       const response = await authApi.login(data)
       const { accessToken, refreshToken, user } = response.data.data
 
-      // Адмін-панель знаходиться тільки на localhost:5173
-      // З порту 5174 вхід заборонено — очищаємо стан і показуємо загальну помилку
-      if (user.role === 'admin') {
-        logout()
-        setError('Невірний email або пароль')
+      // Admin та organizer → адмін-панель (localhost:5173)
+      // Токени передаємо через URL hash щоб уникнути повторного логіну
+      if (user.role === 'admin' || user.role === 'organizer') {
+        setTokens(accessToken, refreshToken)
+        setUser(user)
+        const userEncoded = encodeURIComponent(JSON.stringify({
+          id: user.id, email: user.email,
+          fullName: user.fullName, username: user.username,
+          role: user.role
+        }))
+        window.location.href =
+          `http://localhost:5173/auth-handoff#at=${accessToken}&rt=${refreshToken}&u=${userEncoded}`
         return
       }
 

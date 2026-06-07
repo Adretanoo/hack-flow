@@ -1,5 +1,5 @@
 import type { Database } from '../../config/database';
-import { hackathons, stages, tracks, awards, teams, teamMembers } from '../../drizzle/schema';
+import { hackathons, stages, tracks, awards, teams, teamMembers, users } from '../../drizzle/schema';
 import { eq, desc, count, lt, gt, and, or, lte, gte, inArray, ne, ilike, sql, countDistinct, exists, notExists } from 'drizzle-orm';
 import type { CreateHackathonDto, UpdateHackathonDto, CreateTrackDto, CreateStageDto } from './hackathons.schema';
 
@@ -8,7 +8,15 @@ export type HackathonStatus = 'upcoming' | 'active' | 'past';
 export class HackathonsRepository {
   constructor(private readonly db: Database) {}
 
-  async findAll(page: number, limit: number, status?: HackathonStatus, tagIds?: string[], publishStatus?: string, search?: string) {
+  async findAll(
+    page: number,
+    limit: number,
+    status?: HackathonStatus,
+    tagIds?: string[],
+    publishStatus?: string,
+    search?: string,
+    createdBy?: string, // if set, filter only hackathons owned by this user (organizer)
+  ) {
     const offset = (page - 1) * limit;
     const now = new Date();
 
@@ -20,7 +28,6 @@ export class HackathonsRepository {
       filters.push(and(
         lte(hackathons.startDate, now),
         gte(hackathons.endDate, now),
-        // Not in FINISHED stage currently
         notExists(
           this.db.select()
             .from(stages)
@@ -35,7 +42,6 @@ export class HackathonsRepository {
     } else if (status === 'past') {
       filters.push(or(
         lt(hackathons.endDate, now),
-        // OR currently in FINISHED stage
         exists(
           this.db.select()
             .from(stages)
@@ -50,10 +56,9 @@ export class HackathonsRepository {
     }
 
     if (tagIds && tagIds.length > 0) filters.push(inArray(hackathons.id, tagIds));
-    
     if (publishStatus) filters.push(eq(hackathons.status, publishStatus as any));
-    
     if (search) filters.push(ilike(hackathons.title, `%${search}%`));
+    if (createdBy) filters.push(eq(hackathons.createdBy, createdBy));
 
     const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
@@ -64,8 +69,10 @@ export class HackathonsRepository {
           teamsCount: countDistinct(teams.id),
           participantsCount: countDistinct(teamMembers.id),
           awardsCount: countDistinct(awards.id),
-          activeStageType: sql<string | null>`(SELECT type FROM ${stages} WHERE ${stages.hackathonId} = ${hackathons.id} AND ${stages.startDate} <= ${now} AND ${stages.endDate} >= ${now} LIMIT 1)`.mapWith(String),
-          activeStageName: sql<string | null>`(SELECT name FROM ${stages} WHERE ${stages.hackathonId} = ${hackathons.id} AND ${stages.startDate} <= ${now} AND ${stages.endDate} >= ${now} LIMIT 1)`.mapWith(String),
+          activeStageType: sql<string | null>`(SELECT type FROM ${stages} WHERE ${stages.hackathonId} = ${hackathons.id} AND ${stages.startDate} <= ${now} AND ${stages.endDate} >= ${now} LIMIT 1)`,
+          activeStageName: sql<string | null>`(SELECT name FROM ${stages} WHERE ${stages.hackathonId} = ${hackathons.id} AND ${stages.startDate} <= ${now} AND ${stages.endDate} >= ${now} LIMIT 1)`,
+          ownerFullName: sql<string | null>`(SELECT full_name FROM users WHERE id = ${hackathons.createdBy} LIMIT 1)`,
+          ownerRole: sql<string | null>`(SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ${hackathons.createdBy} LIMIT 1)`,
         })
         .from(hackathons)
         .leftJoin(teams, eq(hackathons.id, teams.hackathonId))
@@ -82,7 +89,11 @@ export class HackathonsRepository {
     return { 
       rows: rows.map(r => ({ 
         ...r.hackathon, 
-        activeStage: r.activeStageType ? { type: r.activeStageType, name: r.activeStageName } : undefined,
+        activeStage: (r.activeStageType && r.activeStageType !== 'null')
+          ? { type: r.activeStageType, name: r.activeStageName }
+          : undefined,
+        ownerFullName: (r.ownerFullName && r.ownerFullName !== 'null') ? r.ownerFullName : null,
+        ownerRole: (r.ownerRole && r.ownerRole !== 'null') ? r.ownerRole : null,
         _count: { 
           teams: Number(r.teamsCount),
           participants: Number(r.participantsCount),
@@ -123,14 +134,15 @@ export class HackathonsRepository {
     };
   }
 
-  async create(data: CreateHackathonDto) {
+  async create(data: CreateHackathonDto & { createdBy?: string }) {
     return this.db.transaction(async (tx) => {
-      const { tags, tracks: inputTracks, stages: inputStages, awards: inputAwards, ...hackathonData } = data;
+      const { tags, tracks: inputTracks, stages: inputStages, awards: inputAwards, createdBy, ...hackathonData } = data;
 
       const [row] = await tx
         .insert(hackathons)
         .values({
           ...hackathonData,
+          createdBy: createdBy ?? null,
           startDate: new Date(hackathonData.startDate),
           endDate: new Date(hackathonData.endDate),
         })
@@ -158,9 +170,6 @@ export class HackathonsRepository {
           inputAwards.map((a) => ({ ...a, hackathonId: row.id }))
         );
       }
-
-      // Note: tags will be handled by HackathonsService using HackathonTagsRepository
-      // because tags logic is slightly more complex (finding existing tags, etc.)
 
       return row;
     });
@@ -216,10 +225,6 @@ export class HackathonsRepository {
 
   // ── Status transitions ──────────────────────────────────────
 
-  /**
-   * Returns all non-ARCHIVED hackathons with their stages joined.
-   * Used by the status-cron worker every minute.
-   */
   async findHackathonsForStatusCheck() {
     const rows = await this.db
       .select({
@@ -237,7 +242,6 @@ export class HackathonsRepository {
       .where(ne(hackathons.status, 'ARCHIVED'))
       .orderBy(hackathons.createdAt, stages.orderIndex);
 
-    // Group rows into hackathon + stages[]
     const map = new Map<string, {
       id: string;
       title: string;
@@ -263,7 +267,6 @@ export class HackathonsRepository {
     return [...map.values()];
   }
 
-  /** Update hackathon status directly — used by cron and manual override. */
   async updateStatus(id: string, status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED') {
     const [row] = await this.db
       .update(hackathons)
@@ -273,7 +276,6 @@ export class HackathonsRepository {
     return row ?? null;
   }
 
-  /** Fetch a hackathon together with its stages — for active-stage enrichment. */
   async findWithStages(id: string) {
     const h = await this.findById(id);
     if (!h) return null;
@@ -285,7 +287,6 @@ export class HackathonsRepository {
     return { ...h, stages: hackathonStages };
   }
 
-  /** Count stages for a hackathon — used by manual override validation. */
   async countStages(hackathonId: string) {
     const [{ total }] = await this.db
       .select({ total: count() })
@@ -311,6 +312,12 @@ export class HackathonsRepository {
 
   async updateAward(id: string, data: any) {
     const [row] = await this.db.update(awards).set(data).where(eq(awards.id, id)).returning();
+    return row ?? null;
+  }
+
+  /** Find track by id (to resolve hackathon ownership for organizer checks) */
+  async findTrackById(id: string) {
+    const [row] = await this.db.select().from(tracks).where(eq(tracks.id, id)).limit(1);
     return row ?? null;
   }
 }

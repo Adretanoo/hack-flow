@@ -17,6 +17,7 @@ interface AuthState {
   setUser: (user: User) => void
   logout: () => void
   isAdmin: () => boolean
+  isOrganizer: () => boolean
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -33,6 +34,8 @@ export const useAuthStore = create<AuthState>()(
       logout: () => set({ accessToken: null, refreshToken: null, user: null }),
 
       isAdmin: () => get().user?.role === 'admin',
+
+      isOrganizer: () => get().user?.role === 'organizer',
     }),
     {
       name: 'hack-flow-admin-auth',

@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { ProtectedRoute } from './ProtectedRoute'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { LoginPage } from '@/pages/auth/LoginPage'
+import { AuthHandoffPage } from '@/pages/auth/AuthHandoffPage'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import { HackathonsListPage } from '@/pages/hackathons/HackathonsListPage'
 import { HackathonFormPage } from '@/pages/hackathons/HackathonFormPage'
@@ -31,8 +32,9 @@ function Protected({ children }: { children: React.ReactNode }) {
 }
 
 export const router = createBrowserRouter([
-  { path: '/login', element: <LoginPage /> },
-  { path: '/', element: <Navigate to="/dashboard" replace /> },
+  { path: '/login',         element: <LoginPage /> },
+  { path: '/auth-handoff',  element: <AuthHandoffPage /> },
+  { path: '/',              element: <Navigate to="/dashboard" replace /> },
 
   { path: '/dashboard',           element: <Protected><DashboardPage /></Protected> },
 

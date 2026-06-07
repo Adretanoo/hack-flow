@@ -27,7 +27,7 @@ export const tokenTypeEnum = pgEnum('token_type', [
 
 export const socialTypeEnum = pgEnum('social_type', ['discord', 'telegram', 'viber', 'github']);
 
-export const roleNameEnum = pgEnum('role_name', ['admin', 'judge', 'mentor', 'participant']);
+export const roleNameEnum = pgEnum('role_name', ['admin', 'judge', 'mentor', 'participant', 'organizer']);
 
 export const teamMemberRoleEnum = pgEnum('team_member_role', ['captain', 'participant']);
 
@@ -167,6 +167,7 @@ export const hackathons = pgTable('hackathons', {
   rulesUrl: text('rules_url'),
   contactEmail: varchar('contact_email', { length: 255 }),
   status: varchar('status', { length: 20 }).$type<'DRAFT' | 'PUBLISHED' | 'ARCHIVED'>().notNull().default('DRAFT'),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

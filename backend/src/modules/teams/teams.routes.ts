@@ -4,7 +4,8 @@ import { TeamsService } from './teams.service';
 import { TeamsRepository } from './teams.repository';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { getDatabaseConnection } from '../../config/database';
-import { authenticate, authorize } from '../../common/middleware/auth.middleware';
+import { authenticate, authorize, optionalAuthenticate } from '../../common/middleware/auth.middleware';
+import type { JwtPayload } from '../../common/middleware/auth.middleware';
 import { z } from 'zod';
 
 const TeamListQuerySchema = z.object({
@@ -63,6 +64,7 @@ export async function teamsRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/', {
+    onRequest: [optionalAuthenticate],
     schema: {
       tags: ['Teams'],
       summary: 'List teams (paginated, filterable)',
@@ -80,7 +82,12 @@ export async function teamsRoutes(app: FastifyInstance): Promise<void> {
     },
   }, async (req, reply) => {
     const q = TeamListQuerySchema.parse(req.query);
-    const result = await service.list(q.page, q.limit, q.hackathon_id, q.track_id, q.status, q.search);
+    const user = req.user as JwtPayload | undefined;
+    const isOrganizer = user?.roles?.includes('organizer') ?? false;
+    const isAdmin = user?.roles?.includes('admin') ?? false;
+    // Organizer sees only teams from their own hackathons
+    const createdByUserId = (!isAdmin && isOrganizer && user?.sub) ? user.sub : undefined;
+    const result = await service.list(q.page, q.limit, q.hackathon_id, q.track_id, q.status, q.search, createdByUserId);
     return reply.send({ success: true, ...result });
   });
 
@@ -258,7 +265,7 @@ export async function teamsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.joinViaToken(req, reply));
 
   app.patch('/:id/approval', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Teams'],
       summary: 'Update team approval status — admin only',
@@ -277,7 +284,7 @@ export async function teamsRoutes(app: FastifyInstance): Promise<void> {
 
   // Admin: change team track (without requiring captain role)
   app.patch('/:id/track', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Teams'],
       summary: 'Change team track — admin only',

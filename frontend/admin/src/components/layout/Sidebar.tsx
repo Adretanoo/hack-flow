@@ -17,15 +17,17 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const { t } = useI18n()
+  const isOrganizer = user?.role === 'organizer'
 
-  const navItems = [
+  const allNavItems = [
     { to: '/dashboard',  label: t.adminNav.dashboard,    icon: LayoutDashboard },
     { to: '/hackathons', label: t.adminNav.hackathons,   icon: Trophy },
     { to: '/teams',      label: t.adminNav.teams,        icon: Users },
-    { to: '/users',      label: t.adminNav.users,        icon: User },
+    { to: '/users',      label: t.adminNav.users,        icon: User, adminOnly: true },
     { to: '/judging',    label: t.adminNav.judging,      icon: Star },
     { to: '/mentorship', label: t.adminNav.mentorship,   icon: BookOpen },
   ]
+  const navItems = allNavItems.filter(item => !isOrganizer || !item.adminOnly)
 
   // Close on route change (mobile)
   useEffect(() => { onClose?.() }, [pathname])
@@ -43,8 +45,12 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           <Zap className="h-4 w-4 text-white" />
         </div>
         <span className="text-base font-bold tracking-tight">Hack-Flow</span>
-        <span className="ml-auto rounded-md bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">
-          admin
+        <span className={`ml-auto rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+          isOrganizer
+            ? 'bg-orange-500/20 text-orange-600'
+            : 'bg-primary/20 text-primary'
+        }`}>
+          {isOrganizer ? 'org' : 'admin'}
         </span>
         {/* Mobile close */}
         {onClose && (

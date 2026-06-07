@@ -14,12 +14,15 @@ import { Plus, Users, Trophy, ClipboardCheck, Activity, ArrowUpRight, ArrowRight
 import { clsx } from 'clsx'
 import type { Hackathon, UserProfile, Team } from '@/types/api.types'
 import { useI18n } from '@/i18n'
+import { useAuthStore } from '@/store/auth.store'
 
 export function DashboardPage() {
   const { t, lang } = useI18n()
   usePageTitle(lang === 'uk' ? 'Дашборд' : 'Dashboard')
   const navigate = useNavigate()
   const [pickerOpen, setPickerOpen] = useState(false)
+  const { user } = useAuthStore()
+  const isOrganizer = user?.role === 'organizer'
 
   // ── Data Fetching ────────────────────────────────────────────────────────
   const { data: hackData, isLoading: hackLoading } = useQuery({
@@ -29,11 +32,13 @@ export function DashboardPage() {
     refetchOnWindowFocus: true,
   })
 
+  // Only fetch users for admin (organizer doesn't manage users)
   const { data: usersData, isLoading: usersLoading } = useQuery({
     queryKey: ['users', 'all'],
     queryFn: () => usersApi.list({ limit: 100 }),
     staleTime: 0,
     refetchOnWindowFocus: true,
+    enabled: !isOrganizer,
   })
 
   const { data: teamsData, isLoading: teamsLoading } = useQuery({
@@ -43,12 +48,17 @@ export function DashboardPage() {
     refetchOnWindowFocus: true,
   })
 
-  const isLoading = hackLoading || usersLoading || teamsLoading
+  const isLoading = hackLoading || (!isOrganizer && usersLoading) || teamsLoading
 
   // ── Derived Data for Stats & Charts ──────────────────────────────────────
   const hackathons = (hackData?.data.data ?? []) as Hackathon[]
   const users = (usersData?.data.data ?? []) as UserProfile[]
-  const teams = (teamsData?.data.data ?? []) as Team[]
+  // For organizer: only count teams from their hackathons
+  const hackathonIds = new Set(hackathons.map(h => h.id))
+  const allTeams = (teamsData?.data.data ?? []) as Team[]
+  const teams = isOrganizer
+    ? allTeams.filter(t => t.hackathonId && hackathonIds.has(t.hackathonId))
+    : allTeams
 
   const publishedCount = hackathons.filter(h => h.status === 'PUBLISHED').length
   const draftCount     = hackathons.filter(h => h.status === 'DRAFT').length
@@ -87,15 +97,18 @@ export function DashboardPage() {
   // Simulated Activity Feed (Combining recent users, teams, hackathons)
   const activityFeed = useMemo(() => {
     const feed: any[] = []
-    
-    users.forEach(u => feed.push({
-      id: `u-${u.id}`,
-      type: 'user',
-      title: u.fullName,
-      action: lang === 'uk' ? 'зареєструвався' : 'signed up',
-      date: new Date(u.createdAt || Date.now()),
-      initials: u.fullName[0]?.toUpperCase(),
-    }))
+
+    // Users activity only for admin
+    if (!isOrganizer) {
+      users.forEach(u => feed.push({
+        id: `u-${u.id}`,
+        type: 'user',
+        title: u.fullName,
+        action: lang === 'uk' ? 'зареєструвався' : 'signed up',
+        date: new Date(u.createdAt || Date.now()),
+        initials: u.fullName[0]?.toUpperCase(),
+      }))
+    }
 
     teams.forEach(t => feed.push({
       id: `t-${t.id}`,
@@ -116,7 +129,7 @@ export function DashboardPage() {
     }))
 
     return feed.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 15)
-  }, [users, teams, hackathons, lang])
+  }, [users, teams, hackathons, lang, isOrganizer])
 
   if (isLoading) return <LoadingSpinner className="py-20" />
 
@@ -131,9 +144,15 @@ export function DashboardPage() {
       <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
         <StatCard title={t.adminDashboard.totalHackathons} value={hackathons.length} icon={Trophy} />
         <StatCard title={t.states.active} value={publishedCount} icon={Activity} />
-        <StatCard title={t.adminDashboard.totalUsers} value={users.length} icon={Users} />
-        <StatCard title={lang === 'uk' ? 'Очікують схвалення' : 'Pending Approval'} value={pendingTeams} icon={ClipboardCheck} 
-          className={pendingTeams > 0 ? "border-amber-200 bg-amber-50" : ""} />
+        {!isOrganizer && (
+          <StatCard title={t.adminDashboard.totalUsers} value={users.length} icon={Users} />
+        )}
+        <StatCard
+          title={lang === 'uk' ? 'Очікують схвалення' : 'Pending Approval'}
+          value={pendingTeams}
+          icon={ClipboardCheck}
+          className={pendingTeams > 0 ? 'border-amber-200 bg-amber-50' : ''}
+        />
       </div>
 
       {/* Row 2: Charts */}

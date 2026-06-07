@@ -87,7 +87,7 @@ export async function mentorshipRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.deleteAvailability(req, reply));
 
   app.get('/requests/all', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Mentorship'],
       summary: 'Get ALL mentorship requests — admin only',

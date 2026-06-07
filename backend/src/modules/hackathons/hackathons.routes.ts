@@ -5,7 +5,7 @@ import { HackathonsRepository } from './hackathons.repository';
 import { HackathonTagsRepository } from '../hackathon-tags/hackathon-tags.repository';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { getDatabaseConnection } from '../../config/database';
-import { authenticate, authorize } from '../../common/middleware/auth.middleware';
+import { authenticate, authorize, optionalAuthenticate } from '../../common/middleware/auth.middleware';
 
 const Sec = [{ bearerAuth: [] }];
 
@@ -18,6 +18,7 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
   const ctrl = new HackathonsController(service);
 
   app.get('/', {
+    onRequest: [optionalAuthenticate],
     schema: {
       tags: ['Hackathons'],
       summary: 'List hackathons (paginated, filterable)',
@@ -62,7 +63,7 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.listStages(req, reply));
 
   app.post('/', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Hackathons'],
       summary: 'Create a new hackathon — admin only',
@@ -93,7 +94,7 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.create(req, reply));
 
   app.patch('/:id', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Hackathons'],
       summary: 'Update a hackathon — admin only',
@@ -120,7 +121,7 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.update(req, reply));
 
   app.delete('/:id', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Hackathons'],
       summary: 'Delete a hackathon — admin only',
@@ -130,7 +131,7 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.remove(req, reply));
 
   app.post('/:id/tracks', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Hackathons'],
       summary: 'Add a track to a hackathon — admin only',
@@ -152,7 +153,7 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.createTrack(req, reply));
 
   app.delete('/tracks/:id', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Hackathons'],
       summary: 'Delete a track — admin only',
@@ -162,7 +163,7 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.deleteTrack(req, reply));
 
   app.put('/tracks/:id', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Hackathons'],
       summary: 'Update a track — admin only',
@@ -183,7 +184,7 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.updateTrack(req, reply));
 
   app.post('/:id/stages', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Hackathons'],
       summary: 'Add a stage to a hackathon — admin only',
@@ -206,7 +207,7 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.createStage(req, reply));
 
   app.put('/stages/:id', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Hackathons'],
       summary: 'Update a stage — admin only',
@@ -227,7 +228,7 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.updateStage(req, reply));
 
   app.delete('/stages/:id', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Hackathons'],
       summary: 'Delete a stage — admin only',
@@ -237,7 +238,7 @@ export async function hackathonsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.deleteStage(req, reply));
 
   app.post('/:hackathonId/status', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Hackathons'],
       summary: 'Manually override hackathon status — admin only',

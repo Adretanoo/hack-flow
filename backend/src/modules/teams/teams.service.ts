@@ -10,8 +10,8 @@ export class TeamsService {
     private readonly auditLog?: AuditLogRepository,
   ) {}
 
-  async list(page: number, limit: number, hackathonId?: string, trackId?: string, status?: string, search?: string) {
-    const { rows, total } = await this.repo.findAllPaginated(page, limit, hackathonId, trackId, status, search);
+  async list(page: number, limit: number, hackathonId?: string, trackId?: string, status?: string, search?: string, createdByUserId?: string) {
+    const { rows, total } = await this.repo.findAllPaginated(page, limit, hackathonId, trackId, status, search, createdByUserId);
     return {
       data: rows,
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },

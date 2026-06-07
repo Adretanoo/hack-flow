@@ -102,7 +102,7 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         body: {
           type: 'object',
           required: ['role'],
-          properties: { role: { type: 'string', enum: ['admin', 'judge', 'mentor', 'participant'] } },
+          properties: { role: { type: 'string', enum: ['admin', 'judge', 'mentor', 'participant', 'organizer'] } },
         },
       },
     }, (req, reply) => controller.updateRole(req, reply));

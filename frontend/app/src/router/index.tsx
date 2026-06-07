@@ -25,12 +25,16 @@ import { MentorSlotsPage } from '@/pages/mentor/MentorSlotsPage'
 
 import { useAuthStore } from '@/store/auth.store'
 
+// Organizer and Admin redirect to admin panel (port 5173)
+const ADMIN_URL = 'http://localhost:5173'
+
 function AppRedirect() {
   const { user } = useAuthStore()
   if (!user) return <Navigate to="/login" />
-  if (user.role === 'admin') {
-    // Адмін-панель — окремий фронтенд на порту 5173
-    window.location.href = 'http://localhost:5173'
+
+  // Organizer and admin → redirect to admin panel
+  if (user.role === 'admin' || user.role === 'organizer') {
+    window.location.href = ADMIN_URL
     return null
   }
   if (user.role === 'judge')  return <Navigate to="/app/judge/projects" />
@@ -39,7 +43,7 @@ function AppRedirect() {
 }
 
 export const router = createBrowserRouter([
-  // Public join page — standalone, no layout wrapper needed
+  // Public join page
   { path: '/join/:token', element: <JoinTeamPage /> },
 
   {
@@ -63,20 +67,23 @@ export const router = createBrowserRouter([
       {
         path: 'profile',
         element: (
-          <RoleGuard roles={['participant', 'judge', 'mentor', 'admin']}>
+          <RoleGuard roles={['participant', 'judge', 'mentor']}>
             <ProfilePage />
           </RoleGuard>
         ),
       },
-      { path: 'hackathons', element: <RoleGuard roles={['participant', 'admin']}><HackathonsPage /></RoleGuard> },
-      { path: 'hackathons/:hackathonId', element: <RoleGuard roles={['participant', 'admin']}><HackathonDashboardPage /></RoleGuard> },
-      { path: 'matchmaking', element: <RoleGuard roles={['participant', 'admin']}><MatchmakingPage /></RoleGuard> },
-      { path: 'judge/projects', element: <RoleGuard roles={['judge', 'admin']}><JudgeProjectsPage /></RoleGuard> },
-      { path: 'judge/score/:projectId', element: <RoleGuard roles={['judge', 'admin']}><JudgeScorePage /></RoleGuard> },
-      { path: 'judge/scores', element: <RoleGuard roles={['judge', 'admin']}><JudgeScoresOverviewPage /></RoleGuard> },
-      { path: 'judge/conflicts', element: <RoleGuard roles={['judge', 'admin']}><JudgeConflictsPage /></RoleGuard> },
-      { path: 'mentor/availability', element: <RoleGuard roles={['mentor', 'admin']}><MentorAvailabilityPage /></RoleGuard> },
-      { path: 'mentor/slots', element: <RoleGuard roles={['mentor', 'admin']}><MentorSlotsPage /></RoleGuard> },
+      // ── Participant ────────────────────────────────────────────────────────
+      { path: 'hackathons', element: <RoleGuard roles={['participant']}><HackathonsPage /></RoleGuard> },
+      { path: 'hackathons/:hackathonId', element: <RoleGuard roles={['participant']}><HackathonDashboardPage /></RoleGuard> },
+      { path: 'matchmaking', element: <RoleGuard roles={['participant']}><MatchmakingPage /></RoleGuard> },
+      // ── Judge ──────────────────────────────────────────────────────────────
+      { path: 'judge/projects', element: <RoleGuard roles={['judge']}><JudgeProjectsPage /></RoleGuard> },
+      { path: 'judge/score/:projectId', element: <RoleGuard roles={['judge']}><JudgeScorePage /></RoleGuard> },
+      { path: 'judge/scores', element: <RoleGuard roles={['judge']}><JudgeScoresOverviewPage /></RoleGuard> },
+      { path: 'judge/conflicts', element: <RoleGuard roles={['judge']}><JudgeConflictsPage /></RoleGuard> },
+      // ── Mentor ─────────────────────────────────────────────────────────────
+      { path: 'mentor/availability', element: <RoleGuard roles={['mentor']}><MentorAvailabilityPage /></RoleGuard> },
+      { path: 'mentor/slots', element: <RoleGuard roles={['mentor']}><MentorSlotsPage /></RoleGuard> },
     ],
   },
 ])

@@ -90,6 +90,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     { name: t.sidebar.profile,            href: '/app/profile',             icon: User,     badge: 0,                   badgeColor: '', external: false },
   ]
 
+
   const participantNav = [
     { name: t.sidebar.myHackathons, href: '/app/hackathons',  icon: Trophy,     badge: 0, badgeColor: '', external: false },
     { name: t.sidebar.matchmaking,  href: '/app/matchmaking', icon: UserSearch, badge: 0, badgeColor: '', external: false },
@@ -97,6 +98,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   ]
 
   const navItems = isAdmin ? adminNav : isJudge ? judgeNav : isMentor ? mentorNav : participantNav
+
 
   const sidebarContent = (
     <div className="flex h-full w-64 flex-col border-r border-border bg-card">

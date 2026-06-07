@@ -8,9 +8,10 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { usePagination } from '@/hooks/usePagination'
 import { useDebounce } from '@/hooks/useDebounce'
 import { formatDate } from '@/utils/format'
-import { Plus, Eye, Pencil, Trash2, Search, Tag } from 'lucide-react'
+import { Plus, Eye, Pencil, Trash2, Search, Tag, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { useI18n } from '@/i18n'
+import { useAuthStore } from '@/store/auth.store'
 import type { Hackathon, Tag as TagType } from '@/types/api.types'
 import type { Column } from '@/components/shared/DataTable'
 import { usePageTitle } from '@/hooks/usePageTitle'
@@ -21,6 +22,8 @@ export function HackathonsListPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { page, limit, setPage } = usePagination(10)
+  const { user } = useAuthStore()
+  const isOrganizer = user?.role === 'organizer'
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -38,13 +41,14 @@ export function HackathonsListPage() {
   ], [lang, t])
 
   const { data, isLoading } = useQuery({
-    queryKey: ['hackathons', page, limit, statusFilter, selectedTags, debouncedSearch],
+    queryKey: ['hackathons', page, limit, statusFilter, selectedTags, debouncedSearch, isOrganizer],
     queryFn: () => hackathonsApi.list({
       page,
       limit,
       publishStatus: statusFilter || undefined,
       tags: selectedTags.join(',') || undefined,
       search: debouncedSearch || undefined,
+      // organizer auto-filters by ownership on the backend
     }),
   })
 
@@ -153,6 +157,21 @@ export function HackathonsListPage() {
         </span>
       ),
     },
+    ...(!isOrganizer ? [{
+      key: 'owner',
+      header: lang === 'uk' ? 'Власник' : 'Owner',
+      render: (h: any) => (
+        <div className="flex items-center gap-1.5">
+          <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <span className="text-sm">
+            {h.ownerFullName
+              ? <>{h.ownerFullName} <span className={`text-xs font-semibold ml-1 ${h.ownerRole === 'admin' ? 'text-red-500' : 'text-orange-500'}`}>({h.ownerRole === 'admin' ? 'admin' : 'org'})</span></>
+              : <span className="text-muted-foreground">—</span>
+            }
+          </span>
+        </div>
+      ),
+    }] as Column<Hackathon>[] : []),
     {
       key: 'teams',
       header: t.adminHackathons.teams,

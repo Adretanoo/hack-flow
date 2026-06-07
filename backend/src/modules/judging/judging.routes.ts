@@ -34,7 +34,7 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.listCriteria(req, reply));
 
   app.post('/criteria', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Judging'],
       summary: 'Create scoring criteria — admin only',
@@ -54,7 +54,7 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.createCriteria(req, reply));
 
   app.delete('/criteria/:id', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Judging'],
       summary: 'Delete scoring criteria — admin only',
@@ -64,7 +64,7 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.deleteCriteria(req, reply));
 
   app.patch('/criteria/:id', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Judging'],
       summary: 'Update scoring criteria — admin only',
@@ -123,7 +123,7 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.submitScore(req, reply));
 
   app.get('/conflicts/all', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Judging'],
       summary: 'All judge conflicts across all hackathons — admin only',
@@ -168,7 +168,7 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
 
   // ── Admin Conflict CRUD ────────────────────────────────────────────────────
   app.post('/conflicts/admin', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Judging'],
       summary: 'Admin: create a conflict of interest record',
@@ -186,7 +186,7 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.adminCreateConflict(req, reply));
 
   app.delete('/conflicts/:id', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Judging'],
       summary: 'Admin: delete a conflict record',
@@ -196,7 +196,7 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.adminDeleteConflict(req, reply));
 
   app.patch('/conflicts/:id', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Judging'],
       summary: 'Admin: update conflict reason',
@@ -229,7 +229,7 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.listAwards(req, reply));
 
   app.post('/hackathons/:id/awards', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Judging'],
       summary: 'Create an award for a hackathon — admin only',
@@ -243,7 +243,7 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.createAward(req, reply));
 
   app.post('/teams/:teamId/awards/:awardId', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Judging'],
       summary: 'Assign award to team — admin only',
@@ -256,7 +256,7 @@ export async function judgingRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.assignAward(req, reply));
 
   app.delete('/teams/:teamId/awards/:awardId', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Judging'],
       summary: 'Remove award from team — admin only',

@@ -1,6 +1,6 @@
 // Soft-delete filter: verified 2026-04-29
 import type { Database } from '../../config/database';
-import { teams, teamMembers, teamInvites, teamApprovals, teamJoinRequests } from '../../drizzle/schema';
+import { teams, teamMembers, teamInvites, teamApprovals, teamJoinRequests, hackathons } from '../../drizzle/schema';
 import { eq, and, count, isNull, desc, sql, gt, inArray } from 'drizzle-orm';
 import type { CreateTeamDto, UpdateTeamDto } from './teams.schema';
 
@@ -90,12 +90,21 @@ export class TeamsRepository {
     trackId?: string,
     status?: string,
     search?: string,
+    createdByUserId?: string, // if set, restricts teams to hackathons owned by this user
   ) {
     const offset = (page - 1) * limit;
     const conditions = [isNull(teams.deletedAt)];
     if (hackathonId) conditions.push(eq(teams.hackathonId, hackathonId));
     if (trackId) conditions.push(eq(teams.trackId, trackId));
     if (search) conditions.push(sql`${teams.name} ILIKE ${'%' + search + '%'}`);
+    // Organizer restriction: only teams belonging to their hackathons
+    if (createdByUserId) {
+      const orgHackathonIds = this.db
+        .select({ id: hackathons.id })
+        .from(hackathons)
+        .where(eq(hackathons.createdBy, createdByUserId));
+      conditions.push(inArray(teams.hackathonId, orgHackathonIds));
+    }
     if (status) {
       if (status === 'PENDING') {
         conditions.push(sql`(COALESCE((SELECT status FROM team_approvals WHERE team_id = teams.id ORDER BY approved_at DESC NULLS LAST LIMIT 1), 'PENDING') = 'PENDING')`);

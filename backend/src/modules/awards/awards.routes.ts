@@ -31,7 +31,7 @@ export async function awardsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.list(req, reply));
 
   app.post('/hackathons/:hackathonId/awards', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Awards'],
       summary: 'Create an award for a hackathon (admin)',
@@ -54,7 +54,7 @@ export async function awardsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.create(req, reply));
 
   app.patch('/hackathons/:hackathonId/awards/:id', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Awards'],
       summary: 'Update an award (admin)',
@@ -70,7 +70,7 @@ export async function awardsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.update(req, reply));
 
   app.delete('/hackathons/:hackathonId/awards/:id', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Awards'],
       summary: 'Delete an award (admin)',
@@ -88,7 +88,7 @@ export async function awardsRoutes(app: FastifyInstance): Promise<void> {
   // ── /hackathons/:hackathonId/awards/:id/physical-gifts ─────────
 
   app.post('/hackathons/:hackathonId/awards/:id/physical-gifts', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Awards'],
       summary: 'Add a physical gift to an award (admin)',
@@ -113,7 +113,7 @@ export async function awardsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.addGift(req, reply));
 
   app.delete('/hackathons/:hackathonId/awards/:id/physical-gifts/:giftId', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Awards'],
       summary: 'Remove a physical gift from an award (admin)',
@@ -132,7 +132,7 @@ export async function awardsRoutes(app: FastifyInstance): Promise<void> {
   // ── /teams/:teamId/awards/:awardId ────────────────────────────
 
   app.post('/teams/:teamId/awards/:awardId', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Awards'],
       summary: 'Assign an award to a team (admin)',

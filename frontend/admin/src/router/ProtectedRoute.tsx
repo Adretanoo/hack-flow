@@ -13,7 +13,7 @@ export function ProtectedRoute({ children, adminOnly = true }: ProtectedRoutePro
     return <Navigate to="/login" replace />
   }
 
-  if (adminOnly && user?.role !== 'admin') {
+  if (adminOnly && user?.role !== 'admin' && user?.role !== 'organizer') {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">

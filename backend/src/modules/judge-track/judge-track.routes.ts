@@ -16,7 +16,7 @@ export async function judgeTrackRoutes(app: FastifyInstance): Promise<void> {
   const ctrl = new JudgeTrackController(service);
 
   app.get('/hackathons/:hackathonId/judges', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['JudgeTrack'],
       summary: 'List judge→track assignments for a hackathon — admin only',
@@ -26,7 +26,7 @@ export async function judgeTrackRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.listByHackathon(req, reply));
 
   app.post('/hackathons/:hackathonId/judges', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['JudgeTrack'],
       summary: 'Assign a judge to a track — admin only',
@@ -45,7 +45,7 @@ export async function judgeTrackRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.assign(req, reply));
 
   app.patch('/hackathons/:hackathonId/judges/:judgeTrackId', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['JudgeTrack'],
       summary: 'Toggle isHeadJudge on an assignment — admin only',
@@ -67,7 +67,7 @@ export async function judgeTrackRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.update(req, reply));
 
   app.delete('/hackathons/:hackathonId/judges/:judgeTrackId', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['JudgeTrack'],
       summary: 'Remove a judge→track assignment — admin only',

@@ -30,7 +30,7 @@ export interface UserProfile {
   email: string
   username: string
   fullName: string
-  role: 'admin' | 'judge' | 'mentor' | 'participant'
+  role: 'admin' | 'judge' | 'mentor' | 'participant' | 'organizer'
   avatarUrl?: string | null
   description?: string | null
   isLookingForTeam: boolean
@@ -57,6 +57,9 @@ export interface Hackathon {
   contactEmail?: string | null
   status: HackathonStatus
   createdAt: string
+  createdBy?: string | null
+  ownerFullName?: string | null
+  ownerRole?: string | null
   tags?: Tag[]
   tracks?: Track[]
   stages?: Stage[]
@@ -177,7 +180,7 @@ export interface AuditLogEntry {
 }
 
 
-// ── Tags ──────────────────────────────────────────────────────────────────
+// ── Tags ───────────────────────────────────────────────────────────────
 export interface Tag {
   id: string
   name: string

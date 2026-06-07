@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { teamsApi } from '@/api/teams'
@@ -16,6 +16,7 @@ import type { Team } from '@/types/api.types'
 import type { Column } from '@/components/shared/DataTable'
 import { useI18n } from '@/i18n'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { useAuthStore } from '@/store/auth.store'
 
 export function TeamsListPage() {
   const { t, lang } = useI18n()
@@ -23,6 +24,8 @@ export function TeamsListPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { page, limit, setPage } = usePagination(10)
+  const { user } = useAuthStore()
+  const isOrganizer = user?.role === 'organizer'
 
   const [search, setSearch]           = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -50,6 +53,16 @@ export function TeamsListPage() {
     queryKey: ['hackathons', 'all'],
     queryFn: () => hackathonsApi.list({ limit: 100 }),
   })
+
+  // For organizer: auto-select first hackathon when data loads
+  useEffect(() => {
+    if (isOrganizer && hackData) {
+      const list = hackData.data.data ?? []
+      if (list.length > 0 && !hackathonId) {
+        setHackathonId(list[0].id)
+      }
+    }
+  }, [isOrganizer, hackData])
 
   const { data: tracksData } = useQuery({
     queryKey: ['tracks', hackathonId],
@@ -287,7 +300,7 @@ export function TeamsListPage() {
 
         <select value={hackathonId} onChange={(e) => { setHackathonId(e.target.value); setTrackId(''); setPage(1) }}
           className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring">
-          <option value="">{lang === 'uk' ? 'Всі хакатони' : 'All Hackathons'}</option>
+          {!isOrganizer && <option value="">{lang === 'uk' ? 'Всі хакатони' : 'All Hackathons'}</option>}
           {hackathons.map((h) => <option key={h.id} value={h.id}>{h.title}</option>)}
         </select>
 

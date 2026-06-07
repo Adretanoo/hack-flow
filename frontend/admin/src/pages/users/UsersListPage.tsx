@@ -17,6 +17,7 @@ const ROLE_COLORS: Record<string, string> = {
   admin:       'bg-red-100 text-red-700',
   judge:       'bg-violet-100 text-violet-700',
   mentor:      'bg-blue-100 text-blue-700',
+  organizer:   'bg-orange-100 text-orange-700',
   participant: 'bg-muted text-muted-foreground',
 }
 
@@ -56,10 +57,11 @@ export function UsersListPage() {
   const roleTabs = useMemo(() => [
     { value: '',            label: t.states.all },
     { value: 'admin',       label: t.adminUsers.roles.admin },
+    { value: 'organizer',   label: lang === 'uk' ? 'Організатор' : 'Organizer' },
     { value: 'judge',       label: t.adminUsers.roles.judge },
     { value: 'mentor',      label: t.adminUsers.roles.mentor },
     { value: 'participant', label: t.adminUsers.roles.participant },
-  ], [t])
+  ], [t, lang])
 
   const columns: Column<UserProfile>[] = [
     {
@@ -103,6 +105,7 @@ export function UsersListPage() {
           <option value="participant">{t.adminUsers.roles.participant}</option>
           <option value="mentor">{t.adminUsers.roles.mentor}</option>
           <option value="judge">{t.adminUsers.roles.judge}</option>
+          <option value="organizer">{lang === 'uk' ? 'Організатор' : 'Organizer'}</option>
           <option value="admin">{t.adminUsers.roles.admin}</option>
         </select>
       ),

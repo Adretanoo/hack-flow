@@ -18,7 +18,7 @@ export async function hackathonTagsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.listTags(req, reply));
 
   app.post('/tags', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Tags'],
       summary: 'Create a new global tag — admin only',
@@ -33,7 +33,7 @@ export async function hackathonTagsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.createTag(req, reply));
 
   app.delete('/tags/:tagId', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Tags'],
       summary: 'Delete a tag if unused — admin only',
@@ -52,7 +52,7 @@ export async function hackathonTagsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.listHackathonTags(req, reply));
 
   app.post('/hackathons/:hackathonId/tags', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Tags'],
       summary: 'Attach tags to a hackathon — admin only',
@@ -69,7 +69,7 @@ export async function hackathonTagsRoutes(app: FastifyInstance): Promise<void> {
   }, (req, reply) => ctrl.attachTags(req, reply));
 
   app.delete('/hackathons/:hackathonId/tags/:tagId', {
-    onRequest: [authenticate, authorize('admin')],
+    onRequest: [authenticate, authorize('admin', 'organizer')],
     schema: {
       tags: ['Tags'],
       summary: 'Detach a tag from a hackathon — admin only',

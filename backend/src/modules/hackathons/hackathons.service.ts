@@ -12,6 +12,12 @@ import { activeStageKey, ACTIVE_STAGE_CACHE_TTL } from '../../services/status-tr
 import { findActiveStageForHackathon } from '../../services/stage-utils';
 import type { AuditLogRepository } from '../audit-log/audit-log.repository';
 
+// Error thrown when an organizer tries to access a hackathon they don't own
+class ForbiddenError extends Error {
+  statusCode = 403;
+  constructor(msg = 'Forbidden') { super(msg); this.name = 'ForbiddenError'; }
+}
+
 export class HackathonsService {
   constructor(
     private readonly repo: HackathonsRepository,
@@ -19,20 +25,25 @@ export class HackathonsService {
     private readonly auditLog?: AuditLogRepository,
   ) {}
 
-  async list(page: number, limit: number, status?: HackathonStatus, tagNames?: string[], publishStatus?: string, search?: string) {
-    // Resolve tag names → hackathon IDs for AND-logic filtering
+  async list(
+    page: number,
+    limit: number,
+    status?: HackathonStatus,
+    tagNames?: string[],
+    publishStatus?: string,
+    search?: string,
+    createdBy?: string, // organizer sees only their own hackathons
+  ) {
     let tagIds: string[] | undefined;
     if (tagNames && tagNames.length > 0 && this.tagsRepo) {
       tagIds = await this.tagsRepo.findHackathonsByTags(tagNames);
-      // If tags are specified but no hackathon matched, return empty early
       if (tagIds.length === 0) {
         return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
       }
     }
 
-    const { rows, total } = await this.repo.findAll(page, limit, status, tagIds, publishStatus, search);
+    const { rows, total } = await this.repo.findAll(page, limit, status, tagIds, publishStatus, search, createdBy);
 
-    // Enrich with tags in a single batch query
     let enriched: Array<(typeof rows)[number] & { tags: Array<{ id: string; name: string }> }> = [];
     if (this.tagsRepo && rows.length > 0) {
       const tagsMap = await this.tagsRepo.findTagsForHackathons(rows.map((r) => r.id));
@@ -51,12 +62,10 @@ export class HackathonsService {
     const h = await this.repo.findById(id);
     if (!h) throw new NotFoundError('Hackathon');
 
-    // Enrich tags
     const tags = this.tagsRepo
       ? (await this.tagsRepo.findTagsForHackathons([id])).get(id) ?? []
       : [];
 
-    // Enrich active stage from Redis cache, fallback to DB stages
     let activeStage: object | null = null;
     try {
       const redis = getRedisClient();
@@ -74,7 +83,6 @@ export class HackathonsService {
             orderIndex: s.orderIndex,
           }));
           activeStage = findActiveStageForHackathon(stageSnapshots, new Date());
-          // Populate cache
           if (activeStage) {
             void redis
               .set(activeStageKey(id), JSON.stringify(activeStage), 'EX', ACTIVE_STAGE_CACHE_TTL)
@@ -83,34 +91,34 @@ export class HackathonsService {
         }
       }
     } catch {
-      // Redis unavailable — activeStage stays null
+      // Redis unavailable
     }
 
     return { ...h, tags, activeStage };
   }
 
-  async create(dto: CreateHackathonDto) {
-    const created = await this.repo.create(dto);
+  /** Assert the caller owns the hackathon (admins are always allowed). */
+  private async assertOwner(hackathonId: string, userId: string, isAdmin: boolean) {
+    if (isAdmin) return;
+    const h = await this.repo.findById(hackathonId);
+    if (!h) throw new NotFoundError('Hackathon');
+    if (h.createdBy !== userId) {
+      throw new ForbiddenError('You can only manage your own hackathons');
+    }
+  }
+
+  async create(dto: CreateHackathonDto, createdBy?: string) {
+    const created = await this.repo.create({ ...dto, createdBy });
     
-    // Process tags if provided
     if (dto.tags && dto.tags.length > 0 && this.tagsRepo) {
-      // Filter out empty strings
       const tagNames = dto.tags.filter(t => t.trim().length > 0);
       if (tagNames.length > 0) {
-        // Resolve tag IDs (create missing ones)
-        const tagIds = await this.tagsRepo.findHackathonsByTags(tagNames); 
-        // Wait, `findHackathonsByTags` finds hackathon IDs by tag names, that's not what we want here.
-        // Let's create or find the tags directly.
-        
         const finalTagIds: string[] = [];
         for (const name of tagNames) {
           let tag = await this.tagsRepo.findTagByName(name);
-          if (!tag) {
-            tag = await this.tagsRepo.createTag(name);
-          }
+          if (!tag) tag = await this.tagsRepo.createTag(name);
           finalTagIds.push(tag.id);
         }
-        
         await this.tagsRepo.attachTags(created.id, finalTagIds);
       }
     }
@@ -118,15 +126,15 @@ export class HackathonsService {
     return created;
   }
 
-  async update(id: string, dto: UpdateHackathonDto) {
-    await this.getById(id);
+  async update(id: string, dto: UpdateHackathonDto, userId?: string, isAdmin = true) {
+    await this.assertOwner(id, userId ?? '', isAdmin);
     const updated = await this.repo.update(id, dto);
     if (!updated) throw new NotFoundError('Hackathon');
     return updated;
   }
 
-  async remove(id: string) {
-    await this.getById(id);
+  async remove(id: string, userId?: string, isAdmin = true) {
+    await this.assertOwner(id, userId ?? '', isAdmin);
     await this.repo.remove(id);
   }
 
@@ -135,13 +143,26 @@ export class HackathonsService {
     return this.repo.findTracks(hackathonId);
   }
 
-  async createTrack(hackathonId: string, dto: CreateTrackDto) {
-    await this.getById(hackathonId);
+  async createTrack(hackathonId: string, dto: CreateTrackDto, userId?: string, isAdmin = true) {
+    await this.assertOwner(hackathonId, userId ?? '', isAdmin);
     return this.repo.createTrack(hackathonId, dto);
   }
 
-  async deleteTrack(id: string) {
+  async deleteTrack(id: string, userId?: string, isAdmin = true) {
+    if (!isAdmin && userId) {
+      // Resolve hackathon from track
+      const track = await this.repo.findTrackById(id);
+      if (track) await this.assertOwner(track.hackathonId, userId, false);
+    }
     await this.repo.deleteTrack(id);
+  }
+
+  async updateTrack(id: string, dto: any, userId?: string, isAdmin = true) {
+    if (!isAdmin && userId) {
+      const track = await this.repo.findTrackById(id);
+      if (track) await this.assertOwner(track.hackathonId, userId, false);
+    }
+    return this.repo.updateTrack(id, dto);
   }
 
   async listStages(hackathonId: string) {
@@ -149,7 +170,8 @@ export class HackathonsService {
     return this.repo.findStages(hackathonId);
   }
 
-  async createStage(hackathonId: string, dto: CreateStageDto) {
+  async createStage(hackathonId: string, dto: CreateStageDto, userId?: string, isAdmin = true) {
+    await this.assertOwner(hackathonId, userId ?? '', isAdmin);
     const h = await this.getById(hackathonId);
 
     const stageStart = new Date(dto.startDate);
@@ -169,54 +191,20 @@ export class HackathonsService {
     return this.repo.createStage(hackathonId, dto);
   }
 
-  async deleteStage(id: string) {
+  async deleteStage(id: string, userId?: string, isAdmin = true) {
+    if (!isAdmin && userId) {
+      const stage = await this.repo.findStageById(id);
+      if (stage) await this.assertOwner(stage.hackathonId, userId, false);
+    }
     await this.repo.deleteStage(id);
   }
 
-  /**
-   * Manual status override (admin only).
-   * Validates:
-   *  - PUBLISHED requires at least one stage defined
-   *  - ARCHIVED is always allowed (can't go back from it via this endpoint)
-   */
-  async overrideStatus(
-    hackathonId: string,
-    newStatus: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED',
-    adminId: string,
-  ) {
-    const h = await this.repo.findById(hackathonId);
-    if (!h) throw new NotFoundError('Hackathon');
-
-    if (newStatus === 'PUBLISHED') {
-      const stageCount = await this.repo.countStages(hackathonId);
-      if (stageCount === 0) {
-        throw new BadRequestError('Cannot publish hackathon with no stages defined');
-      }
+  async updateStage(id: string, dto: any, userId?: string, isAdmin = true) {
+    if (!isAdmin && userId) {
+      const stage = await this.repo.findStageById(id);
+      if (stage) await this.assertOwner(stage.hackathonId, userId, false);
     }
 
-    const updated = await this.repo.updateStatus(hackathonId, newStatus);
-
-    // Invalidate active-stage Redis cache
-    try {
-      const redis = getRedisClient();
-      await redis.del(activeStageKey(hackathonId));
-    } catch { /* Redis unavailable — not critical */ }
-
-    // Audit log
-    this.auditLog
-      ?.log(adminId, 'hackathon_status_override', 'hackathon', hackathonId)
-      .catch(() => undefined);
-
-    console.info(`[status-override] Admin ${adminId}: hackathon ${hackathonId} → ${newStatus}`);
-    return updated;
-  }
-
-  async updateTrack(id: string, dto: any) {
-    return this.repo.updateTrack(id, dto);
-  }
-
-  async updateStage(id: string, dto: any) {
-    // If dates are being updated, validate them against hackathon bounds
     if (dto.startDate || dto.endDate) {
       const existing = await this.repo.findStageById(id);
       if (existing) {
@@ -248,5 +236,37 @@ export class HackathonsService {
 
   async updateAward(id: string, dto: any) {
     return this.repo.updateAward(id, dto);
+  }
+
+  async overrideStatus(
+    hackathonId: string,
+    newStatus: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED',
+    userId: string,
+    isAdmin = true,
+  ) {
+    await this.assertOwner(hackathonId, userId, isAdmin);
+    const h = await this.repo.findById(hackathonId);
+    if (!h) throw new NotFoundError('Hackathon');
+
+    if (newStatus === 'PUBLISHED') {
+      const stageCount = await this.repo.countStages(hackathonId);
+      if (stageCount === 0) {
+        throw new BadRequestError('Cannot publish hackathon with no stages defined');
+      }
+    }
+
+    const updated = await this.repo.updateStatus(hackathonId, newStatus);
+
+    try {
+      const redis = getRedisClient();
+      await redis.del(activeStageKey(hackathonId));
+    } catch { /* Redis unavailable */ }
+
+    this.auditLog
+      ?.log(userId, 'hackathon_status_override', 'hackathon', hackathonId)
+      .catch(() => undefined);
+
+    console.info(`[status-override] User ${userId}: hackathon ${hackathonId} → ${newStatus}`);
+    return updated;
   }
 }
