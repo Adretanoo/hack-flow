@@ -1,29 +1,5 @@
-version: '3.9'
 
 services:
-  # ── Backend API ──────────────────────────────────────────────
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: production
-    container_name: hackflow_backend
-    restart: unless-stopped
-    ports:
-      - '${PORT:-3000}:3000'
-    env_file:
-      - ./backend/.env
-    environment:
-      DB_HOST: postgres
-      REDIS_HOST: redis
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - hackflow_net
-
   # ── PostgreSQL ───────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
@@ -33,7 +9,7 @@ services:
       - '${DB_PORT:-5432}:5432'
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-2007}
       POSTGRES_DB: ${DB_NAME:-hackflow}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -63,12 +39,103 @@ services:
     networks:
       - hackflow_net
 
-  # ── pgAdmin (dev convenience) ────────────────────────────────
+  # ── Migrate (one-shot) ────────────────────────────────────────
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: hackflow_migrate
+    command: sh ./migrate.sh
+    env_file:
+      - ./backend/.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      REDIS_HOST: redis
+      NODE_OPTIONS: '--max-old-space-size=1536'
+    mem_limit: 2g
+    memswap_limit: 2g
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hackflow_net
+    restart: 'no'
+
+  # ── Backend API ──────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: hackflow_backend
+    restart: unless-stopped
+    ports:
+      - '${PORT:-3000}:3000'
+    env_file:
+      - ./backend/.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      REDIS_HOST: redis
+      REDIS_PORT: '6379'
+      REDIS_URL: redis://redis:6379
+      HOST: 0.0.0.0
+      CORS_ORIGIN: 'http://localhost:5173,http://localhost:5174,http://localhost:8080,http://localhost:8081'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - hackflow_net
+
+  # ── Frontend App (основний додаток) ──────────────────────────
+  frontend-app:
+    build:
+      context: ./frontend/app
+      dockerfile: Dockerfile
+      target: production
+      args:
+        VITE_API_URL: http://localhost:3000/api
+    container_name: hackflow_frontend_app
+    restart: unless-stopped
+    ports:
+      - '8080:80'
+    depends_on:
+      - backend
+    networks:
+      - hackflow_net
+
+  # ── Frontend Admin ───────────────────────────────────────────
+  frontend-admin:
+    build:
+      context: ./frontend/admin
+      dockerfile: Dockerfile
+      target: production
+      args:
+        VITE_API_URL: http://localhost:3000/api
+    container_name: hackflow_frontend_admin
+    restart: unless-stopped
+    ports:
+      - '8081:80'
+    depends_on:
+      - backend
+    networks:
+      - hackflow_net
+
+  # ── pgAdmin (opt-in via --profile dev) ───────────────────────
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: hackflow_pgadmin
     restart: unless-stopped
-    profiles: ['dev']
+    profiles:
+      - dev
     ports:
       - '5050:80'
     environment:
