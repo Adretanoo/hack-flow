@@ -17,7 +17,7 @@ export function NotificationBell() {
   })
 
   const conflicts = ((conflictsData?.data as any)?.data ?? []) as Conflict[]
-  const totalConflicts = conflictsData?.data?.total ?? 0
+  const totalConflicts = (conflictsData?.data as any)?.meta?.total ?? 0
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

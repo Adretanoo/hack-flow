@@ -6,6 +6,7 @@ import { hackathonsApi } from '@/api/hackathons'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { DataTable } from '@/components/shared/DataTable'
+import { useClientPagination } from '@/hooks/useClientPagination'
 import { SlotDrawer } from './components/SlotDrawer'
 import { formatDate, formatDateTime } from '@/utils/format'
 import { ArrowLeft, User, Calendar, Clock } from 'lucide-react'
@@ -42,7 +43,15 @@ export function MentorshipPage() {
   })
 
   const hackathons = hackData?.data.data ?? []
-  
+
+  // ⚠️ All hooks MUST be called before any conditional returns
+  const availabilities = (availData?.data.data ?? []) as (MentorAvailability & {
+    mentor?: { id: string; fullName: string; email: string; avatarUrl?: string }
+    track?: { id: string; name: string }
+    _count?: { slots: number }
+  })[]
+  const availPagination = useClientPagination(availabilities, 20)
+
   if (!hackathonId) {
     return (
       <div className="mx-auto max-w-xl py-20 space-y-6">
@@ -67,12 +76,6 @@ export function MentorshipPage() {
       </div>
     )
   }
-
-  const availabilities = (availData?.data.data ?? []) as (MentorAvailability & {
-    mentor?: { id: string; fullName: string; email: string; avatarUrl?: string }
-    track?: { id: string; name: string }
-    _count?: { slots: number }
-  })[]
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -167,7 +170,12 @@ export function MentorshipPage() {
               </span>
             ) },
           ]}
-          data={availabilities}
+          data={availPagination.slice}
+          total={availPagination.total}
+          page={availPagination.page}
+          limit={availPagination.limit}
+          onPageChange={availPagination.setPage}
+          onLimitChange={availPagination.setLimit}
           emptyTitle={lang === 'uk' ? 'Немає доступностей' : 'No availabilities'}
         />
       )}

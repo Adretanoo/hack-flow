@@ -4,19 +4,17 @@ export interface ApiResponse<T> {
   data: T
 }
 
-export interface PaginatedResponse<T> {
-  success: boolean
-  data: T[]
-  total: number
-  page: number
-  limit: number
-}
-
-// ── Pagination ────────────────────────────────────────────────────────────
 export interface PaginationMeta {
   total: number
   page: number
   limit: number
+  totalPages: number
+}
+
+export interface PaginatedResponse<T> {
+  success: boolean
+  data: T[]
+  meta: PaginationMeta
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────

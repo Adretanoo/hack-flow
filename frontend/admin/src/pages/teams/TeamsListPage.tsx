@@ -23,7 +23,7 @@ export function TeamsListPage() {
   usePageTitle(t.adminTeams.title)
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const { page, limit, setPage } = usePagination(10)
+  const { page, limit, setPage, setLimit } = usePagination(20)
   const { user } = useAuthStore()
   const isOrganizer = user?.role === 'organizer'
 
@@ -125,7 +125,7 @@ export function TeamsListPage() {
   })
 
   const rawTeams = (data?.data.data ?? []) as Team[]
-  const total = data?.data.total ?? 0
+  const total = data?.data.meta?.total ?? 0
   const hackathons = hackData?.data.data ?? []
   const tracks = tracksData?.data.data ?? []
 
@@ -334,6 +334,7 @@ export function TeamsListPage() {
           page={page}
           limit={limit}
           onPageChange={setPage}
+          onLimitChange={setLimit}
           emptyTitle={lang === 'uk' ? 'Команд не знайдено за вашим фільтром' : 'No teams found for your filter'}
           emptyDescription={t.shared.emptyState.defaultDesc}
           rowClassName={(t: Team) => t.approvalStatus === 'PENDING' ? 'border-l-2 border-l-amber-400' : ''}

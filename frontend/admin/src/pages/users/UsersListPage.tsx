@@ -25,7 +25,7 @@ export function UsersListPage() {
   const { t, lang } = useI18n()
   usePageTitle(t.adminUsers.title)
   const navigate = useNavigate()
-  const { page, limit, setPage } = usePagination(20)
+  const { page, limit, setPage, setLimit } = usePagination(20)
 
   const [search, setSearch]               = useState('')
   const [roleFilter, setRoleFilter]       = useState('')
@@ -52,7 +52,7 @@ export function UsersListPage() {
   })
 
   const users = (data?.data.data ?? []) as UserProfile[]
-  const total = data?.data.total ?? 0
+  const total = data?.data.meta?.total ?? 0
 
   const roleTabs = useMemo(() => [
     { value: '',            label: t.states.all },
@@ -176,6 +176,7 @@ export function UsersListPage() {
         page={page}
         limit={limit}
         onPageChange={setPage}
+        onLimitChange={setLimit}
         emptyTitle={t.adminUsers.noUsers}
         emptyDescription={t.shared.emptyState.defaultDesc}
       />

@@ -43,9 +43,10 @@ export class TeamsController {
   }
 
   async removeMember(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
-    const { sub } = request.user as JwtPayload;
+    const user = request.user as JwtPayload;
     const params = request.params as { id: string; userId: string };
-    await this.service.removeMember(params.id, params.userId, sub);
+    const isAdmin = user.roles?.includes('admin') ?? false;
+    await this.service.removeMember(params.id, params.userId, user.sub, isAdmin);
     return reply.status(204).send();
   }
 

@@ -74,9 +74,11 @@ export class TeamsService {
     return this.repo.getMembers(teamId);
   }
 
-  async removeMember(teamId: string, userId: string, requesterId: string) {
-    await this.assertCaptain(teamId, requesterId);
-    if (userId === requesterId) throw new ValidationError('Капітан не може видалити себе. Спочатку передайте капітанство.');
+  async removeMember(teamId: string, userId: string, requesterId: string, isAdmin = false) {
+    if (!isAdmin) {
+      await this.assertCaptain(teamId, requesterId);
+      if (userId === requesterId) throw new ValidationError('Капітан не може видалити себе. Спочатку передайте капітанство.');
+    }
     await this.repo.removeMember(teamId, userId);
   }
 

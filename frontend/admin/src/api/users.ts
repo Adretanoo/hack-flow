@@ -1,5 +1,6 @@
 import api from './client'
-import type { ApiResponse } from '@/types/api.types'
+import type { ApiResponse, PaginatedResponse } from '@/types/api.types'
+import type { UserProfile } from '@/types/api.types'
 
 export interface UserListParams {
   page?: number
@@ -11,7 +12,7 @@ export interface UserListParams {
 
 export const usersApi = {
   list: (params?: UserListParams) =>
-    api.get<{ success: boolean; data: unknown[]; total: number; page: number; limit: number }>(
+    api.get<PaginatedResponse<UserProfile>>(
       '/users', { params },
     ),
 

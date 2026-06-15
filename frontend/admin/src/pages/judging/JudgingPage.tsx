@@ -8,6 +8,7 @@ import { teamsApi } from '@/api/teams'
 import { exportToCSV } from '@/utils/export'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { DataTable } from '@/components/shared/DataTable'
+import { useClientPagination } from '@/hooks/useClientPagination'
 import { ScoreDetailDrawer } from './components/ScoreDetailDrawer'
 import { formatDate } from '@/utils/format'
 import { ArrowLeft, Plus, Download, AlertTriangle, RefreshCcw, Trash2, Pencil, Check, X as XIcon } from 'lucide-react'
@@ -151,6 +152,9 @@ export function JudgingPage() {
   const leaderboard = (leaderboardData?.data.data ?? []) as LeaderboardEntry[]
   const conflicts = ((conflictsData?.data as any)?.data ?? []) as Conflict[]
 
+  const scoresPagination = useClientPagination(leaderboard, 20)
+  const leaderboardPagination = useClientPagination(leaderboard, 20)
+
   // Build unique judges list from track assignments
   const judgeAssignments = (judgeAssignmentsData?.data?.data ?? []) as any[]
   const judges = useMemo(() => {
@@ -278,7 +282,12 @@ export function JudgingPage() {
                 </button>
               )}
             ]}
-            data={leaderboard}
+            data={scoresPagination.slice}
+            total={scoresPagination.total}
+            page={scoresPagination.page}
+            limit={scoresPagination.limit}
+            onPageChange={scoresPagination.setPage}
+            onLimitChange={scoresPagination.setLimit}
             loading={boardLoading}
             emptyTitle={lang === 'uk' ? 'Немає проєктів для оцінювання' : 'No projects to evaluate'}
           />
@@ -440,7 +449,12 @@ export function JudgingPage() {
               { key: 'team', header: t.adminDashboardPage.team, render: (l) => <span className="font-medium">{l.teamName}</span> },
               { key: 'score', header: t.adminDashboardPage.score, render: (l) => <span className="font-bold text-primary">{Number(l.totalScore).toFixed(2)}</span> },
             ]}
-            data={leaderboard}
+            data={leaderboardPagination.slice}
+            total={leaderboardPagination.total}
+            page={leaderboardPagination.page}
+            limit={leaderboardPagination.limit}
+            onPageChange={leaderboardPagination.setPage}
+            onLimitChange={leaderboardPagination.setLimit}
             loading={boardLoading}
             emptyTitle={lang === 'uk' ? "Результати з'являться після оцінювання" : "Results will appear after evaluation"}
             rowClassName={(l) => {

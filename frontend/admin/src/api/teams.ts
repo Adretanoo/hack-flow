@@ -1,5 +1,6 @@
 import api from './client'
-import type { ApiResponse } from '@/types/api.types'
+import type { ApiResponse, PaginatedResponse } from '@/types/api.types'
+import type { Team } from '@/types/api.types'
 
 export interface TeamListParams {
   page?: number
@@ -12,7 +13,7 @@ export interface TeamListParams {
 
 export const teamsApi = {
   list: (params?: TeamListParams) =>
-    api.get<{ success: boolean; data: unknown[]; total: number; page: number; limit: number }>(
+    api.get<PaginatedResponse<Team>>(
       '/teams', { params },
     ),
 

@@ -17,6 +17,7 @@ interface DataTableProps<T> {
   page?: number
   limit?: number
   onPageChange?: (p: number) => void
+  onLimitChange?: (l: number) => void
   emptyTitle?: string
   emptyDescription?: string
   rowClassName?: (row: T) => string
@@ -42,6 +43,7 @@ export function DataTable<T extends { id?: string }>({
   page = 1,
   limit = 20,
   onPageChange,
+  onLimitChange,
   emptyTitle,
   emptyDescription,
   rowClassName,
@@ -97,8 +99,14 @@ export function DataTable<T extends { id?: string }>({
         </table>
       </div>
 
-      {onPageChange && total > 0 && (
-        <Pagination page={page} total={total} limit={limit} onPageChange={onPageChange} />
+      {onPageChange && (
+        <Pagination
+          page={page}
+          total={total}
+          limit={limit}
+          onPageChange={onPageChange}
+          onLimitChange={onLimitChange}
+        />
       )}
     </div>
   )

@@ -21,7 +21,7 @@ export function HackathonsListPage() {
   usePageTitle(t.adminHackathons.title)
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const { page, limit, setPage } = usePagination(10)
+  const { page, limit, setPage, setLimit } = usePagination(20)
   const { user } = useAuthStore()
   const isOrganizer = user?.role === 'organizer'
 
@@ -94,7 +94,7 @@ export function HackathonsListPage() {
   })
 
   const hackathons = data?.data.data ?? []
-  const total = data?.data.total ?? 0
+  const total = data?.data.meta?.total ?? 0
   const allTags: TagType[] = tagsData?.data.data ?? []
 
   const toggleTag = (tagName: string) => {
@@ -308,6 +308,7 @@ export function HackathonsListPage() {
         page={page}
         limit={limit}
         onPageChange={setPage}
+        onLimitChange={setLimit}
         emptyTitle={t.adminHackathons.noHackathons}
         emptyDescription={lang === 'uk' ? 'Натисніть "Створити хакатон" щоб додати перший.' : 'Click "Create Hackathon" to add the first one.'}
       />
